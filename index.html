@@ -128,11 +128,11 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 .block-title{font-family:var(--sans);font-weight:700;letter-spacing:.12em;
   text-transform:uppercase;font-size:11px;color:var(--f7-block-title-text-color);
   margin-top:28px;margin-bottom:9px}
-.titre-page{font-family:var(--serif);font-size:30px;font-weight:600;letter-spacing:-.021em;
-  margin:20px 16px 3px;line-height:1.16;color:var(--f7-text-color)}
+.titre-page{font-family:var(--serif);font-size:30px;font-weight:600;letter-spacing:-.006em;
+  margin:20px 16px 3px;line-height:1.2;color:var(--f7-text-color)}
 .ssTitre{margin:0 16px 4px;font-size:13px;color:var(--muted);line-height:1.5}
-.grand{font-family:var(--serif);font-size:23px;font-weight:400;line-height:1.34;
-  letter-spacing:-.012em;margin:0;color:var(--f7-text-color);
+.grand{font-family:var(--serif);font-size:23px;font-weight:400;line-height:1.42;
+  letter-spacing:.004em;margin:0;color:var(--f7-text-color);
   border-left:2px solid var(--filet);padding-left:15px}
 .grand.voix{color:var(--voix);border-left-color:var(--f7-theme-color)}
 .voix{font-family:var(--serif);color:var(--voix)}
@@ -142,7 +142,7 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 .list .item-title{font-family:var(--sans);font-size:16px;font-weight:500;line-height:1.35;
   white-space:normal;color:var(--f7-text-color)}
 .list .item-title.serif{font-family:var(--serif);font-weight:400;font-size:16px;
-  line-height:1.42;letter-spacing:-.006em;color:var(--voix)}
+  line-height:1.5;letter-spacing:.006em;color:var(--voix)}
 .list .item-subtitle{font-family:var(--sans);font-size:13px;font-weight:400;
   white-space:normal;margin-top:3px;letter-spacing:.005em}
 .list .item-text{font-family:var(--sans);font-size:13.5px;line-height:1.45;
@@ -216,7 +216,7 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 .carte:active{transform:scale(.985)}
 .carte .quand{font-family:var(--sans);font-size:11px;font-weight:700;letter-spacing:.12em;
   text-transform:uppercase;color:var(--f7-theme-color)}
-.carte .grand{font-size:20px;line-height:1.36;padding-left:13px}
+.carte .grand{font-size:20px;line-height:1.44;padding-left:13px}
 .carte .meta{margin:12px 0 0 15px}
 .points{display:flex;justify-content:center;gap:6px;padding:2px 0 4px}
 .points i{width:6px;height:6px;border-radius:50%;background:var(--filet);transition:background .2s}
@@ -234,7 +234,7 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 
 /* ---------- saisie ---------- */
 textarea.dicte{width:100%;min-height:120px;border:0;background:transparent;resize:none;
-  font-family:var(--serif);font-size:21px;line-height:1.42;letter-spacing:-.01em;
+  font-family:var(--serif);font-size:21px;line-height:1.5;letter-spacing:.004em;
   color:var(--f7-text-color);padding:0}
 textarea.dicte::placeholder{color:var(--muted);opacity:.6}
 textarea.dicte:focus{outline:0}
@@ -1148,7 +1148,26 @@ function theme(){
 theme();
 if(window.matchMedia){ try{ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", theme); }catch(e){} }
 load(); render();
-if("serviceWorker" in navigator){ try{ navigator.serviceWorker.register("sw.js").catch(function(){}); }catch(e){} }
+/* La mise à jour doit arriver sans qu'on ait à supprimer l'app.
+   « updateViaCache: none » empêche le téléphone de servir un vieux sw.js ;
+   on redemande une vérification à chaque fois que l'app revient à l'écran ;
+   et quand un nouveau service worker prend la main, on recharge une fois. */
+if("serviceWorker" in navigator){
+  try{
+    const avaitUnControleur = !!navigator.serviceWorker.controller;
+    let recharge = false;
+    navigator.serviceWorker.addEventListener("controllerchange", function(){
+      if(!avaitUnControleur || recharge) return;
+      recharge = true; location.reload();
+    });
+    navigator.serviceWorker.register("sw.js", {updateViaCache:"none"}).then(function(reg){
+      reg.update();
+      document.addEventListener("visibilitychange", function(){
+        if(!document.hidden) { try{ reg.update(); }catch(e){} }
+      });
+    }).catch(function(){});
+  }catch(e){}
+}
 </script>
 </body>
 </html>

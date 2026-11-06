@@ -1,7 +1,7 @@
 /* Ében-Ézer — hors-ligne, mais jamais figé.
    La page : le réseau d'abord, le cache en secours (pour recevoir les corrections).
    Le reste (composants, icônes, police) : le cache d'abord. */
-const CACHE = "ebenezer-v6";
+const CACHE = "ebenezer-v7";
 const SOCLE = ["./", "./index.html", "./manifest.webmanifest",
                "./vendor/framework7-bundle.min.css",
                "./vendor/lora-latin.woff2",
@@ -9,7 +9,11 @@ const SOCLE = ["./", "./index.html", "./manifest.webmanifest",
                "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SOCLE)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(CACHE)
+      .then(c => Promise.all(SOCLE.map(u => c.add(new Request(u, { cache: "reload" })))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", e => {
@@ -27,7 +31,7 @@ self.addEventListener("fetch", e => {
 
   if (page) {
     e.respondWith(
-      fetch(r)
+      fetch(r.url, { cache: "no-store", credentials: "same-origin" })
         .then(res => {
           const copie = res.clone();
           caches.open(CACHE).then(c => c.put("./index.html", copie));

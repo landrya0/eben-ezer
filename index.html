@@ -175,6 +175,18 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
   letter-spacing:.015em;color:var(--muted);margin-top:5px}
 .pas .apres{display:block;font-family:var(--sans);font-size:12.5px;line-height:1.45;
   color:var(--muted);margin-top:4px;font-style:italic}
+/* Ce qui est prévu n'a pas encore eu lieu : le point reste creux et pointillé,
+   le texte se retire d'un cran, et une étiquette le dit en toutes lettres. */
+.pas.prevu::before{background:transparent;border:2px dashed var(--muted)}
+.pas.prevu .dit{color:var(--muted)}
+.etiq{display:inline-block;font-family:var(--sans);font-size:10.5px;font-weight:700;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+  border:1px solid var(--filet);border-radius:9px;padding:1px 7px;margin-right:7px;
+  vertical-align:1px}
+.fil .coupure{position:relative;margin:18px 0 2px;font-family:var(--sans);font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;font-size:10.5px;color:var(--muted)}
+.fil .coupure::before{content:"";position:absolute;left:-25px;top:-9px;width:11px;height:1px;
+  background:var(--filet)}
 
 /* les groupes sont en verre, posés sur la nappe */
 .list.inset>ul{-webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou);
@@ -246,6 +258,9 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 
 /* ---------- puces de filtre ---------- */
 .puces{display:flex;gap:8px;overflow-x:auto;padding:12px 16px;scrollbar-width:none}
+.puces.suite{padding-top:0}
+.ptitre{font-family:var(--sans);font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  font-size:10.5px;color:var(--muted);margin:14px 16px -2px}
 .puces::-webkit-scrollbar{display:none}
 .puce{flex:0 0 auto;width:auto;min-height:33px;padding:0 14px;border-radius:17px;
   font-family:var(--sans);font-size:13px;font-weight:500;border:1px solid var(--filet);
@@ -322,13 +337,31 @@ textarea.dicte:focus{outline:0}
 <script>
 "use strict";
 const KEY = "ebenezer.v1";
-const MAN = {parle:"Il a parlé", pourvu:"Il a pourvu", ouvert:"Il a ouvert", delivre:"Il a délivré", repris:"Il a repris"};
+/* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
+   à la volée, et les siennes se rangent après celles-ci. */
+const MAN_SOCLE = {parle:"Il a parlé", pourvu:"Il a pourvu", ouvert:"Il a ouvert", delivre:"Il a délivré", repris:"Il a repris"};
+function MANS(){
+  const m=Object.assign({}, MAN_SOCLE);
+  (db.mans||[]).forEach(x=>{ if(x && x.id) m[x.id]=x.txt; });
+  return m;
+}
+function manTxt(k){ return MANS()[k]||""; }
+/* « Il a… » est sous-entendu dans la question : on l'écrit si le disciple
+   ne l'a pas écrit, pour que la liste se lise d'une seule voix. */
+function manId(txt){
+  let v=String(txt||"").trim(); if(!v) return null;
+  if(!/^il[\s']/i.test(v)) v = "Il a "+v.charAt(0).toLowerCase()+v.slice(1);
+  const m=MANS(), k=Object.keys(m).find(x=>m[x].toLowerCase()===v.toLowerCase());
+  if(k) return k;
+  db.mans=db.mans||[];
+  const id="man"+(db.seq++); db.mans.push({id:id, txt:v}); return id;
+}
 const MOIS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
 const ETAT = {fait:"fait", encours:"en cours", prevu:"prévu", abandon:"abandonné"};
 const ETATS = [["fait","C'est fait"],["encours","Ça dure encore"],["prevu","C'est prévu"]];
 
-let db = {nodes:[], gens:[], noms:[], seq:1};
-let S = {view:"today", step:0, draft:null, filtre:"tout", rev:"noms", pile:[], nodeId:null,
+let db = {nodes:[], gens:[], noms:[], mans:[], seq:1};
+let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an", rev:"noms", pile:[], nodeId:null,
          cheminId:null, eMan:"", eEtat:"fait", ePrec:"j",
          cNeuf:false, cTxt:"", cType:"", cQ:""};
 
@@ -356,7 +389,8 @@ function depile(repli){
 function sane(v){
   const o = (v && typeof v==="object") ? v : {};
   return {nodes:Array.isArray(o.nodes)?o.nodes:[], gens:Array.isArray(o.gens)?o.gens:[],
-          noms:Array.isArray(o.noms)?o.noms:[], seq:(typeof o.seq==="number"&&o.seq>0)?o.seq:1};
+          noms:Array.isArray(o.noms)?o.noms:[], mans:Array.isArray(o.mans)?o.mans:[],
+          seq:(typeof o.seq==="number"&&o.seq>0)?o.seq:1};
 }
 function load(){ try{ const r=localStorage.getItem(KEY); if(r) db=sane(JSON.parse(r)); }catch(e){} }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){ toast("Enregistrement impossible"); } }
@@ -373,8 +407,22 @@ function human(n){
   if(n.prec==="m") return MOIS[p.m-1]+" "+p.y;
   return p.d+" "+MOIS[p.m-1]+" "+p.y;
 }
+/* On ne range pas un acte plus fin que ce qu'on sait de sa date : une date
+   connue à l'année près ne peut pas entrer dans une semaine sans mentir. */
+function lundi(p){
+  const t=new Date(p.y, p.m-1, p.d);
+  t.setDate(t.getDate() - ((t.getDay()+6)%7));
+  return t;
+}
+function tranche(n, grain){
+  const p=parse(n.date); if(!p) return "Sans date";
+  if(grain==="an" || n.prec==="a") return ""+p.y;
+  if(grain==="mois" || n.prec==="m") return MOIS[p.m-1]+" "+p.y;
+  const l=lundi(p);
+  return "Semaine du "+l.getDate()+" "+MOIS[l.getMonth()]+" "+l.getFullYear();
+}
 function ansDepuis(n){ const p=parse(n.date); if(!p) return 0; return new Date().getFullYear()-p.y; }
-function manCourt(m){ return m&&MAN[m] ? MAN[m].replace("Il a ","") : ""; }
+function manCourt(m){ const t=manTxt(m); return t ? t.replace(/^Il (a |m'a |l'a )?/,"") : ""; }
 
 /* ---------- accès ---------- */
 function node(id){ return db.nodes.find(n=>n.id===id); }
@@ -526,7 +574,7 @@ function render(){
   main.scrollTop=0;
   place(); requestAnimationFrame(place);
   const f=document.getElementById("cFiltre");
-  if(f && S.cQ){ f.value=S.cQ; f.dispatchEvent(new Event("input",{bubbles:true})); }
+  if(f){ f.value=S.cQ||""; f.dispatchEvent(new Event("input",{bubbles:true})); }
   const carr=document.getElementById("carr"), pts=document.getElementById("points");
   if(carr && pts) carr.addEventListener("scroll", ()=>{
     const i=Math.round(carr.scrollLeft/(carr.scrollWidth/pts.children.length));
@@ -638,15 +686,28 @@ function vToday(){
 /* ---------- Ses œuvres ---------- */
 function vOeuvres(){
   const list=dieuNodes().slice().sort(parDate);
-  const fl=["tout","parle","pourvu","ouvert","delivre","repris"];
+  const fl=["tout"].concat(Object.keys(MANS()));
+  /* Deux lectures de la même archive : comment Il a agi, et ce que j'en ai
+     fait. La seconde est la plus dure à regarder, c'est pour ça qu'elle doit
+     être à portée de pouce. */
+  const fr=[["tout","Tout"],["oui","J'ai répondu"],["non","Je n'ai rien rendu"]];
+  const fg=[["an","Par année"],["mois","Par mois"],["semaine","Par semaine"]];
   let h=`<p class="titre-page">Ses œuvres</p><p class="ssTitre">${list.length} fois, par Lui-même ou par une main.</p>
-    <div class="puces">${fl.map(f=>`<button class="puce" data-filtre="${f}" aria-pressed="${S.filtre===f}">${f==="tout"?"Tout":MAN[f]}</button>`).join("")}</div>`;
-  const vus=S.filtre==="tout"?list:list.filter(n=>n.man===S.filtre);
+    <div class="ptitre">Sa manière</div>
+    <div class="puces">${fl.map(f=>`<button class="puce" data-filtre="${f}" aria-pressed="${S.filtre===f}">${f==="tout"?"Tout":manTxt(f)}</button>`).join("")}</div>
+    <div class="ptitre">Mon retour</div>
+    <div class="puces suite">${fr.map(([k,l])=>`<button class="puce" data-fret="${k}" aria-pressed="${S.ret===k}">${l}</button>`).join("")}</div>
+    <div class="ptitre">Ranger</div>
+    <div class="puces suite">${fg.map(([k,l])=>`<button class="puce" data-grain="${k}" aria-pressed="${S.grain===k}">${l}</button>`).join("")}</div>`;
+  const rendu=n=>enfants(n.id).some(e=>e.act==="moi");
+  const vus=list
+    .filter(n=>S.filtre==="tout" || n.man===S.filtre)
+    .filter(n=>S.ret==="tout" || rendu(n)===(S.ret==="oui"));
   if(!vus.length) h+=`<p class="vide">Rien sous ce filtre.</p>`;
   let an=null, buf="";
   vus.forEach(n=>{
-    const y=(parse(n.date)||{y:"?"}).y;
-    if(y!==an){ if(buf){ h+=liste(buf); buf=""; } an=y; h+=titreBloc(y); }
+    const y=tranche(n, S.grain);
+    if(y!==an){ if(buf){ h+=liste(buf); buf=""; } an=y; h+=titreBloc(esc(y)); }
     buf += ligne({titre:esc(n.txt), serif:estParole(n),
       sous:(n.act==="gens"?"par "+esc(gensNom(n.gid)):""),
       apres:manCourt(n.man), attr:'data-node="'+n.id+'"'});
@@ -745,13 +806,20 @@ function vChemin(){
   const suite=cheminDe(S.cheminId);
   if(!suite){ S.view="revel"; return render(); }
   Z.titre="Un chemin"; Z.retour=true;
-  const pos={}; suite.forEach((n,i)=>{ pos[n.id]=i; });
+  /* Un acte prévu n'est pas un acte : le mettre dans le fil au milieu du passé
+     laisserait croire qu'il a eu lieu. On le garde dans le chemin — c'est bien
+     une promesse de ce chemin-là — mais sous une coupure, à la fin. */
+  const faits=suite.filter(n=>n.etat!=="prevu"), prevus=suite.filter(n=>n.etat==="prevu");
+  const ordre=faits.concat(prevus);
+  const pos={}; ordre.forEach((n,i)=>{ pos[n.id]=i; });
   /* L'en-tête porte déjà le nom de l'écran : le dire deux fois ne dit rien. */
   let h=`<div class="block amorce" style="margin-top:20px">Ce n'est pas une ligne :
       plusieurs fils se rejoignent ici.</div>
     <div class="fil">`;
-  suite.forEach((n,i)=>{
-    const cls = n.act==="dieu" ? "dieu" : (n.act==="gens" ? "gens" : "moi");
+  ordre.forEach((n,i)=>{
+    if(i===faits.length) h+=`<div class="coupure">Ce qui est prévu</div>`;
+    const cls = (n.act==="dieu" ? "dieu" : (n.act==="gens" ? "gens" : "moi"))
+              + (n.etat==="prevu" ? " prevu" : "");
     const prec=(n.par||[]).map(node).filter(Boolean).filter(p=>pos[p.id]!==i-1);
     let apres="";
     /* Rappeler d'où ça vient, pas le relire en entier. */
@@ -760,18 +828,18 @@ function vChemin(){
     else if(i>0 && !(n.par||[]).length) apres="un autre fil commence ici";
     h+=`<a class="pas ${cls}" data-node="${n.id}">
         <span class="dit ${estParole(n)?"voix":""}">${esc(n.txt)}</span>
-        <span class="sous">${esc(acteurTxt(n))}${human(n)?" · "+human(n):""}${n.etat&&n.etat!=="fait"?" · "+ETAT[n.etat]:""}</span>
+        <span class="sous">${n.etat&&n.etat!=="fait"?`<span class="etiq">${ETAT[n.etat]}</span>`:""}${esc(acteurTxt(n))}${human(n)?" · "+human(n):""}</span>
         ${apres?`<span class="apres">${apres}</span>`:""}
       </a>`;
   });
   h+=`</div>`;
   /* Une chaîne qui s'arrête sur un acte de Lui pose une question, et laisse
      le droit de ne pas répondre (14.5-bis.e). */
-  const fin=suite[suite.length-1];
-  if(fin.act!=="moi" && !enfants(fin.id).length){
+  const fin=faits[faits.length-1];
+  if(fin && fin.act!=="moi" && !enfants(fin.id).length){
     h+=`<div class="block amorce" style="margin-top:18px">Qu'est-ce qui est sorti de ceci ?
       <span class="rien">Tu as le droit de ne pas répondre.</span></div>`;
-    Z.action=bouton("Noter ce qui a suivi", 'data-attach="'+fin.id+'"');
+    Z.action=bouton("Mon retour", 'data-attach="'+fin.id+'"');
   }
   Z.html=h;
 }
@@ -802,13 +870,13 @@ function vNode(){
   Z.html=h;
   Z.action = (n.etat==="prevu")
     ? bouton("C'est fait", 'data-fait="'+n.id+'"')
-    : bouton("Noter ce qui a suivi", 'data-attach="'+n.id+'"');
+    : bouton("Mon retour", 'data-attach="'+n.id+'"');
 }
 function menuNode(){
   const n=node(S.nodeId); if(!n) return;
   const g=[{label:"Cet acte"},{txt:"Corriger", attr:'data-act="edit"'}];
   if(n.etat==="prevu"){ g.push({txt:"J'y renonce", attr:'data-abandon="'+n.id+'"'}); }
-  else { g.push({txt:"Noter ce qui a suivi", attr:'data-attach="'+n.id+'"'}); }
+  else { g.push({txt:"Mon retour", attr:'data-attach="'+n.id+'"'}); }
   g.push({txt:"Supprimer", rouge:true, attr:'data-act="askDel"'});
   ouvreMenu([g, [{txt:"Annuler", attr:'data-act="fermeMenu"'}]]);
 }
@@ -820,7 +888,7 @@ function vEdit(){
   let h=titreBloc("Le texte")+
     `<div class="block"><textarea class="dicte" id="eTxt" style="min-height:90px">${esc(n.txt)}</textarea>${micBloc("eTxt")}</div>`;
   if(n.act!=="moi"){
-    h+=titreBloc("Sa manière")+liste(Object.keys(MAN).map(k=>ligne({titre:MAN[k],
+    h+=titreBloc("Sa manière")+liste(Object.keys(MANS()).map(k=>ligne({titre:manTxt(k),
       apres:S.eMan===k?`<span class="coche">✓</span>`:"", attr:'data-eman="'+k+'"'})).join(""));
   }
   h+=blocQuand("eDate", n.date, S.ePrec, n.act==="moi", S.eEtat);
@@ -853,6 +921,9 @@ function choixCause(sel, exclus){
   const cands = db.nodes
     .filter(x => exclus.indexOf(x.id)===-1 && x.etat!=="prevu" && x.etat!=="abandon")
     .sort(parDate);
+  /* Tout dérouler d'un coup, c'est un mur : on ne cherche pas dans un mur.
+     L'écran reste donc vide tant qu'aucun mot n'est écrit — sauf ce qui est
+     déjà lié, qui ne doit jamais disparaître sous le pouce. */
   return champ("cFiltre","Cherche : une parole, une prière, un acte…")
     + liste(ligne({titre:`<span class="coche">+ Ajouter quelque chose de nouveau</span>`,
         attr:'data-act="causeNeuf"'}))
@@ -860,8 +931,9 @@ function choixCause(sel, exclus){
         ? liste(cands.map(x=>ligne({titre:esc(x.txt), serif:estParole(x),
             sous:esc(acteurTxt(x))+(human(x)?" · "+human(x):""),
             apres:sel.indexOf(x.id)!==-1?`<span class="coche">✓</span>`:"",
-            attr:'data-par="'+x.id+'"'})).join(""), "cands")
+            attr:'data-par="'+x.id+'"'+(sel.indexOf(x.id)!==-1?' data-sel="1"':"")})).join(""), "cands")
         : `<p class="vide">Rien d'autre dans ta mémoire pour l'instant.</p>`)
+    + `<p class="vide" id="attente" hidden>Écris un mot : ce que tu as déjà gardé apparaîtra.</p>`
     + `<p class="vide" id="rien" hidden>Rien ne correspond. Touche « Ajouter quelque chose de nouveau ».</p>`;
 }
 
@@ -956,13 +1028,15 @@ function vNote(){
     Z.titre = d.act==="dieu" ? "Sa manière ?" : "Reconnais-tu Sa main ?";
     let h="";
     if(d.act==="gens") h+=`<div class="block amorce" style="margin-top:16px">Si tu choisis une manière, cet acte entrera dans Ses œuvres.</div>`;
-    h+=liste(Object.keys(MAN).map(k=>ligne({titre:MAN[k], serif:true,
+    h+=liste(Object.keys(MANS()).map(k=>ligne({titre:manTxt(k), serif:true,
       apres:d.man===k?`<span class="coche">✓</span>`:"", attr:'data-man="'+k+'"'})).join(""));
+    h+=titreBloc("Une autre manière")+champ("newMan","Il a guéri, Il a consolé, Il a retenu…")
+      +`<div class="block">${bouton("Ajouter", 'data-act="addMan"')}</div>`;
     Z.html=h;
     Z.action = bouton(d.man?"Continuer":"Passer", 'data-act="suite"');
   }
   else if(cle==="par"){
-    Z.titre = S.cNeuf ? "Ajouter une cause" : "En réponse à quoi ?";
+    Z.titre = S.cNeuf ? "Ajouter ce qui a précédé" : "En réponse à quoi ?";
     Z.html = `<div class="block amorce" style="margin-top:16px">${S.cNeuf
         ? "Ce qui a précédé n'était pas encore gardé. Écris-le ici."
         : "Une parole, une prière, un bienfait d'avant. Autant de liens que nécessaire."}</div>`
@@ -1071,12 +1145,16 @@ document.addEventListener("input", ev=>{
     let vus=0;
     [].forEach.call(document.querySelectorAll("[data-par]"), el=>{
       const li=el.closest("li")||el;
-      const ok = !q || el.textContent.toLowerCase().indexOf(q)!==-1;
+      const ok = el.getAttribute("data-sel")==="1"
+              || (!!q && el.textContent.toLowerCase().indexOf(q)!==-1);
       li.hidden = !ok; if(ok) vus++;
     });
-    const bloc=document.querySelector(".cands"), rien=document.getElementById("rien");
+    const bloc=document.querySelector(".cands"),
+          rien=document.getElementById("rien"),
+          att=document.getElementById("attente");
     if(bloc) bloc.hidden = !vus;
     if(rien) rien.hidden = !(q && !vus);
+    if(att)  att.hidden  = !!q || !!vus;
     return;
   }
   if(id==="nTxt" && S.draft) S.draft.txt=ev.target.value;
@@ -1086,7 +1164,7 @@ document.addEventListener("input", ev=>{
 /* ---------- gestes ---------- */
 fond.addEventListener("click", ()=>fermeMenu());
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-node],[data-filtre],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-fait],[data-abandon],[data-back]");
+  const t=ev.target.closest("[data-go],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-fait],[data-abandon],[data-back]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -1111,6 +1189,8 @@ document.addEventListener("click", ev=>{
     S.step=0; empile(); S.view="note"; return render();
   }
   if(g.filtre){ S.filtre=g.filtre; return render(); }
+  if(g.fret){ S.ret=g.fret; return render(); }
+  if(g.grain){ S.grain=g.grain; return render(); }
   if(g.rev){ S.rev=g.rev; return render(); }
   if(g.qui){
     const a=S.draft||{}, prevu=(g.qui==="moiPrevu");
@@ -1160,6 +1240,13 @@ const actions={
     const id=gensId((document.getElementById("newGens")||{}).value);
     if(!id) return toast("Écris un nom");
     S.draft[ch]=id; save(); S.step++; render();
+  },
+  addMan(){
+    const e=document.getElementById("newMan");
+    const id=manId(e&&e.value);
+    if(!id) return toast("Écris la manière");
+    if(S.view==="edit") S.eMan=id; else if(S.draft) S.draft.man=id;
+    save(); render();
   },
   addNom(){ const v=((document.getElementById("newNom")||{}).value||"").trim(); if(!v) return toast("Écris le nom"); db.noms.push({id:"p"+(db.seq++),txt:v,nodes:[]}); save(); render(); },
   /* La cause n'était pas encore gardée : on la garde ici, et on la lie.

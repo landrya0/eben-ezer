@@ -153,6 +153,28 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 .lien .item-title{color:var(--f7-theme-color);font-weight:600}
 .coche{color:var(--f7-theme-color);font-weight:700}
 .vide{margin:0;padding:13px 16px;color:var(--muted);font-size:14.5px;font-style:italic}
+.rien{color:var(--muted);font-style:italic;font-weight:400}
+
+/* Un chemin : un filet vertical, et des pastilles qui disent qui a parlé.
+   Aucun trait n'est tracé entre les actes — les convergences se lisent
+   dans le « après : … », pas dans un dessin (14.5-bis.b). */
+.fil{position:relative;margin:14px 16px 4px;padding-left:25px}
+.fil::before{content:"";position:absolute;left:5px;top:14px;bottom:14px;
+  width:1px;background:var(--filet)}
+.pas{display:block;position:relative;padding:13px 0;color:inherit;text-decoration:none}
+.pas::before{content:"";position:absolute;left:-25px;top:17px;width:11px;height:11px;
+  border-radius:50%;box-sizing:border-box;background:var(--f7-page-bg-color)}
+.pas.dieu::before{background:var(--f7-theme-color);border:2px solid var(--f7-theme-color)}
+.pas.moi::before{border:2px solid var(--muted)}
+.pas.gens::before{background:var(--muted);border:2px solid var(--muted)}
+.pas .dit{display:block;font-family:var(--sans);font-size:16px;font-weight:500;
+  line-height:1.4;color:var(--f7-text-color)}
+.pas .dit.voix{font-family:var(--serif);font-weight:400;font-size:17px;
+  line-height:1.5;letter-spacing:.006em;color:var(--voix)}
+.pas .sous{display:block;font-family:var(--sans);font-size:12.5px;font-weight:500;
+  letter-spacing:.015em;color:var(--muted);margin-top:5px}
+.pas .apres{display:block;font-family:var(--sans);font-size:12.5px;line-height:1.45;
+  color:var(--muted);margin-top:4px;font-style:italic}
 
 /* les groupes sont en verre, posés sur la nappe */
 .list.inset>ul{-webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou);
@@ -306,9 +328,29 @@ const ETAT = {fait:"fait", encours:"en cours", prevu:"prévu", abandon:"abandonn
 const ETATS = [["fait","C'est fait"],["encours","Ça dure encore"],["prevu","C'est prévu"]];
 
 let db = {nodes:[], gens:[], noms:[], seq:1};
-let S = {view:"today", step:0, draft:null, filtre:"tout", rev:"noms", prev:"today", nodeId:null,
-         eMan:"", eEtat:"fait", ePrec:"j",
+let S = {view:"today", step:0, draft:null, filtre:"tout", rev:"noms", pile:[], nodeId:null,
+         cheminId:null, eMan:"", eEtat:"fait", ePrec:"j",
          cNeuf:false, cTxt:"", cType:"", cQ:""};
+
+/* Un seul « écran précédent » ne suffisait pas : en ouvrant un retour depuis
+   un acte, il finissait par désigner l'acte lui-même, et le bouton Retour ne
+   faisait plus rien. On empile donc les écrans traversés, et on dépile en
+   sautant ce qui n'existe plus. Un bouton qui ne ramène nulle part est pire
+   que pas de bouton. */
+function empile(){
+  S.pile.push({view:S.view, nodeId:S.nodeId, cheminId:S.cheminId});
+  if(S.pile.length>12) S.pile.shift();
+}
+function depile(repli){
+  while(S.pile.length){
+    const p=S.pile.pop();
+    if(p.view==="node" && !node(p.nodeId)) continue;
+    if(p.view==="chemin" && !cheminDe(p.cheminId)) continue;
+    if(p.view===S.view && p.nodeId===S.nodeId && p.cheminId===S.cheminId) continue;
+    S.view=p.view; S.nodeId=p.nodeId; S.cheminId=p.cheminId; return;
+  }
+  S.view=repli||"today";
+}
 
 /* ---------- stockage ---------- */
 function sane(v){
@@ -350,6 +392,25 @@ function dessous(id){
   while(f.length){ const g=[]; f.forEach(x=>enfants(x).forEach(e=>{ if(vus.indexOf(e.id)===-1){vus.push(e.id); g.push(e.id);} })); f=g; }
   return vus;
 }
+/* Un chemin, c'est un morceau du graphe où tout se tient : on part d'un acte,
+   on suit les liens dans les deux sens, et on ramasse tout ce qui est relié.
+   Ce n'est donc ni une branche ni une ligne — c'est ce qui se répond. */
+function chemins(){
+  const grp={}, vu={};
+  db.nodes.forEach(n=>{ grp[n.id]=n.id; vu[n.id]=true; });
+  function racine(x){ while(grp[x]!==x){ grp[x]=grp[grp[x]]; x=grp[x]; } return x; }
+  db.nodes.forEach(n=>(n.par||[]).forEach(p=>{
+    if(!vu[p]) return;
+    const a=racine(n.id), b=racine(p); if(a!==b) grp[a]=b;
+  }));
+  const paquets={};
+  db.nodes.forEach(n=>{ const r=racine(n.id); (paquets[r]=paquets[r]||[]).push(n); });
+  return Object.keys(paquets).map(k=>paquets[k])
+    .filter(a=>a.length>1)
+    .map(a=>a.slice().sort((x,y)=>(x.date||"").localeCompare(y.date||"")))
+    .sort((a,b)=>b.length-a.length || (b[0].date||"").localeCompare(a[0].date||""));
+}
+function cheminDe(id){ if(!id) return null; return chemins().filter(a=>a.some(n=>n.id===id))[0]||null; }
 function estParole(n){ return n.kind==="rhema" || n.kind==="ecriture" || (n.act==="dieu" && n.man==="parle"); }
 function acteurTxt(n){
   if(n.act==="dieu") return n.kind==="ecriture" ? "Écriture" : (n.kind==="rhema" ? "Dieu · rhema" : "Dieu");
@@ -596,7 +657,7 @@ function vOeuvres(){
 
 /* ---------- Révélations ---------- */
 function vRevel(){
-  const o=[["noms","Noms"],["gens","Personnes"],["chiffres","Chiffres"]];
+  const o=[["noms","Noms"],["chemins","Chemins"],["gens","Personnes"],["chiffres","Chiffres"]];
   let h=`<p class="titre-page">Révélations</p><p class="ssTitre">Ce que tout cela t'a fait connaître de Lui.</p>
     <div class="puces">${o.map(([k,l])=>`<button class="puce" data-rev="${k}" aria-pressed="${S.rev===k}">${l}</button>`).join("")}</div>`;
   if(S.rev==="noms"){
@@ -605,6 +666,15 @@ function vRevel(){
       apres:`<span class="coche">${(nm.nodes||[]).length||"—"}</span>`})).join(""));
     h+=titreBloc("Garder un nom")+champ("newNom","Comment Il t'a traité ? « Celui qui… »")+
       `<div class="block">${bouton("Garder ce nom",'data-act="addNom"')}</div>`;
+  } else if(S.rev==="chemins"){
+    const ch=chemins();
+    if(!ch.length) h+=`<p class="vide">Aucun chemin encore. Il en naît un dès que deux actes se répondent.</p>`;
+    else h+=liste(ch.map(a=>{
+      const an=a.map(n=>parse(n.date)).filter(Boolean).map(p=>p.y).sort();
+      const sp=an.length ? (an[0]===an[an.length-1] ? ""+an[0] : an[0]+" → "+an[an.length-1]) : "";
+      return ligne({titre:esc(a[0].txt), serif:estParole(a[0]),
+        sous:a.length+" actes"+(sp?" · "+sp:""), attr:'data-chemin="'+a[0].id+'"'});
+    }).join(""));
   } else if(S.rev==="gens"){
     if(!db.gens.length) h+=`<p class="vide">Personne encore.</p>`;
     else h+=liste(db.gens.map(g=>{
@@ -667,6 +737,45 @@ function vActes(){
     + bloc("Fait", faits.slice(0,12), faits.length-12);
 }
 
+/* ---------- un chemin ---------- */
+/* Le fil est la lecture, les liens sont la vérité : les actes se déroulent
+   dans l'ordre du temps, et chacun dit « après : … » quand il ne vient pas
+   simplement de celui du dessus. Aucun trait n'est tracé (14.5-bis.b). */
+function vChemin(){
+  const suite=cheminDe(S.cheminId);
+  if(!suite){ S.view="revel"; return render(); }
+  Z.titre="Un chemin"; Z.retour=true;
+  const pos={}; suite.forEach((n,i)=>{ pos[n.id]=i; });
+  /* L'en-tête porte déjà le nom de l'écran : le dire deux fois ne dit rien. */
+  let h=`<div class="block amorce" style="margin-top:20px">Ce n'est pas une ligne :
+      plusieurs fils se rejoignent ici.</div>
+    <div class="fil">`;
+  suite.forEach((n,i)=>{
+    const cls = n.act==="dieu" ? "dieu" : (n.act==="gens" ? "gens" : "moi");
+    const prec=(n.par||[]).map(node).filter(Boolean).filter(p=>pos[p.id]!==i-1);
+    let apres="";
+    /* Rappeler d'où ça vient, pas le relire en entier. */
+    const court=t=>{ t=String(t); return t.length>46 ? esc(t.slice(0,45).replace(/\s+\S*$/,""))+"…" : esc(t); };
+    if(prec.length) apres=`après : ${prec.map(p=>court(p.txt)).join(" · ")}`;
+    else if(i>0 && !(n.par||[]).length) apres="un autre fil commence ici";
+    h+=`<a class="pas ${cls}" data-node="${n.id}">
+        <span class="dit ${estParole(n)?"voix":""}">${esc(n.txt)}</span>
+        <span class="sous">${esc(acteurTxt(n))}${human(n)?" · "+human(n):""}${n.etat&&n.etat!=="fait"?" · "+ETAT[n.etat]:""}</span>
+        ${apres?`<span class="apres">${apres}</span>`:""}
+      </a>`;
+  });
+  h+=`</div>`;
+  /* Une chaîne qui s'arrête sur un acte de Lui pose une question, et laisse
+     le droit de ne pas répondre (14.5-bis.e). */
+  const fin=suite[suite.length-1];
+  if(fin.act!=="moi" && !enfants(fin.id).length){
+    h+=`<div class="block amorce" style="margin-top:18px">Qu'est-ce qui est sorti de ceci ?
+      <span class="rien">Tu as le droit de ne pas répondre.</span></div>`;
+    Z.action=bouton("Noter ce qui a suivi", 'data-attach="'+fin.id+'"');
+  }
+  Z.html=h;
+}
+
 /* ---------- un acte ---------- */
 function vNode(){
   const n=node(S.nodeId); if(!n){ S.view="today"; return render(); }
@@ -682,24 +791,24 @@ function vNode(){
   h+=liste(
     (par.length ? par.map(p=>ligne({titre:esc(p.txt), serif:estParole(p),
         sous:esc(acteurTxt(p))+(human(p)?" · "+human(p):""), attr:'data-node="'+p.id+'"'})).join("")
-      : ligne({titre:`<span class="rien">Rien de rattaché</span>`}))
-    + ligne({titre:`<span class="coche">Rattacher une cause</span>`, attr:'data-lierview="'+n.id+'"'}));
+      : ligne({titre:`<span class="rien">Rien, pour l'instant</span>`}))
+    + ligne({titre:`<span class="coche">Dire ce qui a précédé</span>`, attr:'data-lierview="'+n.id+'"'}));
   h+=titreBloc("Mes retours");
   h+= enf.length
     ? liste(enf.map(e=>ligne({titre:esc(e.txt),
         sous:esc(acteurTxt(e))+(e.etat&&e.etat!=="fait"?" · "+ETAT[e.etat]:""),
         apres:human(e), attr:'data-node="'+e.id+'"'})).join(""))
-    : `<p class="vide">Aucun retour, pour l'instant.</p>`;
+    : `<p class="vide">Rien n'a suivi, pour l'instant.</p>`;
   Z.html=h;
   Z.action = (n.etat==="prevu")
     ? bouton("C'est fait", 'data-fait="'+n.id+'"')
-    : bouton("Attacher un retour", 'data-attach="'+n.id+'"');
+    : bouton("Noter ce qui a suivi", 'data-attach="'+n.id+'"');
 }
 function menuNode(){
   const n=node(S.nodeId); if(!n) return;
   const g=[{label:"Cet acte"},{txt:"Corriger", attr:'data-act="edit"'}];
   if(n.etat==="prevu"){ g.push({txt:"J'y renonce", attr:'data-abandon="'+n.id+'"'}); }
-  else { g.push({txt:"Attacher un retour", attr:'data-attach="'+n.id+'"'}); }
+  else { g.push({txt:"Noter ce qui a suivi", attr:'data-attach="'+n.id+'"'}); }
   g.push({txt:"Supprimer", rouge:true, attr:'data-act="askDel"'});
   ouvreMenu([g, [{txt:"Annuler", attr:'data-act="fermeMenu"'}]]);
 }
@@ -759,7 +868,7 @@ function choixCause(sel, exclus){
 /* ---------- rattacher une cause ---------- */
 function vLier(){
   const n=node(S.nodeId); if(!n){ S.view="today"; return render(); }
-  Z.titre = S.cNeuf ? "Ajouter une cause" : "Rattacher une cause"; Z.retour=true;
+  Z.titre = S.cNeuf ? "Ajouter ce qui a précédé" : "Ce qui a précédé"; Z.retour=true;
   Z.html = `<div class="block" style="margin-top:18px">
       <p class="grand ${estParole(n)?"voix":""}" style="font-size:21px">${esc(n.txt)}</p>
       <p class="meta">${S.cNeuf ? "Ce qui a précédé n'était pas encore gardé. Écris-le ici."
@@ -863,7 +972,7 @@ function vNote(){
       const der = S.step===etapes(d).length-1;
       Z.action = d.par.length
         ? bouton((der?"Garder — ":"Continuer — ")+d.par.length+" lien"+(d.par.length>1?"s":""), 'data-act="'+(der?"saveNote":"suite")+'"')
-        : bouton(der?"Garder sans lien":"Non, comme ça", 'data-act="'+(der?"saveNote":"suite")+'"');
+        : bouton((der?"Garder":"Continuer")+" — en réponse à rien", 'data-act="'+(der?"saveNote":"suite")+'"');
     }
   }
   else {
@@ -904,7 +1013,7 @@ function vData(){
 
 /* Depuis n'importe quel onglet, le geste reste à portée. */
 function vListe(f){ return function(){ f(); if(!Z.action) Z.action=bouton("Noter quelque chose",'data-go="note"'); }; }
-const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), actes:vListe(vActes),
+const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), actes:vListe(vActes), chemin:vChemin,
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData};
 
 /* ---------- dictée ---------- */
@@ -977,25 +1086,29 @@ document.addEventListener("input", ev=>{
 /* ---------- gestes ---------- */
 fond.addEventListener("click", ()=>fermeMenu());
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-node],[data-filtre],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-fait],[data-abandon],[data-back]");
+  const t=ev.target.closest("[data-go],[data-node],[data-filtre],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-fait],[data-abandon],[data-back]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
-  if(g.go){ fermeMenu(); S.view=g.go; if(g.go==="note"){S.step=0;S.draft=null;} return render(); }
+  /* Un onglet est un point de départ : il vide la pile. Le reste s'empile. */
+  if(g.go){ fermeMenu();
+    if(ONGLETS.some(o=>o[0]===g.go)){ S.pile=[]; }
+    else { empile(); }
+    S.view=g.go; if(g.go==="note"){S.step=0;S.draft=null;} return render(); }
   if(g.back){
     if(S.cNeuf){ S.cNeuf=false; S.cTxt=""; S.cType=""; return render(); }
     if(S.view==="note" && S.step>0){ S.step--; return render(); }
-    if(S.view==="note"){ S.view=S.prev||"today"; S.draft=null; return render(); }
-    if(S.view==="lier"||S.view==="edit"){ S.view="node"; return render(); }
-    S.view = S.prev||"today"; return render();
+    if(S.view==="note") S.draft=null;
+    depile(S.view==="lier"||S.view==="edit" ? "node" : "today"); return render();
   }
-  if(g.node){ fermeMenu(); if(["node","lier","edit","note"].indexOf(S.view)===-1) S.prev=S.view; S.nodeId=g.node; S.view="node"; return render(); }
-  if(g.lierview){ S.nodeId=g.lierview; S.view="lier"; return render(); }
+  if(g.node){ fermeMenu(); empile(); S.nodeId=g.node; S.view="node"; return render(); }
+  if(g.lierview){ empile(); S.nodeId=g.lierview; S.view="lier"; return render(); }
+  if(g.chemin){ empile(); S.cheminId=g.chemin; S.view="chemin"; return render(); }
   if(g.ctype){ S.cTxt=((document.getElementById("cNeuf")||{}).value)||S.cTxt; S.cType=g.ctype; return render(); }
   if(g.attach){
     fermeMenu(); S.nodeId=g.attach;
     S.draft=neuf("moi"); S.draft.fige=true; S.draft.par=[g.attach];
-    S.step=0; S.view="note"; S.prev="node"; return render();
+    S.step=0; empile(); S.view="note"; return render();
   }
   if(g.filtre){ S.filtre=g.filtre; return render(); }
   if(g.rev){ S.rev=g.rev; return render(); }
@@ -1083,11 +1196,12 @@ const actions={
     const onglet = n.act==="moi" ? "actes" : "oeuvres";
     const ou = n.act==="moi" ? "Mes actes" : "Ses œuvres";
     const fige=d.fige;
-    S.draft=null; S.step=0; S.prev=onglet;
-    if(fige){ S.view="node"; S.nodeId=d.par[0]; } else { S.view=onglet; S.nodeId=n.id; }
+    S.draft=null; S.step=0;
+    if(fige){ S.view="node"; S.nodeId=d.par[0]; }
+    else { S.pile=[]; S.view=onglet; S.nodeId=n.id; }
     toast(fige ? "Rattaché · dans "+ou : "Gardé dans "+ou); render();
   },
-  edit(){ fermeMenu(); const n=node(S.nodeId); if(!n) return; S.eMan=n.man||""; S.eEtat=n.etat||"fait"; S.ePrec=n.prec||"j"; S.view="edit"; render(); },
+  edit(){ fermeMenu(); const n=node(S.nodeId); if(!n) return; S.eMan=n.man||""; S.eEtat=n.etat||"fait"; S.ePrec=n.prec||"j"; empile(); S.view="edit"; render(); },
   saveEdit(){
     const n=node(S.nodeId), e=document.getElementById("eTxt");
     if(n){
@@ -1111,7 +1225,7 @@ const actions={
     db.nodes=db.nodes.filter(n=>n.id!==id);
     db.nodes.forEach(n=>{ if(n.par) n.par=n.par.filter(p=>p!==id); });
     db.noms.forEach(nm=>{ if(nm.nodes) nm.nodes=nm.nodes.filter(p=>p!==id); });
-    save(); S.view=S.prev||"today"; toast("Supprimé."); render();
+    save(); depile("today"); toast("Supprimé."); render();
   },
   copy(){ const e=document.getElementById("dump"); e.select(); try{ navigator.clipboard.writeText(e.value).then(()=>toast("Copié"),()=>toast("Sélectionne et copie")); }catch(x){ toast("Sélectionne et copie"); } },
   restore(){ try{ const v=JSON.parse(document.getElementById("dump").value); if(!v||!Array.isArray(v.nodes)) throw 0; db=sane(v); save(); toast("Remplacé"); S.view="today"; render(); }catch(e){ toast("Ce texte n'est pas une sauvegarde"); } },

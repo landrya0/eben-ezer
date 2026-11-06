@@ -1,8 +1,10 @@
 /* Ében-Ézer — hors-ligne, mais jamais figé.
    La page : le réseau d'abord, le cache en secours (pour recevoir les corrections).
-   Les icônes et le manifeste : le cache d'abord (ils ne changent presque jamais). */
-const CACHE = "ebenezer-v2";
-const SOCLE = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
+   Le reste (composants, icônes, police) : le cache d'abord. */
+const CACHE = "ebenezer-v3";
+const SOCLE = ["./", "./index.html", "./manifest.webmanifest",
+               "./vendor/framework7-bundle.min.css",
+               "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SOCLE)).then(() => self.skipWaiting()));
@@ -19,7 +21,6 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   const r = e.request;
   if (r.method !== "GET") return;
-
   const page = r.mode === "navigate" || (r.headers.get("accept") || "").indexOf("text/html") !== -1;
 
   if (page) {
@@ -37,7 +38,7 @@ self.addEventListener("fetch", e => {
 
   e.respondWith(
     caches.match(r).then(m => m || fetch(r).then(res => {
-      if (res && res.status === 200 && res.type === "basic") {
+      if (res && res.status === 200 && (res.type === "basic" || res.type === "cors")) {
         const copie = res.clone();
         caches.open(CACHE).then(c => c.put(r, copie));
       }

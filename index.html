@@ -614,26 +614,43 @@ function vEdit(){
   Z.action = bouton("Garder", 'data-act="saveEdit"');
 }
 
+/* ---------- choisir une cause ----------
+   Un seul écran, pour l'assistant comme pour un acte déjà gardé (13.o).
+   On cherche au texte ; si la cause n'est pas encore dans la mémoire,
+   on l'écrit ici même, sans quitter l'écran. */
+const NEUFS = [
+  ["ecriture", "Une promesse de l'Écriture",   "elle ne compte pas parmi Ses œuvres", true],
+  ["rhema",    "Une parole qu'Il m'a dite",    "", true],
+  ["moi",      "Quelque chose que j'ai fait",  "une prière, un jeûne, une démarche", false],
+  ["dieu",     "Quelque chose qu'Il a fait",   "", false]
+];
+function choixCause(sel, exclus){
+  const cands = db.nodes
+    .filter(x => exclus.indexOf(x.id)===-1 && x.etat!=="prevu" && x.etat!=="abandon")
+    .sort(parDate);
+  let h = champ("cFiltre","Cherche : une parole, une prière, un acte…");
+  h += cands.length
+    ? liste(cands.map(x=>ligne({titre:esc(x.txt), serif:estParole(x),
+        sous:esc(acteurTxt(x))+(human(x)?" · "+human(x):""),
+        apres:sel.indexOf(x.id)!==-1?`<span class="coche">✓</span>`:"",
+        attr:'data-par="'+x.id+'"'})).join(""), "cands")
+    : `<p class="vide">Rien d'autre dans ta mémoire pour l'instant.</p>`;
+  h += `<p class="vide" id="rien" hidden>Rien ne correspond. Écris-le, puis dis ce que c'est.</p>`;
+  h += titreBloc("Ça n'y est pas encore")
+    + `<div class="block amorce">Écris-le dans le champ ci-dessus, puis choisis :</div>`
+    + liste(NEUFS.map(n=>ligne({titre:n[1], sous:n[2], serif:n[3],
+        attr:'data-neuf="'+n[0]+'"'})).join(""));
+  return h;
+}
+
 /* ---------- rattacher une cause ---------- */
 function vLier(){
   const n=node(S.nodeId); if(!n){ S.view="today"; return render(); }
   Z.titre="Rattacher une cause"; Z.retour=true;
-  const exclus=dessous(n.id);
-  const cands=db.nodes.filter(x=>exclus.indexOf(x.id)===-1).sort(parDate).slice(0,40);
-  let h=`<div class="block" style="margin-top:18px"><p class="grand voix" style="font-size:21px">${esc(n.txt)}</p>
-    <p class="meta">Coche une parole, une prière, un bienfait d'avant.</p></div>`;
-  if(cands.length>8) h+=champ("pFilter","Filtrer…");
-  h+= cands.length ? liste(cands.map(x=>{
-        const on=(n.par||[]).indexOf(x.id)!==-1;
-        return ligne({titre:esc(x.txt), serif:estParole(x),
-          sous:esc(acteurTxt(x))+(human(x)?" · "+human(x):""),
-          apres:on?`<span class="coche">✓</span>`:"", attr:'data-par="'+x.id+'"'});
-      }).join(""))
-    : `<p class="vide">Rien d'autre dans ta base pour l'instant.</p>`;
-  h+=titreBloc("Une promesse qui n'est pas encore là")+
-    champ("newProm","« Je ne t'abandonnerai point » — Hé 13.5")+
-    `<div class="block">${bouton("Ajouter et lier",'data-act="addProm"')}</div>`;
-  Z.html=h;
+  Z.html = `<div class="block" style="margin-top:18px">
+      <p class="grand ${estParole(n)?"voix":""}" style="font-size:21px">${esc(n.txt)}</p>
+      <p class="meta">Une parole, une prière, un bienfait d'avant.</p></div>`
+    + choixCause(n.par||[], dessous(n.id));
   Z.action = bouton("Terminer", 'data-back="1"');
 }
 
@@ -648,8 +665,8 @@ function etapes(d){
   if(d.act==="moi" && d.dest==="gens") e.push("destGens");
   e.push("txt");
   if(d.act!=="moi") e.push("man");
-  if(!d.fige) e.push("par");
   e.push("quand");
+  if(!d.fige) e.push("par");
   return e;
 }
 function vNote(){
@@ -718,24 +735,18 @@ function vNote(){
   }
   else if(cle==="par"){
     Z.titre="En réponse à quoi ?";
-    const cands=db.nodes.filter(n=>n.etat!=="prevu" && n.etat!=="abandon").sort(parDate).slice(0,30);
-    let h=`<div class="block amorce" style="margin-top:16px">Une parole, une prière, un bienfait d'avant. Autant de liens que nécessaire.</div>`;
-    if(cands.length>8) h+=champ("pFilter","Filtrer…");
-    h+= cands.length ? liste(cands.map(n=>ligne({titre:esc(n.txt), serif:estParole(n),
-          sous:esc(acteurTxt(n))+(human(n)?" · "+human(n):""),
-          apres:d.par.indexOf(n.id)!==-1?`<span class="coche">✓</span>`:"",
-          attr:'data-par="'+n.id+'"'})).join(""))
-      : `<p class="vide">Rien d'autre dans ta base pour l'instant.</p>`;
-    h+=titreBloc("Une promesse qui n'est pas encore là")+
-      champ("newProm","« Je ne t'abandonnerai point » — Hé 13.5")+
-      `<div class="block">${bouton("Ajouter et lier",'data-act="addProm"')}</div>`;
-    Z.html=h;
-    Z.action = bouton(d.par.length?("Continuer — "+d.par.length+" lien"+(d.par.length>1?"s":"")):"Non, comme ça", 'data-act="suite"');
+    Z.html = `<div class="block amorce" style="margin-top:16px">Une parole, une prière, un bienfait d'avant. Autant de liens que nécessaire.</div>`
+      + choixCause(d.par, []);
+    const der = S.step===etapes(d).length-1;
+    Z.action = d.par.length
+      ? bouton((der?"Garder — ":"Continuer — ")+d.par.length+" lien"+(d.par.length>1?"s":""), 'data-act="'+(der?"saveNote":"suite")+'"')
+      : bouton(der?"Garder sans lien":"Non, comme ça", 'data-act="'+(der?"saveNote":"suite")+'"');
   }
   else {
     Z.titre="Quand ?";
     Z.html = blocQuand("nDate", d.date, d.prec, d.act==="moi", d.etat);
-    Z.action = bouton("Garder", 'data-act="saveNote"');
+    Z.action = bouton(S.step===etapes(d).length-1?"Garder":"Continuer",
+      'data-act="'+(S.step===etapes(d).length-1?"saveNote":"suiteDate")+'"');
   }
 }
 function rappel(p){
@@ -820,12 +831,17 @@ function micBascule(id){
 /* ---------- saisies gardées ---------- */
 document.addEventListener("input", ev=>{
   const id=ev.target.id;
-  if(id==="pFilter"){
+  if(id==="cFiltre"){
     const q=ev.target.value.trim().toLowerCase();
+    let vus=0;
     [].forEach.call(document.querySelectorAll("[data-par]"), el=>{
       const li=el.closest("li")||el;
-      li.hidden = !!q && el.textContent.toLowerCase().indexOf(q)===-1;
+      const ok = !q || el.textContent.toLowerCase().indexOf(q)!==-1;
+      li.hidden = !ok; if(ok) vus++;
     });
+    const bloc=document.querySelector(".cands"), rien=document.getElementById("rien");
+    if(bloc) bloc.hidden = !vus;
+    if(rien) rien.hidden = !(q && !vus);
     return;
   }
   if(id==="nTxt" && S.draft) S.draft.txt=ev.target.value;
@@ -835,7 +851,7 @@ document.addEventListener("input", ev=>{
 /* ---------- gestes ---------- */
 fond.addEventListener("click", ()=>fermeMenu());
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-node],[data-filtre],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-prec],[data-sug],[data-mic],[data-act],[data-attach],[data-lierview],[data-fait],[data-abandon],[data-back]");
+  const t=ev.target.closest("[data-go],[data-node],[data-filtre],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-prec],[data-sug],[data-mic],[data-act],[data-neuf],[data-attach],[data-lierview],[data-fait],[data-abandon],[data-back]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -848,6 +864,7 @@ document.addEventListener("click", ev=>{
   }
   if(g.node){ fermeMenu(); if(["node","lier","edit","note"].indexOf(S.view)===-1) S.prev=S.view; S.nodeId=g.node; S.view="node"; return render(); }
   if(g.lierview){ S.nodeId=g.lierview; S.view="lier"; return render(); }
+  if(g.neuf){ return actions.neuf(g.neuf); }
   if(g.attach){
     fermeMenu(); S.nodeId=g.attach;
     S.draft=neuf("moi"); S.draft.fige=true; S.draft.par=[g.attach];
@@ -883,7 +900,7 @@ document.addEventListener("click", ev=>{
   if(g.act) return actions[g.act] && actions[g.act](t);
 });
 
-function valDate(id){ const e=document.getElementById(id); return (e&&e.value)?e.value:today(); }
+function valDate(id, repli){ const e=document.getElementById(id); return (e&&e.value)?e.value:(repli||today()); }
 function saveTxt(){ const e=document.getElementById("nTxt"); if(e&&S.draft) S.draft.txt=e.value; }
 
 const actions={
@@ -895,6 +912,7 @@ const actions={
     if(cle==="txt"){ saveTxt(); if(!d.txt.trim()) return toast("Écris ou dicte quelque chose"); }
     S.step++; render();
   },
+  suiteDate(){ const v=valDate("nDate", S.draft&&S.draft.date); if(v && S.draft) S.draft.date=v; S.step++; render(); },
   addGens(t){
     const ch=(t&&t.dataset.champ)||"gid";
     const id=gensId((document.getElementById("newGens")||{}).value);
@@ -902,20 +920,29 @@ const actions={
     S.draft[ch]=id; save(); S.step++; render();
   },
   addNom(){ const v=((document.getElementById("newNom")||{}).value||"").trim(); if(!v) return toast("Écris le nom"); db.noms.push({id:"p"+(db.seq++),txt:v,nodes:[]}); save(); render(); },
-  addProm(){
-    const v=((document.getElementById("newProm")||{}).value||"").trim();
-    if(!v) return toast("Écris la promesse");
-    const n={id:nid(),act:"dieu",gid:null,dest:null,dgid:null,txt:v,man:"",kind:"ecriture",ref:"",date:today(),prec:"j",etat:"fait",par:[]};
+  /* La cause n'était pas encore gardée : on la garde ici, et on la lie.
+     Elle hérite de la date de l'acte qu'elle précède — à corriger d'un geste
+     en l'ouvrant, c'est toujours plus juste qu'aujourd'hui. */
+  neuf(quoi){
+    const el=document.getElementById("cFiltre"), v=((el||{}).value||"").trim();
+    if(!v) return toast("Écris-le d'abord dans le champ de recherche");
+    const cible = (S.view==="lier") ? node(S.nodeId) : S.draft;
+    const n={id:nid(), act:(quoi==="moi"?"moi":"dieu"), gid:null,
+      dest:(quoi==="moi"?"dieu":null), dgid:null, txt:v,
+      man:(quoi==="rhema"?"parle":""),
+      kind:(quoi==="ecriture"?"ecriture":(quoi==="rhema"?"rhema":"acte")), ref:"",
+      date:(cible&&cible.date)||today(), prec:(cible&&cible.prec)||"j",
+      etat:"fait", par:[]};
     db.nodes.push(n);
-    if(S.view==="lier"){ const c=node(S.nodeId); if(c){ c.par=c.par||[]; c.par.push(n.id); } }
-    else if(S.draft){ S.draft.par.push(n.id); }
-    save(); toast("Liée."); render();
+    if(S.view==="lier"){ const c=node(S.nodeId); if(c){ c.par=c.par||[]; c.par.push(n.id); } save(); }
+    else if(S.draft){ S.draft.par.push(n.id); save(); }
+    toast("Ajouté et lié"); render();
   },
   saveNote(){
     const d=S.draft;
     const n={id:nid(),act:d.act,gid:d.gid,dest:d.act==="moi"?d.dest:null,dgid:d.dgid,txt:d.txt.trim(),man:d.man,
       kind:(d.act==="dieu"&&d.man==="parle")?"rhema":"acte",
-      date:valDate("nDate"),prec:d.prec||"j",etat:d.act==="moi"?(d.etat||"fait"):"fait",par:d.par.slice()};
+      date:valDate("nDate", d.date),prec:d.prec||"j",etat:d.act==="moi"?(d.etat||"fait"):"fait",par:d.par.slice()};
     db.nodes.push(n); save();
     /* On repart là où l'acte est désormais rangé : le disciple le voit,
        et l'écran a ses onglets — il n'est jamais enfermé. */

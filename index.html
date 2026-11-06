@@ -4,144 +4,187 @@
 <meta charset="utf-8">
 <title>Ében-Ézer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#FAF7F0" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#141210" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F8F7FC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E0D13" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Ében-Ézer">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;600&display=swap">
 <style>
-/* Papier : une seule colonne, filets plutôt que cartes, serif pour Sa voix. */
+/* Encre et indigo. Sa voix en indigo profond, les gestes en violet clair. */
 :root{
-  --bg:#FAF7F0; --surface:#FFFFFF; --ink:#1A1814; --muted:#6A6358;
-  --line:#EDE7DA; --line2:#D5CCB9; --ochre:#8F5720; --blue:#2B4A63;
+  --bg:#F8F7FC; --bg2:#EFEDF8; --surface:#FFFFFF;
+  --ink:#16151C; --muted:#6B6880;
+  --line:#E7E4F1; --line2:#D2CDE4;
+  --accent:#5747C7; --accent-ink:#FFFFFF; --accent-soft:#ECE8FC;
+  --deep:#2A2367;
+  --shadow:0 1px 2px rgba(22,21,28,.05), 0 14px 32px -20px rgba(42,35,103,.35);
   --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
   --sans:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#141210; --surface:#1C1A16; --ink:#F2EDE2; --muted:#A79D8B;
-    --line:#2A2620; --line2:#3C362C; --ochre:#CC8F4C; --blue:#8FB3CC;
+    --bg:#0E0D13; --bg2:#15131E; --surface:#1A1824;
+    --ink:#F1EFF7; --muted:#9B97AF;
+    --line:#262233; --line2:#3B3552;
+    --accent:#9A89F7; --accent-ink:#13101F; --accent-soft:#241F3A;
+    --deep:#C6BCFA;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 14px 32px -20px rgba(0,0,0,.8);
     color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#141210; --surface:#1C1A16; --ink:#F2EDE2; --muted:#A79D8B;
-  --line:#2A2620; --line2:#3C362C; --ochre:#CC8F4C; --blue:#8FB3CC;
+  --bg:#0E0D13; --bg2:#15131E; --surface:#1A1824;
+  --ink:#F1EFF7; --muted:#9B97AF;
+  --line:#262233; --line2:#3B3552;
+  --accent:#9A89F7; --accent-ink:#13101F; --accent-soft:#241F3A;
+  --deep:#C6BCFA;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 14px 32px -20px rgba(0,0,0,.8);
   color-scheme:dark;
 }
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
-  margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  margin:0;color:var(--ink);font-family:var(--sans);
+  background:var(--bg);
+  background-image:radial-gradient(120% 60% at 50% 0%, var(--bg2) 0%, var(--bg) 60%);
+  background-attachment:fixed;
   font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;
   display:flex;flex-direction:column;overflow:hidden;
 }
 button,input,textarea{font-family:inherit;font-size:inherit;color:inherit}
 button{cursor:pointer}
-:focus-visible{outline:2px solid var(--ochre);outline-offset:2px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #main{
   flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  padding-left:max(20px,env(safe-area-inset-left,0px));
-  padding-right:max(20px,env(safe-area-inset-right,0px));
-  padding-block:0 8px;
+  padding-left:max(22px,env(safe-area-inset-left,0px));
+  padding-right:max(22px,env(safe-area-inset-right,0px));
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));
 }
-.pad-top{padding-top:calc(28px + env(safe-area-inset-top,0px))}
-h1{font-family:var(--serif);font-weight:400;font-size:28px;margin:0 0 4px;text-wrap:balance}
-h2{font-size:12px;font-weight:400;color:var(--ochre);margin:0 0 8px;letter-spacing:.01em}
+#main.pad-top{padding-top:calc(26px + env(safe-area-inset-top,0px))}
+h1{font-family:var(--serif);font-weight:600;font-size:31px;letter-spacing:-.018em;margin:0 0 3px;text-wrap:balance}
+h2{font-size:11px;font-weight:600;color:var(--accent);margin:0 0 10px;letter-spacing:.1em;text-transform:uppercase}
 p{margin:0}
-.serif{font-family:var(--serif);line-height:1.42}
-.sub{font-size:13px;color:var(--muted);line-height:1.55}
-.meta{font-size:12px;color:var(--muted)}
+.serif{font-family:var(--serif);line-height:1.36;letter-spacing:-.012em}
+.voix{color:var(--deep)}
+.sub{font-size:13.5px;color:var(--muted);line-height:1.55}
+.meta{font-size:12.5px;color:var(--muted)}
 .row{display:flex;justify-content:space-between;gap:14px;align-items:baseline}
 .sep{border-top:1px solid var(--line)}
-.item{padding:12px 0;border-top:1px solid var(--line);width:100%;text-align:left;background:none;border-left:0;border-right:0;border-bottom:0;display:block}
+.item{padding:15px 0;border-top:1px solid var(--line);width:100%;text-align:left;background:none;border-left:0;border-right:0;border-bottom:0;display:block;color:inherit}
+.item[hidden]{display:none}
+.item.on{background:var(--accent-soft);border-top-color:transparent;border-radius:14px;padding-left:14px;padding-right:14px}
 .stack{display:flex;flex-direction:column}
 .gap8{gap:8px}.gap12{gap:12px}.gap16{gap:16px}.gap20{gap:20px}.gap28{gap:28px}
-.chips{display:flex;flex-wrap:wrap;gap:7px}
-.chip{min-height:34px;padding:0 12px;border-radius:17px;font-size:12px;background:transparent;color:var(--ink);border:1px solid var(--line2)}
-.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-.btn{min-height:50px;padding:0 24px;border-radius:25px;border:1px solid var(--ink);background:transparent;color:var(--ink);font-size:16px;display:inline-flex;align-items:center;justify-content:center}
-.btn.solid{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-.btn.quiet{border:0;color:var(--muted);padding:0 8px;min-height:44px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:38px;padding:0 15px;border-radius:19px;font-size:13px;background:var(--surface);color:var(--ink);border:1px solid var(--line2);transition:background .12s,color .12s,border-color .12s}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chip.rec{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn{min-height:52px;padding:0 24px;border-radius:26px;border:1px solid var(--line2);background:var(--surface);color:var(--ink);font-size:16px;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn.solid{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:500;box-shadow:var(--shadow)}
+.btn.quiet{border:0;background:none;color:var(--muted);padding:0 8px;min-height:44px;font-size:15px}
 .btn.full{width:100%}
-.big{min-height:78px;border:0;border-top:1px solid var(--line2);background:none;text-align:left;width:100%;padding:10px 0;display:block}
-.big .t{font-family:var(--serif);font-size:24px;display:block}
-.big .n{font-size:13px;color:var(--muted);display:block;margin-top:2px}
-.field{width:100%;border:0;border-bottom:1px solid var(--line2);background:transparent;padding:10px 0;font-family:var(--serif);font-size:19px}
-.field::placeholder{color:var(--muted);opacity:.8}
-textarea.field{resize:vertical;min-height:90px;line-height:1.45}
-.thread{border-left:1px solid var(--line2);padding-left:22px;display:flex;flex-direction:column;gap:22px}
-.node{position:relative}
-.dot{position:absolute;left:-27px;top:7px;width:9px;height:9px;border-radius:5px;background:var(--ochre)}
-.dot.moi{background:var(--bg);border:1px solid var(--ink)}
-.dot.gens{background:var(--line2)}
-#bar{flex:0 0 auto;padding:0 max(20px,env(safe-area-inset-left,0px)) 10px}
-#bar .in{border-top:1px solid var(--line2);padding-top:12px;display:flex;align-items:center;gap:14px}
-#bar button.ask{flex:1 1 auto;min-height:50px;border:0;background:none;text-align:left;color:var(--muted);padding:0;font-size:16px}
-#bar button.mic{flex:0 0 auto;width:50px;height:50px;border-radius:25px;border:0;background:var(--ink);color:var(--bg);display:flex;align-items:center;justify-content:center}
-#nav{flex:0 0 auto;display:flex;padding:0 10px calc(14px + env(safe-area-inset-bottom,0px))}
-#nav button{flex:1 1 0;min-height:46px;border:0;background:none;font-size:12px;color:var(--muted);padding:0 2px}
-#nav button[aria-current="page"]{color:var(--ink);font-weight:600}
+.big{min-height:84px;border:0;border-top:1px solid var(--line2);background:none;text-align:left;width:100%;padding:15px 0;display:block;color:inherit}
+.big .t{font-family:var(--serif);font-size:25px;letter-spacing:-.015em;display:block}
+.big .n{font-size:13px;color:var(--muted);display:block;margin-top:3px}
+.field{width:100%;border:1px solid var(--line2);border-radius:16px;background:var(--surface);padding:13px 15px;font-family:var(--serif);font-size:19px}
+.field:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.field::placeholder{color:var(--muted);opacity:.7}
+textarea.field{resize:vertical;min-height:96px;line-height:1.45}
+input[type="date"].field{font-family:var(--sans);font-size:16px}
+.lbl{display:block;font-size:13.5px;color:var(--muted);margin-bottom:8px}
+#bar{flex:0 0 auto;padding:10px max(22px,env(safe-area-inset-left,0px)) 12px max(22px,env(safe-area-inset-right,0px));border-top:1px solid var(--line)}
+#bar[hidden]{display:none}
+#bar button{width:100%;min-height:54px;border:0;border-radius:27px;background:var(--accent);color:var(--accent-ink);font-size:16.5px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:9px;box-shadow:var(--shadow)}
+#nav{flex:0 0 auto;display:flex;padding:0 8px calc(14px + env(safe-area-inset-bottom,0px))}
+#nav[hidden]{display:none}
+#nav button{flex:1 1 0;min-height:48px;border:0;background:none;font-size:12px;color:var(--muted);padding:0 2px}
+#nav button[aria-current="page"]{color:var(--accent);font-weight:600}
 .back{width:44px;height:44px;margin-left:-10px;border:0;background:none;color:var(--muted);display:flex;align-items:center}
-.empty{color:var(--muted);font-size:15px;padding:12px 0}
+.empty{color:var(--muted);font-size:15px;padding:15px 0}
 .tag{font-size:12px;color:var(--muted);white-space:nowrap}
-.ok{color:var(--ochre)}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:20px;font-size:14px;z-index:20}
+.ok{color:var(--accent);font-weight:600}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(100px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:22px;font-size:14px;z-index:20;box-shadow:0 8px 28px rgba(0,0,0,.22)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.rec .pt{animation:pulse 1.1s ease-in-out infinite}
 </style>
 </head>
 <body>
 <div id="main" class="pad-top"></div>
 <div id="bar" hidden>
-  <div class="in">
-    <button class="ask" id="askBtn">Qu'est-ce qui vient de se passer&nbsp;?</button>
-    <button class="mic" id="micBtn" aria-label="Noter">
-      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg>
-    </button>
-  </div>
+  <button id="askBtn">
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+    Noter quelque chose
+  </button>
 </div>
 <nav id="nav" hidden aria-label="Navigation"></nav>
 
 <script>
 "use strict";
 const KEY = "ebenezer.v1";
-const MAN = {parle:"Il a parlé", pourvu:"Il a pourvu", ouvert:"Il a ouvert", delivre:"Il a délivré", repris:"Il a repris", autre:"autre"};
+const MAN = {parle:"Il a parlé", pourvu:"Il a pourvu", ouvert:"Il a ouvert", delivre:"Il a délivré", repris:"Il a repris"};
 const MOIS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+const ETAT = {fait:"fait", encours:"en cours", prevu:"prévu", abandon:"abandonné"};
+const ETATS = [["fait","C'est fait"],["encours","Ça dure encore"],["prevu","C'est prévu"]];
 
 let db = {nodes:[], gens:[], noms:[], seq:1};
-let S = {view:"today", step:0, draft:null, filtre:"tout", rev:"noms", open:null, nodeId:null};
+let S = {view:"today", step:0, draft:null, filtre:"tout", rev:"noms", prev:"today", nodeId:null,
+         edit:false, del:false, eMan:"", eEtat:"fait", ePrec:"j",
+         aEtat:"fait", aPour:"dieu", aGid:null};
 
 /* ---------- stockage ---------- */
-function load(){ try{ const r=localStorage.getItem(KEY); if(r) db=JSON.parse(r); }catch(e){} }
+function sane(v){
+  const o = (v && typeof v==="object") ? v : {};
+  return {nodes:Array.isArray(o.nodes)?o.nodes:[], gens:Array.isArray(o.gens)?o.gens:[],
+          noms:Array.isArray(o.noms)?o.noms:[], seq:(typeof o.seq==="number"&&o.seq>0)?o.seq:1};
+}
+function load(){ try{ const r=localStorage.getItem(KEY); if(r) db=sane(JSON.parse(r)); }catch(e){} }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){ toast("Enregistrement impossible"); } }
 function nid(){ return "n"+(db.seq++); }
 function toast(t){ const d=document.createElement("div"); d.className="toast"; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2200); }
 
 /* ---------- dates ---------- */
-function today(){ const d=new Date(); return d.toISOString().slice(0,10); }
-function parse(s){ if(!s) return null; const p=s.split("-"); return {y:+p[0], m:+p[1], d:+p[2]}; }
+function today(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function parse(s){ if(!s) return null; const p=String(s).split("-"); if(p.length<3) return null; return {y:+p[0], m:+p[1], d:+p[2]}; }
 function human(n){
-  if(n.kind==="ecriture") return n.ref || "Écriture";
+  if(n.kind==="ecriture") return n.ref || "";
   const p=parse(n.date); if(!p) return "";
   if(n.prec==="a") return ""+p.y;
   if(n.prec==="m") return MOIS[p.m-1]+" "+p.y;
   return p.d+" "+MOIS[p.m-1]+" "+p.y;
 }
 function ansDepuis(n){ const p=parse(n.date); if(!p) return 0; return new Date().getFullYear()-p.y; }
+function manCourt(m){ return m&&MAN[m] ? MAN[m].replace("Il a ","") : ""; }
 
 /* ---------- accès ---------- */
 function node(id){ return db.nodes.find(n=>n.id===id); }
-function gens(id){ const g=db.gens.find(x=>x.id===id); return g?g.nom:""; }
+function gensNom(id){ const g=db.gens.find(x=>x.id===id); return g?g.nom:""; }
+function gensId(nom){
+  const v=String(nom||"").trim(); if(!v) return null;
+  const k=v.toLowerCase();
+  const f=db.gens.find(g=>String(g.nom).trim().toLowerCase()===k);
+  if(f) return f.id;
+  const id="g"+(db.seq++); db.gens.push({id:id,nom:v}); return id;
+}
 function enfants(id){ return db.nodes.filter(n=>(n.par||[]).indexOf(id)!==-1); }
+function dessous(id){ /* lui et tout ce qui en descend — pour ne pas créer de boucle */
+  const vus=[id]; let f=[id];
+  while(f.length){ const g=[]; f.forEach(x=>enfants(x).forEach(e=>{ if(vus.indexOf(e.id)===-1){vus.push(e.id); g.push(e.id);} })); f=g; }
+  return vus;
+}
+function estParole(n){ return n.kind==="rhema" || n.kind==="ecriture" || (n.act==="dieu" && n.man==="parle"); }
 function acteurTxt(n){
   if(n.act==="dieu") return n.kind==="ecriture" ? "Écriture" : (n.kind==="rhema" ? "Dieu · rhema" : "Dieu");
-  if(n.act==="gens") return gens(n.gid)||"quelqu'un";
-  let d = n.dest==="gens" ? gens(n.dgid) : (n.dest==="moi" ? "moi-même" : "Dieu");
+  if(n.act==="gens"){ const nom=gensNom(n.gid)||"quelqu'un"; return n.man ? ("Lui, par "+nom) : nom; }
+  const d = n.dest==="gens" ? (gensNom(n.dgid)||"quelqu'un") : (n.dest==="moi" ? "moi-même" : "Dieu");
   return "moi → "+d;
 }
-function dieuNodes(){ return db.nodes.filter(n=>n.act==="dieu" && n.kind!=="ecriture"); }
+/* Ses œuvres : ce qu'Il a fait Lui-même, et ce qu'Il a fait par une main — reconnu à sa manière. */
+function dieuNodes(){ return db.nodes.filter(n=>n.kind!=="ecriture" && (n.act==="dieu" || (n.act==="gens" && n.man))); }
+function parDate(a,b){ return (b.date||"").localeCompare(a.date||""); }
 
 /* ---------- ce qui revient ---------- */
 function remontee(){
@@ -149,7 +192,8 @@ function remontee(){
   const anniv = dieuNodes().filter(n=>{ const p=parse(n.date); return p && n.prec==="j" && p.m===m && p.d===j && p.y<now.getFullYear(); })
     .sort((a,b)=>a.date.localeCompare(b.date));
   if(anniv.length) return {type:"anniv", n:anniv[0]};
-  const prevu = db.nodes.filter(n=>n.etat==="prevu" && n.date && n.date<=today());
+  const prevu = db.nodes.filter(n=>n.etat==="prevu" && n.date && n.date<=today())
+    .sort((a,b)=>(a.date||"").localeCompare(b.date||""));
   if(prevu.length) return {type:"prevu", n:prevu[0]};
   const dette = dieuNodes().filter(n=>!enfants(n.id).some(e=>e.act==="moi"))
     .sort((a,b)=>(a.date||"").localeCompare(b.date||""));
@@ -160,19 +204,39 @@ function remontee(){
 /* ---------- rendu ---------- */
 const main=document.getElementById("main"), bar=document.getElementById("bar"), nav=document.getElementById("nav");
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+const RETOUR = `<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>`;
+const VUES = {today:vToday, oeuvres:vOeuvres, revel:vRevel, actes:vActes, note:vNote, node:vNode, attach:vAttach, lier:vLier, data:vData};
 
 function render(){
+  if(rec) micArret();
   const plein = ["today","oeuvres","revel","actes"].indexOf(S.view)!==-1;
-  bar.hidden = S.view!=="today";
+  bar.hidden = S.view!=="today" || !db.nodes.length;
   nav.hidden = !plein;
   main.className = plein ? "pad-top" : "";
   if(plein) navRender();
-  ({today:vToday, oeuvres:vOeuvres, revel:vRevel, actes:vActes, note:vNote, node:vNode, attach:vAttach, data:vData}[S.view]||vToday)();
+  (VUES[S.view]||vToday)();
   main.scrollTop=0;
 }
 function navRender(){
   const t=[["today","Aujourd'hui"],["oeuvres","Ses œuvres"],["revel","Révélations"],["actes","Mes actes"]];
   nav.innerHTML=t.map(([k,l])=>`<button data-go="${k}"${S.view===k?' aria-current="page"':""}>${l}</button>`).join("");
+}
+function entete(retour){
+  return `<div style="display:flex;justify-content:space-between;padding-top:14px">
+    <button class="back" ${retour} aria-label="Revenir">${RETOUR}</button>
+    <button class="back" data-go="today" aria-label="Fermer" style="margin:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>`;
+}
+/* « Quand ? » — la date est toujours là, jamais cachée derrière un choix. */
+function blocDate(id, val, prec, etats, etat){
+  let h=`<div class="sep" style="padding-top:18px">
+    <label class="lbl" for="${id}">Quand&nbsp;?</label>
+    <input class="field" type="date" id="${id}" value="${val||today()}">
+    <button class="btn quiet" data-act="prec${id}" style="padding:0;margin-top:2px">${prec==="m"?"✓ je ne me souviens que du mois":"Je ne me souviens que du mois"}</button>`;
+  if(etats){
+    h+=`<p class="lbl" style="margin-top:14px">Où ça en est&nbsp;?</p><div class="chips" id="${id}Etat">`+
+      ETATS.map(([k,l])=>`<button class="chip" data-etat="${k}" aria-pressed="${etat===k}">${l}</button>`).join("")+`</div>`;
+  }
+  return h+`</div>`;
 }
 
 /* --- Aujourd'hui --- */
@@ -180,40 +244,44 @@ function vToday(){
   const now=new Date();
   const d = now.getDate()+" "+MOIS[now.getMonth()];
   if(!db.nodes.length){
-    main.innerHTML = `<div class="stack gap20" style="padding-top:40px">
+    main.innerHTML = `<div class="stack gap20" style="padding-top:44px">
       <p class="meta">${d}</p>
-      <p class="serif" style="font-size:27px;margin-top:16px">Rien encore.</p>
+      <p class="serif" style="font-size:30px;margin-top:14px">Rien encore.</p>
       <p class="sub">Note la première chose : ce qu'Il a fait, ce que tu as fait, ou ce que quelqu'un a fait.</p>
-      <div class="stack gap12" style="padding-top:8px">
+      <div class="stack gap12" style="padding-top:10px">
         <button class="btn solid" data-go="note">Noter quelque chose</button>
         <button class="btn quiet" data-act="demo" style="align-self:flex-start">Voir un exemple</button>
       </div></div>`;
     return;
   }
   const r=remontee();
-  let h=`<div class="stack gap20" style="padding-top:36px"><p class="meta">${d}</p>`;
+  let h=`<div class="stack gap20" style="padding-top:34px"><p class="meta">${d}</p>`;
   if(!r){
-    h+=`<p style="margin-top:16px">Rien ne revient aujourd'hui.</p>`;
+    h+=`<p class="serif" style="font-size:26px;margin-top:14px">Rien ne revient aujourd'hui.</p>
+        <p class="sub">Tout ce qu'Il a fait a reçu quelque chose de toi. Note la suite quand elle vient.</p>`;
   } else if(r.type==="anniv"){
     const a=ansDepuis(r.n);
-    h+=`<button class="stack gap16" data-node="${r.n.id}" style="border:0;background:none;text-align:left;padding:0;margin-top:16px;color:inherit">
-      <span>Il y a ${a} an${a>1?"s":""} jour pour jour,<br>Dieu t'a dit ceci&nbsp;:</span>
-      <span class="serif" style="font-size:26px">${esc(r.n.txt)}</span>
-      <span style="color:var(--ochre);display:flex;align-items:center;gap:8px;min-height:44px">${enfants(r.n.id).some(e=>e.act==="moi")?"Tu y as répondu":"Tu n'as rien fait pour cette parole"} →</span>
+    const intro = r.n.act==="gens" ? "Il est passé par "+esc(gensNom(r.n.gid))+"&nbsp;:"
+                 : (r.n.man==="parle" ? "Dieu t'a dit ceci&nbsp;:" : "Dieu a fait ceci&nbsp;:");
+    h+=`<button class="stack gap16" data-node="${r.n.id}" style="border:0;background:none;text-align:left;padding:0;margin-top:12px;color:inherit">
+      <span>Il y a ${a} an${a>1?"s":""} jour pour jour,<br>${intro}</span>
+      <span class="serif ${estParole(r.n)?"voix":""}" style="font-size:27px">${esc(r.n.txt)}</span>
+      <span style="color:var(--accent);font-weight:500;display:flex;align-items:center;gap:8px;min-height:44px">${enfants(r.n.id).some(e=>e.act==="moi")?"Tu y as répondu":"Tu n'as rien fait pour cela"} →</span>
     </button>`;
   } else if(r.type==="prevu"){
-    h+=`<p style="margin-top:16px">Tu avais prévu ceci&nbsp;:</p>
-      <p class="serif" style="font-size:26px">${esc(r.n.txt)}</p>
-      <div class="chips" style="padding-top:8px">
+    h+=`<p style="margin-top:12px">Tu avais prévu ceci&nbsp;:</p>
+      <p class="serif" style="font-size:27px">${esc(r.n.txt)}</p>
+      <p class="meta">${esc(acteurTxt(r.n))} · pour le ${human(r.n)}</p>
+      <div class="chips" style="padding-top:6px">
         <button class="btn" data-fait="${r.n.id}">C'est fait</button>
         <button class="btn quiet" data-abandon="${r.n.id}">J'y renonce</button>
       </div>`;
   } else {
-    h+=`<button class="stack gap16" data-node="${r.n.id}" style="border:0;background:none;text-align:left;padding:0;margin-top:16px;color:inherit">
+    h+=`<button class="stack gap16" data-node="${r.n.id}" style="border:0;background:none;text-align:left;padding:0;margin-top:12px;color:inherit">
       <span>Tu n'as jamais rien rendu pour ceci&nbsp;:</span>
-      <span class="serif" style="font-size:26px">${esc(r.n.txt)}</span>
-      <span class="meta">${human(r.n)}</span>
-      <span style="color:var(--ochre);min-height:44px;display:flex;align-items:center">Y répondre →</span>
+      <span class="serif ${estParole(r.n)?"voix":""}" style="font-size:27px">${esc(r.n.txt)}</span>
+      <span class="meta">${esc(acteurTxt(r.n))} · ${human(r.n)}</span>
+      <span style="color:var(--accent);font-weight:500;min-height:44px;display:flex;align-items:center">Y répondre →</span>
     </button>`;
   }
   h+=`</div>`;
@@ -222,10 +290,10 @@ function vToday(){
 
 /* --- Ses œuvres --- */
 function vOeuvres(){
-  const list=dieuNodes().slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+  const list=dieuNodes().slice().sort(parDate);
   const fl=["tout","parle","pourvu","ouvert","delivre","repris"];
-  let h=`<div class="stack gap16" style="padding-top:32px">
-    <div><h1>Ses œuvres</h1><p class="sub">${list.length} fois.</p></div>
+  let h=`<div class="stack gap16" style="padding-top:30px">
+    <div><h1>Ses œuvres</h1><p class="sub">${list.length} fois, par Lui-même ou par une main.</p></div>
     <div class="chips">${fl.map(f=>`<button class="chip" data-filtre="${f}" aria-pressed="${S.filtre===f}">${f==="tout"?"Tout":MAN[f]}</button>`).join("")}</div>`;
   const vus=S.filtre==="tout"?list:list.filter(n=>n.man===S.filtre);
   if(!vus.length) h+=`<p class="empty">Rien sous ce filtre.</p>`;
@@ -233,8 +301,9 @@ function vOeuvres(){
   h+=`<div class="stack">`;
   vus.forEach(n=>{
     const y=(parse(n.date)||{y:"?"}).y;
-    if(y!==an){ an=y; h+=`<h2 style="margin:18px 0 2px">${y}</h2>`; }
-    h+=`<button class="item" data-node="${n.id}"><span class="row"><span class="serif" style="font-size:17px">${esc(n.txt)}</span><span class="tag">${n.man?MAN[n.man].replace("Il a ",""):""}</span></span></button>`;
+    if(y!==an){ an=y; h+=`<h2 style="margin:22px 0 0">${y}</h2>`; }
+    const qui = n.act==="gens" ? `<span class="meta" style="display:block;margin-top:4px">par ${esc(gensNom(n.gid))}</span>` : "";
+    h+=`<button class="item" data-node="${n.id}"><span class="row"><span><span class="serif ${estParole(n)?"voix":""}" style="font-size:17.5px">${esc(n.txt)}</span>${qui}</span><span class="tag">${manCourt(n.man)}</span></span></button>`;
   });
   h+=`</div><div class="sep"></div></div>`;
   main.innerHTML=h;
@@ -243,69 +312,78 @@ function vOeuvres(){
 /* --- Révélations --- */
 function vRevel(){
   const o=[["noms","Les noms de Dieu"],["gens","Les personnes"],["chiffres","Les chiffres"]];
-  let h=`<div class="stack gap16" style="padding-top:32px">
+  let h=`<div class="stack gap16" style="padding-top:30px">
     <div><h1>Révélations</h1><p class="sub">Ce que tout cela t'a fait connaître de Lui.</p></div>
     <div class="chips">${o.map(([k,l])=>`<button class="chip" data-rev="${k}" aria-pressed="${S.rev===k}">${l}</button>`).join("")}</div><div class="stack">`;
   if(S.rev==="noms"){
     if(!db.noms.length) h+=`<p class="empty">Aucun nom encore. Ils viennent en relisant.</p>`;
     db.noms.forEach(nm=>{
-      h+=`<div class="item"><span class="row"><span class="serif" style="font-size:17px">${esc(nm.txt)}</span><span class="tag ok">${(nm.nodes||[]).length||"—"}</span></span></div>`;
+      h+=`<div class="item"><span class="row"><span class="serif voix" style="font-size:17.5px">${esc(nm.txt)}</span><span class="tag"><span class="ok">${(nm.nodes||[]).length||"—"}</span> <button class="btn quiet" data-delnom="${nm.id}" aria-label="Retirer ce nom" style="min-height:32px;padding:0 6px">×</button></span></span></div>`;
     });
-    h+=`<div class="sep"></div><div style="padding-top:16px"><input class="field" id="newNom" placeholder="Comment Il t'a traité ? → un nom"><button class="btn" style="margin-top:12px" data-act="addNom">Garder ce nom</button></div>`;
+    h+=`<div class="sep"></div><div style="padding-top:18px"><label class="lbl" for="newNom">Comment Il t'a traité&nbsp;? → un nom</label><input class="field" id="newNom" placeholder="« Celui qui… »"><button class="btn" style="margin-top:12px" data-act="addNom">Garder ce nom</button></div>`;
   } else if(S.rev==="gens"){
     if(!db.gens.length) h+=`<p class="empty">Personne encore.</p>`;
     db.gens.forEach(g=>{
       const par=db.nodes.filter(n=>n.gid===g.id).length;
       const dit=db.nodes.filter(n=>n.act==="moi"&&n.dest==="gens"&&n.dgid===g.id).length;
-      h+=`<div class="item"><span class="row"><span>${esc(g.nom)}</span><span class="tag">${par} fois · ${dit?"dit "+dit+"×":"rien dit"}</span></span></div>`;
+      h+=`<div class="item"><span style="font-size:17px">${esc(g.nom)}</span>
+        <span class="meta" style="display:block;margin-top:4px">${par?("Il est passé par lui "+par+" fois."):"Rien de Lui par lui, encore."} ${dit?("Tu lui as rendu "+dit+" chose"+(dit>1?"s":"")+"."):"Tu ne lui as rien rendu."}</span></div>`;
     });
     h+=`<div class="sep"></div>`;
   } else {
     chiffres().forEach(t=>{ h+=`<p class="item">${t}</p>`; });
-    h+=`<div class="sep"></div><p class="sub" style="padding-top:14px">Aucune moyenne n'est un jugement.</p>`;
+    h+=`<div class="sep"></div><p class="sub" style="padding-top:16px">Aucune moyenne n'est un jugement.</p>`;
   }
-  h+=`</div><div style="padding-top:22px"><button class="btn quiet" data-go="data" style="padding:0">Mes données →</button></div></div>`;
+  h+=`</div><div style="padding-top:24px"><button class="btn quiet" data-go="data" style="padding:0">Mes données →</button></div></div>`;
   main.innerHTML=h;
 }
 function chiffres(){
   const out=[], dn=dieuNodes();
-  out.push(`Il a agi <b>${dn.length}</b> fois, depuis ${dn.length?(parse(dn.map(n=>n.date).filter(Boolean).sort()[0])||{y:"?"}).y:"?"}.`);
-  const sansR=dn.filter(n=>!enfants(n.id).some(e=>e.act==="moi")).length;
-  if(dn.length) out.push(`<b>${sansR}</b> de ses actes n'ont jamais rien reçu de toi.`);
+  const prem=dn.map(n=>n.date).filter(Boolean).sort()[0];
+  out.push(`Il a agi <b>${dn.length}</b> fois${prem?(", depuis "+(parse(prem)||{y:"?"}).y):""}.`);
+  if(dn.length){
+    const sansR=dn.filter(n=>!enfants(n.id).some(e=>e.act==="moi")).length;
+    out.push(sansR ? `<b>${sansR}</b> de ses actes n'ont jamais rien reçu de toi.`
+                   : `Chacun de ses actes a reçu quelque chose de toi.`);
+  }
   const mien=db.nodes.filter(n=>n.act==="moi");
   if(mien.length){
+    out.push(`Tu as posé <b>${mien.length}</b> acte${mien.length>1?"s":""} : ${mien.filter(n=>n.dest==="dieu").length} pour Lui, ${mien.filter(n=>n.dest==="gens").length} pour d'autres, ${mien.filter(n=>n.dest==="moi").length} pour toi.`);
     const yrs={};
     mien.forEach(n=>{ const p=parse(n.date); if(!p) return; yrs[p.y]=yrs[p.y]||{t:0,moi:0}; yrs[p.y].t++; if(n.dest==="moi") yrs[p.y].moi++; });
     const ks=Object.keys(yrs).sort();
     if(ks.length>=2){
       const a=yrs[ks[0]], b=yrs[ks[ks.length-1]];
-      out.push(`En ${ks[0]}, ${Math.round(100*a.moi/a.t)}% de tes actes étaient pour toi. En ${ks[ks.length-1]}, ${Math.round(100*b.moi/b.t)}%.`);
+      /* Une proportion ne veut rien dire sur deux ou trois actes. */
+      if(a.t>=5 && b.t>=5) out.push(`En ${ks[0]}, ${Math.round(100*a.moi/a.t)}% de tes actes étaient pour toi. En ${ks[ks.length-1]}, ${Math.round(100*b.moi/b.t)}%.`);
     }
   }
   const par={};
   db.nodes.forEach(n=>{ if(n.act==="gens"&&n.gid) par[n.gid]=(par[n.gid]||0)+1; });
   const top=Object.keys(par).sort((a,b)=>par[b]-par[a])[0];
-  if(top) out.push(`Dieu est passé <b>${par[top]}</b> fois par ${esc(gens(top))}.`);
+  if(top) out.push(`Dieu est passé <b>${par[top]}</b> fois par ${esc(gensNom(top))}.`);
   return out;
 }
 
 /* --- Mes actes --- */
 function vActes(){
   const mien=db.nodes.filter(n=>n.act==="moi");
-  const sec=(t,arr,extra)=>{
+  const sec=(t,arr,extra,reste)=>{
     let h=`<section><h2>${t}</h2>`;
     if(!arr.length) h+=`<p class="empty">Rien.</p>`;
     arr.forEach(n=>{
-      h+=`<div class="item"><span class="row"><span>${esc(n.txt)} <span class="meta">· ${n.dest==="gens"?"à "+esc(gens(n.dgid)):(n.dest==="moi"?"pour moi":"à Dieu")}</span></span><span class="tag">${human(n)}</span></span>`;
-      if(extra) h+=`<span class="chips" style="margin-top:10px"><button class="chip" data-fait="${n.id}">C'est fait</button><button class="chip" data-abandon="${n.id}">J'y renonce</button></span>`;
+      h+=`<div class="item"><span class="row"><span><button data-node="${n.id}" style="border:0;background:none;padding:0;color:inherit;text-align:left;font:inherit">${esc(n.txt)}</button><span class="meta" style="display:block;margin-top:4px">${n.dest==="gens"?"à "+esc(gensNom(n.dgid)):(n.dest==="moi"?"pour moi":"à Dieu")}</span></span><span class="tag">${human(n)}</span></span>`;
+      if(extra) h+=`<span class="chips" style="margin-top:12px"><button class="chip" data-fait="${n.id}">C'est fait</button><button class="chip" data-abandon="${n.id}">J'y renonce</button></span>`;
       h+=`</div>`;
     });
+    if(reste>0) h+=`<p class="meta" style="padding-top:14px">…et ${reste} autre${reste>1?"s":""}.</p>`;
     return h+`<div class="sep"></div></section>`;
   };
-  main.innerHTML=`<div class="stack gap28" style="padding-top:32px"><h1>Mes actes</h1>
+  const faits=mien.filter(n=>n.etat==="fait").sort(parDate);
+  main.innerHTML=`<div class="stack gap28" style="padding-top:30px"><h1>Mes actes</h1>
     ${sec("En cours", mien.filter(n=>n.etat==="encours"))}
-    ${sec("Planifié", mien.filter(n=>n.etat==="prevu"), true)}
-    ${sec("Fait", mien.filter(n=>n.etat==="fait").sort((a,b)=>(b.date||"").localeCompare(a.date||"")).slice(0,12))}
+    ${sec("Planifié", mien.filter(n=>n.etat==="prevu").sort((a,b)=>(a.date||"").localeCompare(b.date||"")), true)}
+    ${sec("Fait", faits.slice(0,12), false, faits.length-12)}
   </div>`;
 }
 
@@ -313,184 +391,337 @@ function vActes(){
 function vNode(){
   const n=node(S.nodeId); if(!n){ S.view="today"; return render(); }
   const par=(n.par||[]).map(node).filter(Boolean), enf=enfants(n.id);
-  let h=`<div class="stack gap16" style="padding-top:16px"><button class="back" data-back="1" aria-label="Revenir"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M15 5l-7 7 7 7"></path></svg></button>
-    <p class="serif" style="font-size:24px">${esc(n.txt)}</p>
-    <p class="meta">${esc(acteurTxt(n))} · ${human(n)}${n.man?" · "+MAN[n.man].toLowerCase():""}</p>`;
-  h+=`<section class="sep" style="padding-top:16px"><h2>Ce qui a précédé</h2>`;
+  let h=`<div class="stack gap16" style="padding-top:14px"><button class="back" data-back="1" aria-label="Revenir">${RETOUR}</button>`;
+  if(S.edit){
+    h+=`<label class="lbl" for="eTxt">Le texte</label>
+      <textarea class="field" id="eTxt" style="font-size:20px">${esc(n.txt)}</textarea>`+micBloc("eTxt");
+    if(n.act!=="moi"){
+      h+=`<p class="lbl" style="margin-top:4px">Sa manière&nbsp;:</p><div class="chips" id="eMan">`+
+        Object.keys(MAN).map(k=>`<button class="chip" data-eman="${k}" aria-pressed="${S.eMan===k}">${MAN[k]}</button>`).join("")+`</div>`;
+    }
+    h+=blocDate("eDate", n.date, S.ePrec, n.act==="moi", S.eEtat);
+    h+=`<div class="chips" style="padding-top:4px"><button class="btn solid" data-act="saveEdit">Garder</button><button class="btn quiet" data-act="cancelEdit">Annuler</button></div>`;
+  } else {
+    const dte=human(n);
+    h+=`<p class="serif ${estParole(n)?"voix":""}" style="font-size:25px">${esc(n.txt)}</p>
+      <p class="meta">${esc(acteurTxt(n))}${dte?" · "+dte:""}${n.man?" · "+manCourt(n.man):""}${n.etat&&n.etat!=="fait"?" · "+ETAT[n.etat]:""}</p>`;
+  }
+  h+=`<section class="sep" style="padding-top:18px"><h2>Ce qui a précédé</h2>`;
   if(!par.length) h+=`<p class="empty">Rien de rattaché.</p>`;
-  par.forEach(p=>{ h+=`<button class="item" data-node="${p.id}"><span>${esc(p.txt)}</span><span class="meta" style="display:block;margin-top:3px">${esc(acteurTxt(p))} · ${human(p)}</span></button>`; });
-  h+=`<div class="sep"></div></section>`;
-  h+=`<section class="sep" style="padding-top:16px"><h2>Ce qui a suivi</h2>`;
+  par.forEach(p=>{ const d2=human(p); h+=`<button class="item" data-node="${p.id}"><span class="serif ${estParole(p)?"voix":""}">${esc(p.txt)}</span><span class="meta" style="display:block;margin-top:4px">${esc(acteurTxt(p))}${d2?" · "+d2:""}</span></button>`; });
+  h+=`<div class="sep"></div><div style="padding-top:16px"><button class="btn" data-lierview="${n.id}">Rattacher ce qui a précédé</button></div></section>`;
+  h+=`<section class="sep" style="padding-top:18px"><h2>Ce qui a suivi</h2>`;
   if(!enf.length) h+=`<p class="empty">Rien, pour l'instant.</p>`;
-  enf.forEach(e=>{ h+=`<button class="item" data-node="${e.id}"><span class="row"><span>${esc(e.txt)}</span><span class="tag">${human(e)}</span></span></button>`; });
-  h+=`<div class="sep"></div><div style="padding-top:16px"><button class="btn" data-attach="${n.id}">Attacher un acte</button></div></section>`;
+  enf.forEach(e=>{
+    h+=`<button class="item" data-node="${e.id}"><span class="row"><span>${esc(e.txt)}<span class="meta" style="display:block;margin-top:4px">${esc(acteurTxt(e))}${e.etat&&e.etat!=="fait"?" · "+ETAT[e.etat]:""}</span></span><span class="tag">${human(e)}</span></span></button>`;
+  });
+  h+=`<div class="sep"></div><div style="padding-top:16px"><button class="btn solid" data-attach="${n.id}">Attacher ma réponse</button></div></section>`;
   if(n.etat==="prevu") h+=`<div class="chips"><button class="btn" data-fait="${n.id}">C'est fait</button><button class="btn quiet" data-abandon="${n.id}">J'y renonce</button></div>`;
+  if(!S.edit) h+=`<div class="sep" style="padding-top:16px;display:flex;gap:12px">
+      <button class="btn quiet" data-act="edit" style="padding:0">Corriger</button>
+      ${S.del?`<button class="btn quiet" data-act="delNode" style="padding:0;color:var(--accent);font-weight:600">Confirmer la suppression</button>`
+             :`<button class="btn quiet" data-act="askDel" style="padding:0">Supprimer</button>`}
+    </div>`;
   main.innerHTML=h+`</div>`;
 }
 
-/* --- attacher (parent connu) --- */
+/* --- rattacher ce qui a précédé --- */
+function vLier(){
+  const n=node(S.nodeId); if(!n){ S.view="today"; return render(); }
+  const exclus=dessous(n.id);
+  const cands=db.nodes.filter(x=>exclus.indexOf(x.id)===-1).sort(parDate).slice(0,40);
+  let h=`<div class="stack gap16" style="padding-top:14px"><button class="back" data-back="1" aria-label="Revenir">${RETOUR}</button>
+    <div><h2>Ce qui a précédé</h2><p class="serif" style="font-size:19px">${esc(n.txt)}</p></div>
+    <p class="sub">Coche une parole, une prière, un bienfait d'avant. Autant de liens que nécessaire.</p>`;
+  if(cands.length>8) h+=`<input class="field" id="pFilter" placeholder="filtrer…" style="font-size:16px">`;
+  if(!cands.length) h+=`<p class="empty">Rien d'autre dans ta base pour l'instant.</p>`;
+  h+=`<div class="stack">`;
+  cands.forEach(x=>{
+    const on=(n.par||[]).indexOf(x.id)!==-1, dte=human(x);
+    h+=`<button class="item${on?" on":""}" data-par="${x.id}"><span class="row"><span><span class="${estParole(x)?"serif voix":""}">${esc(x.txt)}</span><span class="meta" style="display:block;margin-top:4px">${esc(acteurTxt(x))}${dte?" · "+dte:""}</span></span><span class="ok">${on?"✓":""}</span></span></button>`;
+  });
+  h+=`</div><div class="sep"></div>
+    <div style="padding-top:16px"><label class="lbl" for="newProm">Une promesse qui n'est pas encore là&nbsp;?</label>
+      <input class="field" id="newProm" placeholder="« Je ne t'abandonnerai point » — Hé 13.5">
+      <button class="btn" style="margin-top:12px" data-act="addProm">Ajouter et lier</button></div>
+    <div style="padding-top:18px"><button class="btn solid full" data-back="1">Terminer</button></div></div>`;
+  main.innerHTML=h;
+}
+
+/* --- attacher ma réponse (enfant d'un nœud connu) --- */
 function vAttach(){
   const p=node(S.nodeId);
-  main.innerHTML=`<div class="stack gap20" style="padding-top:16px"><button class="back" data-back="1" aria-label="Revenir"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M15 5l-7 7 7 7"></path></svg></button>
-    <div><h2>En réponse à</h2><p class="serif" style="font-size:18px">${esc(p?p.txt:"")}</p></div>
-    <div class="sep" style="padding-top:16px"><label for="aq" style="display:block;margin-bottom:6px">Quoi&nbsp;?</label>
+  const versGens = p && p.act==="gens";
+  const sug = versGens
+    ? ["Le lui dire","Lui rendre un service","Prier pour lui","Remercier Dieu pour lui"]
+    : ["Remercier à voix haute","Donner","Jeûner un jour","Le proclamer","Méditer sur ce bienfait"];
+  main.innerHTML=`<div class="stack gap16" style="padding-top:14px"><button class="back" data-back="1" aria-label="Revenir">${RETOUR}</button>
+    <div><h2>En réponse à</h2><p class="serif ${p&&estParole(p)?"voix":""}" style="font-size:19px">${esc(p?p.txt:"")}</p>
+      <p class="meta" style="margin-top:5px">${p?esc(acteurTxt(p)):""}${p&&human(p)?" · "+human(p):""}</p></div>
+    <div class="sep" style="padding-top:18px"><label class="lbl" for="aq">Quoi&nbsp;? Un verbe à l'infinitif.</label>
       <textarea class="field" id="aq" placeholder="Remercier à voix haute pour…"></textarea>
-      <p class="sub" style="margin-top:8px">Un verbe à l'infinitif. Touche le micro du clavier pour dicter.</p></div>
-    <div class="sep" style="padding-top:16px"><p style="margin-bottom:10px">Pour qui&nbsp;?</p>
+      ${micBloc("aq")}
+      <div class="chips" style="margin-top:10px">${sug.map(s=>`<button class="chip" data-sug="${esc(s)}">${esc(s)}</button>`).join("")}</div></div>
+    <div class="sep" style="padding-top:18px"><p class="lbl">Pour qui&nbsp;?</p>
       <div class="chips" id="aPour">
-        <button class="chip" data-pour="dieu" aria-pressed="true">Pour Dieu</button>
-        <button class="chip" data-pour="gens" aria-pressed="false">Pour quelqu'un</button>
-        <button class="chip" data-pour="moi" aria-pressed="false">Pour moi</button>
+        <button class="chip" data-pour="dieu" aria-pressed="${S.aPour==="dieu"}">Pour Dieu</button>
+        <button class="chip" data-pour="gens" aria-pressed="${S.aPour==="gens"}">Pour quelqu'un</button>
+        <button class="chip" data-pour="moi" aria-pressed="${S.aPour==="moi"}">Pour moi</button>
       </div>
-      <input class="field" id="aNom" placeholder="son nom" hidden style="margin-top:10px"></div>
-    <div class="sep" style="padding-top:16px"><p style="margin-bottom:10px">Quand&nbsp;?</p>
-      <div class="chips" id="aQuand">
-        <button class="chip" data-quand="now" aria-pressed="true">Maintenant</button>
-        <button class="chip" data-quand="encours" aria-pressed="false">Ça dure encore</button>
-        <button class="chip" data-quand="avant" aria-pressed="false">Déjà fait</button>
-        <button class="chip" data-quand="apres" aria-pressed="false">Plus tard</button>
-      </div>
-      <input class="field" id="aDate" type="date" hidden style="margin-top:10px"></div>
-    <button class="btn solid full" data-act="saveAttach">Attacher</button></div>`;
+      <div id="aGens" ${S.aPour==="gens"?"":"hidden"} style="margin-top:12px">
+        ${db.gens.length?`<div class="chips" id="aGensList">${db.gens.map(g=>`<button class="chip" data-agid="${g.id}" aria-pressed="${S.aGid===g.id}">${esc(g.nom)}</button>`).join("")}</div>`:""}
+        <input class="field" id="aNom" placeholder="un autre nom" style="margin-top:10px">
+      </div></div>
+    ${blocDate("aDate", today(), S.aPrec, true, S.aEtat)}
+    <div style="padding-top:18px"><button class="btn solid full" data-act="saveAttach">Attacher</button></div></div>`;
 }
 
 /* --- noter --- */
+function neuf(act){ return {act:act,gid:null,dest:"dieu",dgid:null,txt:"",man:"",par:[],etat:"fait",date:today(),prec:"j"}; }
 function vNote(){
-  const d=S.draft||(S.draft={act:null,gid:null,dest:"dieu",dgid:null,txt:"",man:"",par:[],quand:"now",date:today(),prec:"j"});
-  const head=`<div style="display:flex;justify-content:space-between;padding-top:16px"><button class="back" data-step="-1" aria-label="Revenir"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M15 5l-7 7 7 7"></path></svg></button><button class="back" data-go="today" aria-label="Fermer" style="margin:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>`;
-  let h=head+`<div class="stack gap16">`;
+  const d=S.draft||(S.draft=neuf(null));
+  let h=entete(`data-step="-1"`)+`<div class="stack gap16">`;
   if(S.step===0){
-    h+=`<p style="margin-bottom:4px">Qu'est-ce que tu gardes&nbsp;?</p>
+    h+=`<p style="margin-bottom:2px">Qu'est-ce que tu gardes&nbsp;?</p>
       <button class="big" data-qui="dieu"><span class="t">Dieu a fait…</span><span class="n">sans passer par personne</span></button>
       <button class="big" data-qui="moi"><span class="t">J'ai fait…</span></button>
       <button class="big" data-qui="gens"><span class="t">Quelqu'un a fait…</span><span class="n">même si c'est Lui derrière</span></button>
       <div class="sep"></div>`;
   } else if(S.step===1){
     if(d.act==="moi"){
-      h+=`<p style="margin-bottom:4px">Pour qui&nbsp;?</p>
+      h+=`<p style="margin-bottom:2px">Pour qui&nbsp;?</p>
         <button class="big" data-dest="dieu"><span class="t">Pour Dieu</span></button>
         <button class="big" data-dest="gens"><span class="t">Pour quelqu'un</span></button>
         <button class="big" data-dest="moi"><span class="t">Pour moi</span></button><div class="sep"></div>`;
     } else {
-      h+=`<p style="margin-bottom:8px">Qui&nbsp;?</p>`+listeGens("gid")+`<div style="padding-top:12px"><input class="field" id="newGens" placeholder="un autre nom"><button class="btn" style="margin-top:10px" data-act="addGens">Ajouter</button></div>`;
+      h+=`<p class="lbl">Qui&nbsp;?</p>`+listeGens("gid")+`<div style="padding-top:14px"><input class="field" id="newGens" placeholder="un autre nom"><button class="btn" style="margin-top:12px" data-act="addGens">Ajouter</button></div>`;
     }
   } else if(S.step===2 && d.act==="moi" && d.dest==="gens"){
-    h+=`<p style="margin-bottom:8px">Pour qui&nbsp;?</p>`+listeGens("dgid")+`<div style="padding-top:12px"><input class="field" id="newGens" placeholder="un autre nom"><button class="btn" style="margin-top:10px" data-act="addGens2">Ajouter</button></div>`;
+    h+=`<p class="lbl">Pour qui&nbsp;?</p>`+listeGens("dgid")+`<div style="padding-top:14px"><input class="field" id="newGens" placeholder="un autre nom"><button class="btn" style="margin-top:12px" data-act="addGens2">Ajouter</button></div>`;
   } else if(S.step===3){
-    h+=`<p style="margin-bottom:6px">${d.act==="dieu"?"Qu'est-ce qu'Il a fait&nbsp;?":(d.act==="moi"?"Qu'est-ce que tu as fait&nbsp;?":"Qu'est-ce qu'on a fait&nbsp;?")}</p>
-      <textarea class="field" id="nTxt" placeholder="${d.act==="moi"?"Jeûner un jour pour…":"…"}">${esc(d.txt)}</textarea>
-      <p class="sub">Touche le micro du clavier pour dicter.</p>`;
-    if(d.act==="dieu"){
-      h+=`<div style="padding-top:8px"><p class="sub" style="margin-bottom:8px">Sa manière&nbsp;:</p><div class="chips">`+
-        Object.keys(MAN).filter(k=>k!=="autre").map(k=>`<button class="chip" data-man="${k}" aria-pressed="${d.man===k}">${MAN[k]}</button>`).join("")+`</div></div>`;
+    const ph = d.act==="dieu" ? "Il a guéri maman en une nuit"
+             : (d.act==="moi" ? "Jeûner un jour pour…" : "Il a payé le loyer, sans que je demande");
+    h+=`<label class="lbl" for="nTxt">${d.act==="dieu"?"Qu'est-ce qu'Il a fait&nbsp;?":(d.act==="moi"?"Qu'est-ce que tu as fait&nbsp;?":"Qu'a fait "+esc(gensNom(d.gid)||"cette personne")+"&nbsp;?")}</label>
+      <textarea class="field" id="nTxt" placeholder="${ph}">${esc(d.txt)}</textarea>`+micBloc("nTxt");
+    if(d.act!=="moi"){
+      h+=`<div style="padding-top:6px"><p class="lbl">${d.act==="dieu"?"Sa manière&nbsp;:":"Si tu reconnais Sa main derrière, dis comment&nbsp;:"}</p><div class="chips" id="mChips">`+
+        Object.keys(MAN).map(k=>`<button class="chip" data-man="${k}" aria-pressed="${d.man===k}">${MAN[k]}</button>`).join("")+`</div>`;
+      if(d.act==="gens") h+=`<p class="sub" style="margin-top:10px">Si tu en choisis une, cet acte entrera dans Ses œuvres.</p>`;
+      h+=`</div>`;
     }
-    h+=`<button class="btn solid full" style="margin-top:12px" data-act="toParents">Continuer</button>`;
+    h+=`<button class="btn solid full" style="margin-top:10px" data-act="toParents">Continuer</button>`;
   } else if(S.step===4){
-    h+=`<p>En réponse à quoi&nbsp;?</p><p class="sub" style="margin-bottom:6px">Autant de réponses que nécessaire.</p>`;
-    const cands=db.nodes.filter(n=>n.id!==d.id).sort((a,b)=>(b.date||"").localeCompare(a.date||"")).slice(0,14);
+    h+=`<p>En réponse à quoi&nbsp;?</p><p class="sub" style="margin-bottom:4px">Une parole, une prière, un bienfait d'avant. Autant de liens que nécessaire.</p>`;
+    const cands=db.nodes.filter(n=>n.etat!=="prevu" && n.etat!=="abandon").sort(parDate).slice(0,30);
+    if(cands.length>8) h+=`<input class="field" id="pFilter" placeholder="filtrer…" style="font-size:16px">`;
     if(!cands.length) h+=`<p class="empty">Rien d'autre dans ta base pour l'instant.</p>`;
+    h+=`<div class="stack">`;
     cands.forEach(n=>{
-      const on=d.par.indexOf(n.id)!==-1;
-      h+=`<button class="item" data-par="${n.id}" style="${on?"background:var(--line)":""}"><span class="row"><span>${esc(n.txt)}<span class="meta" style="display:block;margin-top:3px">${esc(acteurTxt(n))} · ${human(n)}</span></span><span class="ok">${on?"✓":""}</span></span></button>`;
+      const on=d.par.indexOf(n.id)!==-1, dte=human(n);
+      h+=`<button class="item${on?" on":""}" data-par="${n.id}"><span class="row"><span><span class="${estParole(n)?"serif voix":""}">${esc(n.txt)}</span><span class="meta" style="display:block;margin-top:4px">${esc(acteurTxt(n))}${dte?" · "+dte:""}</span></span><span class="ok">${on?"✓":""}</span></span></button>`;
     });
-    h+=`<div class="sep"></div><div class="stack gap12" style="padding-top:14px">
+    h+=`</div><div class="sep"></div>
+      <div style="padding-top:16px"><label class="lbl" for="newProm">Une promesse qui n'est pas encore là&nbsp;?</label>
+      <input class="field" id="newProm" placeholder="« Je ne t'abandonnerai point » — Hé 13.5">
+      <button class="btn" style="margin-top:12px" data-act="addProm">Ajouter et lier</button></div>
+      <div style="padding-top:18px">
       <button class="btn solid full" data-act="toQuand">${d.par.length?("Continuer — "+d.par.length+" lien"+(d.par.length>1?"s":"")):"Non, comme ça"}</button></div>`;
   } else if(S.step===5){
-    h+=`<p style="margin-bottom:10px">Quand&nbsp;?</p><div class="chips">
-      <button class="chip" data-quand="now" aria-pressed="${d.quand==="now"}">Aujourd'hui</button>
-      <button class="chip" data-quand="encours" aria-pressed="${d.quand==="encours"}">Ça dure encore</button>
-      <button class="chip" data-quand="avant" aria-pressed="${d.quand==="avant"}">Avant</button>
-      <button class="chip" data-quand="apres" aria-pressed="${d.quand==="apres"}">Plus tard</button></div>
-      <input class="field" id="nDate" type="date" value="${d.date}" ${d.quand==="now"?"hidden":""} style="margin-top:12px">
-      <p class="sub">Une date approximative suffit.</p>
-      <button class="btn solid full" style="margin-top:12px" data-act="saveNote">Garder</button>`;
+    h+=blocDate("nDate", d.date, d.prec, d.act==="moi", d.etat)+
+      `<div style="padding-top:18px"><button class="btn solid full" data-act="saveNote">Garder</button></div>`;
   }
   main.innerHTML=h+`</div>`;
+  if(S.step===3){ const e=document.getElementById("nTxt"); if(e){ e.focus(); e.setSelectionRange(e.value.length,e.value.length); } }
 }
 function listeGens(champ){
   if(!db.gens.length) return `<p class="empty">Personne encore. Ajoute un nom.</p>`;
-  return db.gens.map(g=>`<button class="item" data-gens="${g.id}" data-champ="${champ}">${esc(g.nom)}</button>`).join("")+`<div class="sep"></div>`;
+  return db.gens.map(g=>`<button class="item" data-gens="${g.id}" data-champ="${champ}" style="font-size:17px">${esc(g.nom)}</button>`).join("")+`<div class="sep"></div>`;
 }
 
 /* --- données --- */
 function vData(){
-  main.innerHTML=`<div class="stack gap16" style="padding-top:16px"><button class="back" data-go="revel" aria-label="Revenir"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M15 5l-7 7 7 7"></path></svg></button>
+  main.innerHTML=`<div class="stack gap16" style="padding-top:14px"><button class="back" data-go="revel" aria-label="Revenir">${RETOUR}</button>
     <h1>Mes données</h1>
     <p class="sub">Tout est gardé sur ce téléphone, et nulle part ailleurs. Copie ce texte de temps en temps et garde-le quelque part : c'est ta sauvegarde.</p>
     <textarea class="field" id="dump" style="min-height:160px;font-family:var(--sans);font-size:12px">${esc(JSON.stringify(db))}</textarea>
     <div class="chips"><button class="btn" data-act="copy">Copier</button><button class="btn" data-act="restore">Remplacer par ce texte</button></div>
-    <div class="sep" style="padding-top:18px"><button class="btn quiet" data-act="wipe" style="padding:0">Tout effacer</button></div></div>`;
+    <div class="sep" style="padding-top:20px"><button class="btn quiet" data-act="wipe" style="padding:0">Tout effacer</button></div></div>`;
 }
+
+/* ---------- dictée ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec=null, recId=null, recBase="";
+const MICSVG = `<svg class="pt" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg>`;
+function micBloc(id){
+  if(!SR) return `<p class="sub" style="margin-top:9px">Tu peux dicter : touche le micro de ton clavier.</p>`;
+  return `<div class="chips" style="margin-top:10px"><button class="chip" data-mic="${id}">${MICSVG} Dicter</button></div>`;
+}
+function micArret(){
+  if(rec){ try{ rec.onend=null; rec.stop(); }catch(e){} }
+  rec=null; recId=null;
+  [].forEach.call(document.querySelectorAll("[data-mic]"),b=>{ b.classList.remove("rec"); b.innerHTML=MICSVG+" Dicter"; });
+}
+function micBascule(id){
+  if(!SR) return;
+  if(rec && recId===id) return micArret();
+  micArret();
+  const el=document.getElementById(id); if(!el) return;
+  recBase = el.value ? el.value.replace(/\s+$/,"")+" " : "";
+  try{ rec=new SR(); }catch(e){ return toast("Dictée indisponible ici"); }
+  rec.lang="fr-FR"; rec.interimResults=true; rec.continuous=true;
+  rec.onresult=e=>{
+    let s="";
+    for(let i=0;i<e.results.length;i++) s+=e.results[i][0].transcript;
+    el.value=recBase+s;
+    el.dispatchEvent(new Event("input",{bubbles:true}));
+  };
+  rec.onerror=ev=>{
+    const m={"not-allowed":"Micro refusé — autorise-le dans les réglages","service-not-allowed":"Dictée indisponible ici","no-speech":"Je n'ai rien entendu"};
+    toast(m[ev.error]||"Dictée indisponible ici"); micArret();
+  };
+  rec.onend=()=>micArret();
+  try{ rec.start(); }catch(e){ return toast("Dictée indisponible ici"); }
+  recId=id;
+  const b=document.querySelector('[data-mic="'+id+'"]');
+  if(b){ b.classList.add("rec"); b.innerHTML=MICSVG+" J'écoute… toucher pour arrêter"; }
+}
+
+/* ---------- saisies gardées sans redessiner ---------- */
+document.addEventListener("input", ev=>{
+  const id=ev.target.id;
+  if(id==="pFilter"){
+    const q=ev.target.value.trim().toLowerCase();
+    [].forEach.call(document.querySelectorAll("[data-par]"), el=>{ el.hidden = !!q && el.textContent.toLowerCase().indexOf(q)===-1; });
+    return;
+  }
+  if(!S.draft) return;
+  if(id==="nTxt") S.draft.txt=ev.target.value;
+  if(id==="nDate") S.draft.date=ev.target.value;
+});
 
 /* ---------- actions ---------- */
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-node],[data-filtre],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-quand],[data-pour],[data-act],[data-attach],[data-fait],[data-abandon],[data-back],[data-step]");
+  const t=ev.target.closest("[data-go],[data-node],[data-filtre],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-pour],[data-agid],[data-sug],[data-mic],[data-act],[data-attach],[data-lierview],[data-fait],[data-abandon],[data-delnom],[data-back],[data-step]");
   if(!t) return;
   const g=t.dataset;
   if(g.go){ S.view=g.go; if(g.go==="note"){S.step=0;S.draft=null;} return render(); }
-  if(g.back||g.step==="-1"){ if(S.view==="note"){ if(S.step<=0){S.view="today";} else {S.step=prevStep();} } else { S.view = S.prev||"today"; } return render(); }
-  if(g.node){ S.prev=S.view; S.nodeId=g.node; S.view="node"; return render(); }
-  if(g.attach){ S.nodeId=g.attach; S.prev="node"; S.view="attach"; return render(); }
+  if(g.back||g.step==="-1"){
+    if(S.view==="note"){ if(S.step<=0){S.view="today";} else {S.step=prevStep();} }
+    else if(S.view==="lier"||S.view==="attach"){ S.view="node"; }
+    else { S.view = S.prev||"today"; }
+    S.edit=false; S.del=false; return render();
+  }
+  if(g.node){ S.prev=(S.view==="node"||S.view==="lier"||S.view==="attach")?S.prev:S.view; S.nodeId=g.node; S.view="node"; S.edit=false; S.del=false; return render(); }
+  if(g.lierview){ S.nodeId=g.lierview; S.view="lier"; return render(); }
+  if(g.attach){ S.nodeId=g.attach; S.view="attach"; S.aPour="dieu"; S.aEtat="fait"; S.aPrec="j"; S.aGid=null; return render(); }
   if(g.filtre){ S.filtre=g.filtre; return render(); }
   if(g.rev){ S.rev=g.rev; return render(); }
-  if(g.qui){ S.draft={act:g.qui,gid:null,dest:"dieu",dgid:null,txt:"",man:"",par:[],quand:"now",date:today(),prec:"j"}; S.step=(g.qui==="dieu")?3:1; return render(); }
+  if(g.qui){ S.draft=neuf(g.qui); S.step=(g.qui==="dieu")?3:1; return render(); }
   if(g.dest){ S.draft.dest=g.dest; S.step=(g.dest==="gens")?2:3; return render(); }
   if(g.gens){ S.draft[g.champ]=g.gens; S.step=3; return render(); }
-  if(g.man){ S.draft.man=(S.draft.man===g.man?"":g.man); saveTxt(); return render(); }
-  if(g.par){ const i=S.draft.par.indexOf(g.par); i===-1?S.draft.par.push(g.par):S.draft.par.splice(i,1); return render(); }
-  if(g.quand){ if(S.view==="note"){S.draft.quand=g.quand;} else {S.aQuand=g.quand; const el=document.getElementById("aDate"); if(el) el.hidden=(g.quand==="now");}
-    if(S.view==="note") return render();
-    [].forEach.call(document.querySelectorAll("#aQuand .chip"),c=>c.setAttribute("aria-pressed", c.dataset.quand===g.quand)); return; }
-  if(g.pour){ S.aPour=g.pour; const el=document.getElementById("aNom"); if(el) el.hidden=(g.pour!=="gens");
+  if(g.mic){ return micBascule(g.mic); }
+  if(g.sug){ const e=document.getElementById("aq"); if(e){ e.value=g.sug; e.focus(); e.dispatchEvent(new Event("input",{bubbles:true})); } return; }
+  /* ces choix-là ne redessinent pas : le clavier et la saisie restent en place */
+  if(g.man){ S.draft.man=(S.draft.man===g.man?"":g.man);
+    [].forEach.call(document.querySelectorAll("#mChips .chip"),c=>c.setAttribute("aria-pressed", c.dataset.man===S.draft.man)); return; }
+  if(g.eman){ S.eMan=(S.eMan===g.eman?"":g.eman);
+    [].forEach.call(document.querySelectorAll("#eMan .chip"),c=>c.setAttribute("aria-pressed", c.dataset.eman===S.eMan)); return; }
+  if(g.etat){
+    const box=t.closest(".chips"), cible=box?box.id:"";
+    if(cible==="nDateEtat"&&S.draft) S.draft.etat=g.etat;
+    if(cible==="aDateEtat") S.aEtat=g.etat;
+    if(cible==="eDateEtat") S.eEtat=g.etat;
+    [].forEach.call(box.querySelectorAll(".chip"),c=>c.setAttribute("aria-pressed", c.dataset.etat===g.etat)); return; }
+  if(g.pour){ S.aPour=g.pour;
+    const el=document.getElementById("aGens"); if(el) el.hidden=(g.pour!=="gens");
     [].forEach.call(document.querySelectorAll("#aPour .chip"),c=>c.setAttribute("aria-pressed", c.dataset.pour===g.pour)); return; }
+  if(g.agid){ S.aGid=g.agid;
+    [].forEach.call(document.querySelectorAll("#aGensList .chip"),c=>c.setAttribute("aria-pressed", c.dataset.agid===g.agid)); return; }
+  if(g.par){
+    if(S.view==="lier"){ const n=node(S.nodeId); if(!n) return; n.par=n.par||[];
+      const i=n.par.indexOf(g.par); i===-1?n.par.push(g.par):n.par.splice(i,1); save(); }
+    else { const i=S.draft.par.indexOf(g.par); i===-1?S.draft.par.push(g.par):S.draft.par.splice(i,1); }
+    return render(); }
   if(g.fait){ const n=node(g.fait); if(n){ n.etat="fait"; n.prevuLe=n.date; n.date=today(); n.prec="j"; save(); toast("Fait."); } return render(); }
   if(g.abandon){ const n=node(g.abandon); if(n){ n.etat="abandon"; save(); toast("Noté."); } return render(); }
+  if(g.delnom){ db.noms=db.noms.filter(x=>x.id!==g.delnom); save(); return render(); }
   if(g.act) return actions[g.act] && actions[g.act]();
 });
 function prevStep(){ const d=S.draft; if(S.step===3) return (d.act==="dieu")?0:(d.act==="moi"&&d.dest==="gens"?2:1); if(S.step===2) return 1; if(S.step===5) return 4; if(S.step===4) return 3; return 0; }
 function saveTxt(){ const e=document.getElementById("nTxt"); if(e&&S.draft) S.draft.txt=e.value; }
+function valDate(id){ const e=document.getElementById(id); return (e&&e.value)?e.value:today(); }
 
 const actions={
   demo(){ seed(); save(); toast("Exemple chargé"); render(); },
-  addGens(){ const v=(document.getElementById("newGens")||{}).value; if(!v) return; const id="g"+(db.seq++); db.gens.push({id,nom:v}); S.draft.gid=id; save(); S.step=3; render(); },
-  addGens2(){ const v=(document.getElementById("newGens")||{}).value; if(!v) return; const id="g"+(db.seq++); db.gens.push({id,nom:v}); S.draft.dgid=id; save(); S.step=3; render(); },
-  addNom(){ const v=(document.getElementById("newNom")||{}).value; if(!v) return; db.noms.push({id:"p"+(db.seq++),txt:v,nodes:[]}); save(); render(); },
+  addGens(){ const id=gensId((document.getElementById("newGens")||{}).value); if(!id) return toast("Écris un nom"); S.draft.gid=id; save(); S.step=3; render(); },
+  addGens2(){ const id=gensId((document.getElementById("newGens")||{}).value); if(!id) return toast("Écris un nom"); S.draft.dgid=id; save(); S.step=3; render(); },
+  addNom(){ const v=((document.getElementById("newNom")||{}).value||"").trim(); if(!v) return toast("Écris le nom"); db.noms.push({id:"p"+(db.seq++),txt:v,nodes:[]}); save(); render(); },
+  addProm(){
+    const v=((document.getElementById("newProm")||{}).value||"").trim();
+    if(!v) return toast("Écris la promesse");
+    const n={id:nid(),act:"dieu",gid:null,dest:null,dgid:null,txt:v,man:"",kind:"ecriture",ref:"",date:today(),prec:"j",etat:"fait",par:[]};
+    db.nodes.push(n);
+    if(S.view==="lier"){ const c=node(S.nodeId); if(c){ c.par=c.par||[]; c.par.push(n.id); } }
+    else if(S.draft){ S.draft.par.push(n.id); }
+    save(); toast("Liée."); render();
+  },
   toParents(){ saveTxt(); if(!S.draft.txt.trim()) return toast("Écris quelque chose"); S.step=4; render(); },
   toQuand(){ S.step=5; render(); },
+  precnDate(){ S.draft.date=valDate("nDate"); S.draft.prec=(S.draft.prec==="m")?"j":"m"; render(); },
+  precaDate(){ S.aDate=valDate("aDate"); S.aPrec=(S.aPrec==="m")?"j":"m"; render(); },
+  preceDate(){ S.eDate=valDate("eDate"); S.ePrec=(S.ePrec==="m")?"j":"m"; render(); },
   saveNote(){
-    const d=S.draft, el=document.getElementById("nDate");
-    let date=today(), etat="fait", prec="j";
-    if(d.quand!=="now" && el && el.value) date=el.value;
-    if(d.quand==="encours") etat="encours";
-    if(d.quand==="apres") etat="prevu";
+    const d=S.draft;
     const n={id:nid(),act:d.act,gid:d.gid,dest:d.act==="moi"?d.dest:null,dgid:d.dgid,txt:d.txt.trim(),man:d.man,
-      kind:d.act==="dieu"?"acte":"acte",date:date,prec:prec,etat:d.act==="moi"?etat:"fait",par:d.par.slice()};
-    db.nodes.push(n); save(); S.draft=null; S.step=0; S.view="node"; S.nodeId=n.id; S.prev="today"; toast("Gardé."); render();
+      kind:(d.act==="dieu"&&d.man==="parle")?"rhema":"acte",
+      date:valDate("nDate"),prec:d.prec||"j",etat:d.act==="moi"?(d.etat||"fait"):"fait",par:d.par.slice()};
+    db.nodes.push(n); save(); S.draft=null; S.step=0; S.view="node"; S.nodeId=n.id; S.prev="today"; S.edit=false; S.del=false; toast("Gardé."); render();
   },
   saveAttach(){
-    const q=(document.getElementById("aq")||{}).value||"";
-    if(!q.trim()) return toast("Écris quelque chose");
-    const pour=S.aPour||"dieu", quand=S.aQuand||"now";
+    const q=((document.getElementById("aq")||{}).value||"").trim();
+    if(!q) return toast("Écris quelque chose");
+    const pour=S.aPour||"dieu";
     let dgid=null;
-    if(pour==="gens"){ const nm=(document.getElementById("aNom")||{}).value; if(nm){ dgid="g"+(db.seq++); db.gens.push({id:dgid,nom:nm}); } }
-    const el=document.getElementById("aDate");
-    const n={id:nid(),act:"moi",gid:null,dest:pour,dgid:dgid,txt:q.trim(),man:"",kind:"acte",
-      date:(quand!=="now"&&el&&el.value)?el.value:today(),prec:"j",
-      etat:quand==="apres"?"prevu":(quand==="encours"?"encours":"fait"),par:[S.nodeId]};
-    db.nodes.push(n); save(); S.view="node"; toast("Attaché."); render();
+    if(pour==="gens"){
+      const nm=((document.getElementById("aNom")||{}).value||"").trim();
+      dgid = nm ? gensId(nm) : (S.aGid||null);
+      if(!dgid) return toast("Dis pour qui");
+    }
+    const n={id:nid(),act:"moi",gid:null,dest:pour,dgid:dgid,txt:q,man:"",kind:"acte",
+      date:valDate("aDate"),prec:S.aPrec||"j",etat:S.aEtat||"fait",par:[S.nodeId]};
+    db.nodes.push(n); save(); S.view="node"; S.edit=false; S.del=false; toast("Attaché."); render();
+  },
+  edit(){ const n=node(S.nodeId); if(!n) return; S.eMan=n.man||""; S.eEtat=n.etat||"fait"; S.ePrec=n.prec||"j"; S.edit=true; render(); },
+  cancelEdit(){ S.edit=false; render(); },
+  saveEdit(){
+    const n=node(S.nodeId), e=document.getElementById("eTxt");
+    if(n){
+      if(e&&e.value.trim()) n.txt=e.value.trim();
+      n.date=valDate("eDate"); n.prec=S.ePrec||"j";
+      if(n.act!=="moi"){ n.man=S.eMan; if(n.kind!=="ecriture") n.kind=(n.act==="dieu"&&n.man==="parle")?"rhema":"acte"; }
+      else { n.etat=S.eEtat||"fait"; }
+      save(); toast("Corrigé.");
+    }
+    S.edit=false; render();
+  },
+  askDel(){ S.del=true; render(); },
+  delNode(){
+    const id=S.nodeId;
+    db.nodes=db.nodes.filter(n=>n.id!==id);
+    db.nodes.forEach(n=>{ if(n.par) n.par=n.par.filter(p=>p!==id); });
+    db.noms.forEach(nm=>{ if(nm.nodes) nm.nodes=nm.nodes.filter(p=>p!==id); });
+    save(); S.del=false; S.view=S.prev||"today"; toast("Supprimé."); render();
   },
   copy(){ const e=document.getElementById("dump"); e.select(); try{ navigator.clipboard.writeText(e.value).then(()=>toast("Copié"),()=>toast("Sélectionne et copie")); }catch(x){ toast("Sélectionne et copie"); } },
-  restore(){ try{ const v=JSON.parse(document.getElementById("dump").value); if(!v.nodes) throw 0; db=v; save(); toast("Remplacé"); S.view="today"; render(); }catch(e){ toast("Ce texte n'est pas une sauvegarde"); } },
+  restore(){ try{ const v=JSON.parse(document.getElementById("dump").value); if(!v||!Array.isArray(v.nodes)) throw 0; db=sane(v); save(); toast("Remplacé"); S.view="today"; render(); }catch(e){ toast("Ce texte n'est pas une sauvegarde"); } },
   wipe(){ db={nodes:[],gens:[],noms:[],seq:1}; save(); S.view="today"; toast("Effacé"); render(); }
 };
 document.getElementById("askBtn").onclick=()=>{S.view="note";S.step=0;S.draft=null;render();};
-document.getElementById("micBtn").onclick=()=>{S.view="note";S.step=0;S.draft=null;render();};
 
 /* ---------- exemple ---------- */
 function seed(){
   db={nodes:[],gens:[],noms:[],seq:1};
-  const g1="g"+(db.seq++); db.gens.push({id:g1,nom:"Frère Thomas"});
-  const g2="g"+(db.seq++); db.gens.push({id:g2,nom:"Sœur Estelle"});
+  const g1=gensId("Frère Thomas"), g2=gensId("Sœur Estelle");
   const y=new Date().getFullYear(), md=today().slice(4);
   const a={id:nid(),act:"dieu",txt:"« Je pourvoirai pour les tiens. »",man:"parle",kind:"rhema",date:(y-5)+"-08-02",prec:"j",etat:"fait",par:[]};
   const b={id:nid(),act:"dieu",txt:"« Ne crains pas pour la maison. Je m'en occupe. »",man:"parle",kind:"rhema",date:(y-3)+md,prec:"j",etat:"fait",par:[a.id]};
@@ -499,7 +730,8 @@ function seed(){
   const e={id:nid(),act:"dieu",txt:"La maison de Nkolbisson",man:"pourvu",kind:"acte",date:(y-1)+"-09-18",prec:"j",etat:"fait",par:[a.id,b.id,d.id]};
   const f={id:nid(),act:"moi",dest:"gens",dgid:g1,txt:"Le lui dire",man:"",kind:"acte",date:(y-2)+"-03-12",prec:"j",etat:"fait",par:[d.id]};
   const h={id:nid(),act:"moi",dest:"dieu",txt:"Jeûner un jour",man:"",kind:"acte",date:y+"-12-15",prec:"j",etat:"prevu",par:[b.id]};
-  db.nodes.push(a,b,c,d,e,f,h);
+  const i={id:nid(),act:"moi",dest:"gens",dgid:g2,txt:"Dire à Estelle ce qu'Il a fait",man:"",kind:"acte",date:y+"-11-20",prec:"j",etat:"prevu",par:[e.id]};
+  db.nodes.push(a,b,c,d,e,f,h,i);
   db.noms.push({id:"p"+(db.seq++),txt:"« Celui qui pourvoit au dernier moment »",nodes:[d.id,e.id]});
 }
 

@@ -1,18 +1,47 @@
-const C = "ebenezer-v1";
-const F = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
+/* Ében-Ézer — hors-ligne, mais jamais figé.
+   La page : le réseau d'abord, le cache en secours (pour recevoir les corrections).
+   Les icônes et le manifeste : le cache d'abord (ils ne changent presque jamais). */
+const CACHE = "ebenezer-v2";
+const SOCLE = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
+
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(C).then(c => c.addAll(F)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SOCLE)).then(() => self.skipWaiting()));
 });
+
 self.addEventListener("activate", e => {
-  e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== C).map(x => caches.delete(x)))).then(() => self.clients.claim()));
+  e.waitUntil(
+    caches.keys()
+      .then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
 });
+
 self.addEventListener("fetch", e => {
-  if (e.request.method !== "GET") return;
+  const r = e.request;
+  if (r.method !== "GET") return;
+
+  const page = r.mode === "navigate" || (r.headers.get("accept") || "").indexOf("text/html") !== -1;
+
+  if (page) {
+    e.respondWith(
+      fetch(r)
+        .then(res => {
+          const copie = res.clone();
+          caches.open(CACHE).then(c => c.put("./index.html", copie));
+          return res;
+        })
+        .catch(() => caches.match("./index.html").then(m => m || caches.match("./")))
+    );
+    return;
+  }
+
   e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request).then(res => {
-      const cl = res.clone();
-      caches.open(C).then(c => { try { c.put(e.request, cl); } catch (x) {} });
+    caches.match(r).then(m => m || fetch(r).then(res => {
+      if (res && res.status === 200 && res.type === "basic") {
+        const copie = res.clone();
+        caches.open(CACHE).then(c => c.put(r, copie));
+      }
       return res;
-    }).catch(() => caches.match("./index.html")))
+    }))
   );
 });

@@ -701,9 +701,11 @@ function vNote(){
     Z.html = liste(parent
       ? ligne({titre:"Dieu a répondu…", sous:"sans passer par personne", serif:true, attr:'data-qui="dieu"'})+
         ligne({titre:"J'ai répondu…", serif:true, attr:'data-qui="moi"'})+
+        ligne({titre:"Je vais répondre…", sous:"ce que tu t'engages à faire", serif:true, attr:'data-qui="moiPrevu"'})+
         ligne({titre:"Quelqu'un a répondu…", sous:"même si c'est Lui derrière", serif:true, attr:'data-qui="gens"'})
       : ligne({titre:"Dieu a fait…", sous:"sans passer par personne", serif:true, attr:'data-qui="dieu"'})+
         ligne({titre:"J'ai fait…", serif:true, attr:'data-qui="moi"'})+
+        ligne({titre:"Je vais faire…", sous:"une résolution, un engagement, un vœu", serif:true, attr:'data-qui="moiPrevu"'})+
         ligne({titre:"Quelqu'un a fait…", sous:"même si c'est Lui derrière", serif:true, attr:'data-qui="gens"'}));
   }
   else if(cle==="dest"){
@@ -725,10 +727,12 @@ function vNote(){
       + `<div class="block">${bouton("Ajouter", 'data-act="addGens" data-champ="'+ch+'"')}</div>`;
   }
   else if(cle==="txt"){
+    const futur = d.act==="moi" && d.etat==="prevu";
     const ph = d.act==="dieu" ? "Il a guéri maman en une nuit"
              : (d.act==="moi" ? "Remercier à voix haute pour…" : "Il a payé le loyer, sans que je demande");
     Z.titre = d.act==="dieu" ? "Qu'est-ce qu'Il a fait ?"
-            : (d.act==="moi" ? "Qu'est-ce que tu as fait ?" : "Qu'a fait "+(gensNom(d.gid)||"cette personne")+" ?");
+            : (d.act==="moi" ? (futur ? "Qu'est-ce que tu vas faire ?" : "Qu'est-ce que tu as fait ?")
+                             : "Qu'a fait "+(gensNom(d.gid)||"cette personne")+" ?");
     let h = parent?rappel(parent):"";
     h+=`<div class="block"><textarea class="dicte" id="nTxt" placeholder="${ph}">${esc(d.txt)}</textarea>${micBloc("nTxt")}</div>`;
     if(d.act==="moi"){
@@ -764,7 +768,7 @@ function vNote(){
     }
   }
   else {
-    Z.titre="Quand ?";
+    Z.titre = (d.act==="moi" && d.etat==="prevu") ? "Pour quand ?" : "Quand ?";
     Z.html = blocQuand("nDate", d.date, d.prec, d.act==="moi", d.etat);
     Z.action = bouton(S.step===etapes(d).length-1?"Garder":"Continuer",
       'data-act="'+(S.step===etapes(d).length-1?"saveNote":"suiteDate")+'"');
@@ -776,7 +780,7 @@ function rappel(p){
 }
 /* La date est toujours visible. L'état est une question séparée. */
 function blocQuand(id, val, prec, avecEtat, etat){
-  let h=titreBloc("Quand ?")+
+  let h=titreBloc(etat==="prevu" ? "Pour quand ?" : "Quand ?")+
     liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
       <input type="date" id="${id}" value="${val||today()}"></div></div></li>`+
       ligne({titre:(prec==="m"?`<span class="coche">Je ne me souviens que du mois</span>`:"Je ne me souviens que du mois"),
@@ -897,8 +901,10 @@ document.addEventListener("click", ev=>{
   if(g.filtre){ S.filtre=g.filtre; return render(); }
   if(g.rev){ S.rev=g.rev; return render(); }
   if(g.qui){
-    const a=S.draft||{};
-    S.draft=neuf(g.qui); S.draft.par=(a.par||[]).slice(); S.draft.fige=!!a.fige;
+    const a=S.draft||{}, prevu=(g.qui==="moiPrevu");
+    S.draft=neuf(prevu?"moi":g.qui);
+    S.draft.etat = prevu ? "prevu" : "fait";
+    S.draft.par=(a.par||[]).slice(); S.draft.fige=!!a.fige;
     S.step=1; return render();
   }
   if(g.dest){ S.draft.dest=g.dest; S.step++; return render(); }

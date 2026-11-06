@@ -4,146 +4,172 @@
 <meta charset="utf-8">
 <title>Ében-Ézer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#FAF4EC" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#14100E" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F8F5F2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#13100E" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Ében-Ézer">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="stylesheet" href="vendor/framework7-bundle.min.css">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;600&display=swap">
 <style>
-/* Les composants viennent de Framework7. Ici : la chaleur, la voix de Dieu,
-   la hiérarchie des textes, et la charpente.
+/* Direction « Amandier ». Les composants viennent de Framework7 ; ici, la nappe
+   de lumière, le verre dépoli qui la floute, la hiérarchie des textes, et le
+   rameau.
+
+   La fleur a sa vraie couleur — écorce, feuille, pétale — mais elle reste dans
+   le dessin : ce qui se touche est vert sauge, jamais rose.
 
    Règle de lecture, tenue partout :
    · serif            → ce qui est dit (Sa parole, les actes) et les titres de page
    · sans MAJUSCULES  → les intitulés de section, jamais autre chose
    · sans normal      → ce que l'application dit
    · couleur d'accent → uniquement ce qui se touche                              */
+
+/* La police voyage avec l'app : sans elle, le téléphone retombe sur Georgia
+   et toute la typographie change de visage. */
+@font-face{font-family:'Instrument Serif';font-style:normal;font-weight:400;
+  font-display:swap;src:url(vendor/instrument-serif-latin.woff2) format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,
+    U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Instrument Serif';font-style:normal;font-weight:400;
+  font-display:swap;src:url(vendor/instrument-serif-latin-ext.woff2) format('woff2');
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,
+    U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,
+    U+2113,U+2C60-2C7F,U+A720-A7FF}
+
 :root{
-  --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+  --serif:'Instrument Serif',Georgia,'Times New Roman',serif;
   --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 
-  --f7-theme-color:#8A6A2F;
-  --f7-theme-color-rgb:138,106,47;
-  --f7-theme-color-shade:#6E5424;
-  --f7-theme-color-tint:#A07E3C;
+  --f7-theme-color:#4E6152;
+  --f7-theme-color-rgb:78,97,82;
+  --f7-theme-color-shade:#3E4E42;
+  --f7-theme-color-tint:#5F7563;
 
-  --f7-page-bg-color:#FAF4EC;
-  --f7-list-strong-bg-color:#FFFDF9;
-  --f7-text-color:#241C17;
-  --f7-list-item-border-color:rgba(72,48,34,.13);
-  --f7-list-outline-inset-border-color:rgba(72,48,34,.13);
-  --f7-list-outline-border-color:rgba(72,48,34,.13);
-  --f7-list-item-after-text-color:#8B7868;
-  --f7-list-item-text-text-color:#8B7868;
-  --f7-list-item-subtitle-text-color:#8B7868;
-  --f7-block-title-text-color:#8B7868;
+  --f7-page-bg-color:#F8F5F2;
+  --f7-text-color:#1D1A17;
+  --f7-list-strong-bg-color:rgba(255,255,255,.66);
+  --f7-block-strong-bg-color:rgba(255,255,255,.66);
+  --f7-list-item-border-color:rgba(29,26,23,.11);
+  --f7-list-outline-inset-border-color:rgba(29,26,23,.11);
+  --f7-list-outline-border-color:rgba(29,26,23,.11);
+  --f7-list-item-after-text-color:#736D66;
+  --f7-list-item-text-text-color:#736D66;
+  --f7-list-item-subtitle-text-color:#736D66;
+  --f7-block-title-text-color:#736D66;
   --f7-block-title-font-size:11px;
-  --f7-list-link-pressed-bg-color:rgba(138,106,47,.09);
+  --f7-list-link-pressed-bg-color:rgba(78,97,82,.09);
+  --f7-input-text-color:#1D1A17;
 
-  --muted:#8B7868;
-  --voix:#45341C;
-  --haut:#FCF7F0;
-  --filet:rgba(72,48,34,.14);
-  --ombre:0 1px 2px rgba(72,40,24,.06), 0 16px 34px -22px rgba(72,40,24,.45);
+  --muted:#736D66;
+  --voix:#2C332C;
+  --filet:rgba(29,26,23,.12);
+  --verre:rgba(255,255,255,.66);
+  --eclat:rgba(255,255,255,.92);
+  --barre:rgba(255,255,255,.72);
+  --ombre:0 1px 0 var(--eclat) inset, 0 12px 32px -20px rgba(40,28,20,.6);
+  --lueur:rgba(78,97,82,.5);
+  --flou:blur(22px) saturate(175%);
+  /* la nappe de lumière : rose d'un côté, vert de l'autre, très diffus */
+  --nappe:radial-gradient(78% 42% at 96% 0%,#F3E7E3 0%,transparent 62%),
+          radial-gradient(78% 40% at 0% 94%,#EAEFE6 0%,transparent 60%);
+  /* le rameau */
+  --br:#6B5244; --fe:#D9DECF; --pe:#EFD4CE;
 }
-/* Un sombre chaud : un noir qui tire sur le brun, des cartes qui ne sont pas grises. */
 .dark{
-  --f7-theme-color:#D4A95C;
-  --f7-theme-color-rgb:212,169,92;
-  --f7-theme-color-shade:#C2974A;
-  --f7-theme-color-tint:#E0B974;
+  --f7-theme-color:#9DB7A4;
+  --f7-theme-color-rgb:157,183,164;
+  --f7-theme-color-shade:#8BA793;
+  --f7-theme-color-tint:#B2C7B7;
 
-  --f7-page-bg-color:#14100E;
-  --f7-list-strong-bg-color:#221B17;
-  --f7-block-strong-bg-color:#221B17;
-  --f7-text-color:#F4EBE1;
-  --f7-list-item-border-color:rgba(255,238,222,.09);
-  --f7-list-outline-inset-border-color:rgba(255,238,222,.09);
-  --f7-list-outline-border-color:rgba(255,238,222,.09);
-  --f7-list-item-after-text-color:#A89486;
-  --f7-list-item-text-text-color:#A89486;
-  --f7-list-item-subtitle-text-color:#A89486;
-  --f7-block-title-text-color:#A89486;
-  --f7-list-group-title-bg-color:#1B1512;
-  --f7-list-group-title-text-color:#A89486;
-  --f7-list-link-pressed-bg-color:rgba(255,238,222,.07);
-  --f7-actions-button-border-color:rgba(255,238,222,.10);
-  --f7-actions-label-text-color:#A89486;
-  --f7-input-text-color:#F4EBE1;
-  --f7-bars-text-color:#F4EBE1;
+  --f7-page-bg-color:#13100E;
+  --f7-text-color:#EEE9E3;
+  --f7-list-strong-bg-color:rgba(255,255,255,.065);
+  --f7-block-strong-bg-color:rgba(255,255,255,.065);
+  --f7-list-item-border-color:rgba(238,233,227,.11);
+  --f7-list-outline-inset-border-color:rgba(238,233,227,.11);
+  --f7-list-outline-border-color:rgba(238,233,227,.11);
+  --f7-list-item-after-text-color:#99918A;
+  --f7-list-item-text-text-color:#99918A;
+  --f7-list-item-subtitle-text-color:#99918A;
+  --f7-block-title-text-color:#99918A;
+  --f7-list-link-pressed-bg-color:rgba(255,255,255,.07);
+  --f7-list-group-title-bg-color:transparent;
+  --f7-list-group-title-text-color:#99918A;
+  --f7-actions-button-border-color:rgba(238,233,227,.11);
+  --f7-actions-label-text-color:#99918A;
+  --f7-input-text-color:#EEE9E3;
+  --f7-bars-text-color:#EEE9E3;
 
-  --muted:#A89486;
-  --voix:#F0DCB9;
-  --haut:#1D1714;
-  --filet:rgba(255,238,222,.11);
-  --ombre:0 1px 2px rgba(0,0,0,.5), 0 16px 34px -22px rgba(0,0,0,.9);
+  --muted:#99918A;
+  --voix:#E3E8DF;
+  --filet:rgba(238,233,227,.12);
+  --verre:rgba(255,255,255,.065);
+  --eclat:rgba(255,255,255,.13);
+  --barre:rgba(19,16,14,.62);
+  --ombre:0 1px 0 var(--eclat) inset, 0 12px 32px -20px rgba(0,0,0,.9);
+  --lueur:rgba(157,183,164,.35);
+  --nappe:radial-gradient(78% 42% at 96% 0%,#2A1E1B 0%,transparent 62%),
+          radial-gradient(78% 40% at 0% 94%,#161C16 0%,transparent 60%);
+  --br:#9A7A66; --fe:#3B4639; --pe:#C9A49C;
 }
 *{box-sizing:border-box}
 html,body{height:100%}
-body{margin:0;display:flex;flex-direction:column;overflow:hidden;
+body{margin:0;overflow:hidden;position:relative;
   background:var(--f7-page-bg-color);font-family:var(--sans)}
+/* la nappe, derrière tout, fixe : c'est elle que le verre floute */
+body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe);
+  pointer-events:none}
+.verre{background:var(--verre);
+  -webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou)}
 
 /* ---------- hiérarchie des textes ---------- */
-/* Intitulé de section : petit, capitales, espacé. Jamais confondu avec une phrase. */
-.block-title{font-family:var(--sans);font-weight:700;letter-spacing:.11em;
+.block-title{font-family:var(--sans);font-weight:700;letter-spacing:.12em;
   text-transform:uppercase;font-size:11px;color:var(--f7-block-title-text-color);
-  margin-top:30px;margin-bottom:9px}
-/* Titre de page : serif, grand, serré. */
-.titre-page{font-family:var(--serif);font-size:33px;font-weight:600;letter-spacing:-.022em;
-  margin:24px 16px 3px;line-height:1.14;color:var(--f7-text-color)}
-.ssTitre{margin:0 16px 4px;font-size:13.5px;color:var(--muted);line-height:1.5}
-/* Ce qui est dit : serif, filet d'accent à gauche — on ne peut pas le prendre pour un titre. */
-.grand{font-family:var(--serif);font-size:26px;line-height:1.3;letter-spacing:-.012em;
-  margin:0;color:var(--f7-text-color);border-left:2px solid var(--filet);padding-left:16px}
+  margin-top:28px;margin-bottom:9px}
+.titre-page{font-family:var(--serif);font-size:36px;font-weight:400;letter-spacing:-.018em;
+  margin:20px 16px 2px;line-height:1.1;color:var(--f7-text-color)}
+.ssTitre{margin:0 16px 4px;font-size:13px;color:var(--muted);line-height:1.5}
+.grand{font-family:var(--serif);font-size:28px;line-height:1.18;letter-spacing:-.014em;
+  margin:0;color:var(--f7-text-color);border-left:2px solid var(--filet);padding-left:15px}
 .grand.voix{color:var(--voix);border-left-color:var(--f7-theme-color)}
 .voix{font-family:var(--serif);color:var(--voix)}
-/* Les mentions : petites, en sans, espacées — on ne les lit pas comme une phrase. */
 .meta{font-family:var(--sans);font-size:12.5px;font-weight:500;letter-spacing:.015em;
-  color:var(--muted);margin:13px 0 0 18px;line-height:1.5}
-/* Ce que l'application explique : sans, gris, jamais serif. */
+  color:var(--muted);margin:13px 0 0 17px;line-height:1.5}
 .amorce{font-family:var(--sans);font-size:14.5px;line-height:1.52;color:var(--muted);margin:0}
-/* Dans les listes : le titre est une phrase, en sans ; le serif est réservé à ce qui est dit. */
 .list .item-title{font-family:var(--sans);font-size:16px;font-weight:500;line-height:1.35;
   white-space:normal;color:var(--f7-text-color)}
-.list .item-title.serif{font-family:var(--serif);font-weight:400;font-size:17.5px;
-  letter-spacing:-.008em;color:var(--voix)}
+.list .item-title.serif{font-family:var(--serif);font-weight:400;font-size:19px;
+  letter-spacing:-.01em;color:var(--voix)}
 .list .item-subtitle{font-family:var(--sans);font-size:13px;font-weight:400;
   white-space:normal;margin-top:3px;letter-spacing:.005em}
 .list .item-text{font-family:var(--sans);font-size:13.5px;line-height:1.45;
   white-space:normal;overflow:visible;-webkit-line-clamp:4;margin-top:4px}
 .list .item-after{font-family:var(--sans);font-size:12.5px;font-variant-numeric:tabular-nums;
-  white-space:nowrap;flex-shrink:0;align-self:flex-start;padding-top:3px}
+  white-space:nowrap;flex-shrink:0;align-self:flex-start;padding-top:4px}
 .list .item-inner{align-items:flex-start}
-/* La couleur d'accent ne dit qu'une chose : ceci se touche. */
 .lien .item-title{color:var(--f7-theme-color);font-weight:600}
 .coche{color:var(--f7-theme-color);font-weight:700}
 .vide{margin:0;padding:13px 16px;color:var(--muted);font-size:14.5px;font-style:italic}
 
-/* ---------- ce qui revient : des cartes qui défilent ---------- */
-.carr{display:flex;gap:13px;overflow-x:auto;scroll-snap-type:x mandatory;
-  padding:16px 16px 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-.carr::-webkit-scrollbar{display:none}
-.carte{scroll-snap-align:center;flex:0 0 87%;display:flex;flex-direction:column;
-  background:var(--f7-list-strong-bg-color);border:1px solid var(--filet);
-  border-radius:18px;padding:19px 19px 17px;box-shadow:var(--ombre);
-  text-decoration:none;color:inherit;-webkit-tap-highlight-color:transparent}
-.carte:active{transform:scale(.985)}
-.carte .quand{font-family:var(--sans);font-size:11px;font-weight:700;letter-spacing:.11em;
-  text-transform:uppercase;color:var(--f7-theme-color)}
-.carte .grand{font-size:23px;border-left-width:2px;padding-left:14px}
-.carte .meta{margin:12px 0 0 16px}
-.points{display:flex;justify-content:center;gap:6px;padding:2px 0 4px}
-.points i{width:6px;height:6px;border-radius:50%;background:var(--filet);transition:background .2s}
-.points i.on{background:var(--f7-theme-color)}
+/* les groupes sont en verre, posés sur la nappe */
+.list.inset>ul{-webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou);
+  box-shadow:var(--ombre)}
 
-/* ---------- barre du haut ---------- */
-#haut{flex:0 0 auto;display:flex;align-items:center;gap:4px;min-height:52px;
+/* ---------- le rameau d'amandier ---------- */
+/* Deux emplacements seulement : le filigrane d'un écran, la marque de l'accueil. */
+.rameau{display:block;pointer-events:none}
+.filigrane{position:absolute;top:-10px;right:-22px;width:118px;opacity:.3;z-index:0}
+.marque{width:84px;margin:6px 0 2px 13px;opacity:1}
+
+/* ---------- charpente : les barres passent par-dessus le contenu ---------- */
+#main{position:absolute;inset:0;z-index:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#haut{position:absolute;top:0;left:0;right:0;z-index:20;
+  display:flex;align-items:center;gap:4px;min-height:52px;
   padding:calc(6px + env(safe-area-inset-top,0px)) 8px 6px;
-  background:var(--haut);border-bottom:1px solid var(--filet)}
+  background:var(--barre);border-bottom:1px solid var(--filet);
+  -webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou)}
 #haut[hidden]{display:none}
 #haut .t{flex:1 1 auto;min-width:0;text-align:center;font-size:16px;font-weight:600;
   letter-spacing:-.01em;color:var(--f7-text-color);
@@ -153,74 +179,116 @@ body{margin:0;display:flex;flex-direction:column;overflow:hidden;
   font-size:16px;padding:0 6px;cursor:pointer}
 #haut button[disabled]{opacity:0;pointer-events:none}
 
-/* ---------- avancement ---------- */
-#avance{flex:0 0 auto;height:2px;background:var(--filet)}
+#avance{position:absolute;left:0;right:0;z-index:21;height:2px;background:var(--filet)}
 #avance[hidden]{display:none}
 #avance i{display:block;height:100%;background:var(--f7-theme-color);transition:width .25s ease}
 
-/* ---------- contenu ---------- */
-#main{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
-#main.plat{padding-top:env(safe-area-inset-top,0px)}
-
-/* ---------- une seule action principale ---------- */
-#acte{flex:0 0 auto;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));
-  background:var(--haut);border-top:1px solid var(--filet)}
+#acte{position:absolute;left:0;right:0;z-index:20;
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));
+  background:var(--barre);border-top:1px solid var(--filet);
+  -webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou)}
 #acte[hidden]{display:none}
 #acte.surNav{padding-bottom:10px}
-#acte .button{width:100%;box-shadow:var(--ombre);font-weight:600;letter-spacing:.005em}
+#acte .button{width:100%;font-weight:600;letter-spacing:.005em;box-shadow:var(--ombre)}
+.dark #acte .button-fill{background:rgba(157,183,164,.17);color:#C4DCCA;
+  border:1px solid rgba(157,183,164,.42);box-shadow:0 1px 0 var(--eclat) inset,
+  0 10px 26px -14px var(--lueur)}
 
-/* ---------- onglets ---------- */
-#nav{flex:0 0 auto;display:flex;background:var(--haut);
-  border-top:1px solid var(--filet);padding-bottom:env(safe-area-inset-bottom,0px)}
+#nav{position:absolute;left:0;right:0;bottom:0;z-index:20;display:flex;
+  background:var(--barre);border-top:1px solid var(--filet);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  -webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou)}
 #nav[hidden]{display:none}
 #nav button{flex:1 1 0;min-height:49px;border:0;background:none;font-size:11px;
   font-weight:500;color:var(--muted);padding:0 2px;cursor:pointer}
 #nav button[aria-current="page"]{color:var(--f7-theme-color);font-weight:700}
+
+/* ---------- ce qui revient : des cartes qui défilent ---------- */
+.carr{display:flex;gap:13px;overflow-x:auto;scroll-snap-type:x mandatory;
+  padding:14px 16px 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.carr::-webkit-scrollbar{display:none}
+.carte{scroll-snap-align:center;flex:0 0 87%;display:flex;flex-direction:column;
+  background:var(--verre);border:1px solid var(--filet);border-radius:18px;
+  padding:19px 19px 17px;box-shadow:var(--ombre);text-decoration:none;color:inherit;
+  -webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou);
+  -webkit-tap-highlight-color:transparent}
+.carte:active{transform:scale(.985)}
+.carte .quand{font-family:var(--sans);font-size:11px;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--f7-theme-color)}
+.carte .grand{font-size:24px;padding-left:13px}
+.carte .meta{margin:12px 0 0 15px}
+.points{display:flex;justify-content:center;gap:6px;padding:2px 0 4px}
+.points i{width:6px;height:6px;border-radius:50%;background:var(--filet);transition:background .2s}
+.points i.on{background:var(--f7-theme-color)}
 
 /* ---------- puces de filtre ---------- */
 .puces{display:flex;gap:8px;overflow-x:auto;padding:12px 16px;scrollbar-width:none}
 .puces::-webkit-scrollbar{display:none}
 .puce{flex:0 0 auto;width:auto;min-height:33px;padding:0 14px;border-radius:17px;
   font-family:var(--sans);font-size:13px;font-weight:500;border:1px solid var(--filet);
-  background:transparent;color:var(--muted);cursor:pointer}
-.puce[aria-pressed="true"]{background:var(--f7-theme-color);color:#fff;
+  background:var(--verre);color:var(--muted);cursor:pointer}
+.puce[aria-pressed="true"]{background:var(--f7-theme-color);color:#FBFAF8;
   border-color:var(--f7-theme-color)}
+.dark .puce[aria-pressed="true"]{color:#13100E}
 
 /* ---------- saisie ---------- */
 textarea.dicte{width:100%;min-height:120px;border:0;background:transparent;resize:none;
-  font-family:var(--serif);font-size:22px;line-height:1.4;letter-spacing:-.01em;
+  font-family:var(--serif);font-size:25px;line-height:1.28;letter-spacing:-.012em;
   color:var(--f7-text-color);padding:0}
-textarea.dicte::placeholder{color:var(--muted);opacity:.65}
+textarea.dicte::placeholder{color:var(--muted);opacity:.6}
 textarea.dicte:focus{outline:0}
 .micro{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:0 15px;
   border-radius:19px;font-family:var(--sans);font-size:13.5px;font-weight:600;
-  border:1px solid var(--f7-theme-color);background:transparent;color:var(--f7-theme-color);cursor:pointer}
-.micro.on{background:var(--f7-theme-color);color:#fff}
+  border:1px solid var(--f7-theme-color);background:var(--verre);
+  color:var(--f7-theme-color);cursor:pointer}
+.micro.on{background:var(--f7-theme-color);color:#FBFAF8}
+.dark .micro.on{color:#13100E}
 @keyframes bat{0%,100%{opacity:1}50%{opacity:.4}}
 .micro.on svg{animation:bat 1.1s ease-in-out infinite}
 
 /* ---------- feuilles d'action (Framework7 les cache, son JS les montre ; on fait sans) ---------- */
-.actions-backdrop{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(20,10,6,.45);
+.actions-backdrop{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(14,10,8,.45);
   z-index:13000;opacity:0;visibility:hidden;transition:opacity .3s}
 .actions-backdrop.backdrop-in{opacity:1;visibility:visible}
 .actions-modal{display:none;position:fixed;left:0;right:0;bottom:0;z-index:13500}
 .actions-modal.modal-in{display:block;animation:monte .28s cubic-bezier(.2,.8,.3,1)}
 @keyframes monte{from{transform:translate3d(0,100%,0)}to{transform:none}}
 .actions-button{font-family:var(--sans)}
-.actions-button.rouge{color:#B3303F}
-.dark .actions-button.rouge{color:#FF8591}
-.dark .button-fill{color:#14100E}
+.actions-button.rouge{color:#A8453B}
+.dark .actions-button.rouge{color:#E78C82}
 
 .toast{position:fixed;left:50%;transform:translateX(-50%);
   bottom:calc(96px + env(safe-area-inset-bottom,0px));
-  background:#241C17;color:#FAF4EC;padding:11px 18px;border-radius:22px;
+  background:#1D1A17;color:#F8F5F2;padding:11px 18px;border-radius:22px;
   font-family:var(--sans);font-size:14px;z-index:14000;max-width:80%;text-align:center;
-  box-shadow:var(--ombre)}
-.dark .toast{background:#F4EBE1;color:#14100E}
+  box-shadow:0 12px 34px -16px rgba(0,0,0,.7)}
+.dark .toast{background:#EEE9E3;color:#13100E}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
 </style>
 </head>
 <body>
+<!-- Le rameau d'amandier : shaqed, l'amandier, et shoqed, celui qui veille —
+     le même mot en hébreu (Jérémie 1.11). Il fleurit avant tous les autres,
+     quand l'hiver n'est pas fini. Les couleurs passent par des variables :
+     un <use> crée un arbre que les sélecteurs CSS ne traversent pas. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <g id="amandier">
+    <path style="fill:none;stroke:var(--br);stroke-width:2.1;stroke-linecap:round" d="M20 214C44 180 51 144 59 108 65 80 73 50 93 22"/>
+    <path style="fill:none;stroke:var(--br);stroke-width:2.1;stroke-linecap:round" d="M56 128C71 124 85 116 96 104"/>
+    <path style="fill:none;stroke:var(--br);stroke-width:2.1;stroke-linecap:round" d="M68 84C54 78 42 68 35 54"/>
+    <g transform="translate(58,112) rotate(-26)"><path style="fill:var(--fe);stroke:var(--br);stroke-width:1.4" d="M0 0C9-9 27-9 36 0 27 9 9 9 0 0Z"/><path style="fill:none;stroke:var(--br);stroke-width:1" d="M4 0H32"/></g>
+    <g transform="translate(66,88) rotate(206) scale(.9)"><path style="fill:var(--fe);stroke:var(--br);stroke-width:1.4" d="M0 0C9-9 27-9 36 0 27 9 9 9 0 0Z"/><path style="fill:none;stroke:var(--br);stroke-width:1" d="M4 0H32"/></g>
+    <g transform="translate(40,164) rotate(-14) scale(.85)"><path style="fill:var(--fe);stroke:var(--br);stroke-width:1.4" d="M0 0C9-9 27-9 36 0 27 9 9 9 0 0Z"/><path style="fill:none;stroke:var(--br);stroke-width:1" d="M4 0H32"/></g>
+    <g transform="translate(33,186) rotate(196) scale(.72)"><path style="fill:var(--fe);stroke:var(--br);stroke-width:1.4" d="M0 0C9-9 27-9 36 0 27 9 9 9 0 0Z"/><path style="fill:none;stroke:var(--br);stroke-width:1" d="M4 0H32"/></g>
+    <g id="fleur"><ellipse style="fill:var(--pe);stroke:var(--br);stroke-width:1.2" cx="0" cy="-9" rx="5.2" ry="8.6"/><ellipse style="fill:var(--pe);stroke:var(--br);stroke-width:1.2" cx="0" cy="-9" rx="5.2" ry="8.6" transform="rotate(72)"/><ellipse style="fill:var(--pe);stroke:var(--br);stroke-width:1.2" cx="0" cy="-9" rx="5.2" ry="8.6" transform="rotate(144)"/><ellipse style="fill:var(--pe);stroke:var(--br);stroke-width:1.2" cx="0" cy="-9" rx="5.2" ry="8.6" transform="rotate(216)"/><ellipse style="fill:var(--pe);stroke:var(--br);stroke-width:1.2" cx="0" cy="-9" rx="5.2" ry="8.6" transform="rotate(288)"/><circle style="fill:var(--br)" cx="0" cy="0" r="2.6"/></g>
+    <use href="#fleur" transform="translate(93,22)"/>
+    <use href="#fleur" transform="translate(96,104) scale(.78)"/>
+    <use href="#fleur" transform="translate(35,54) scale(.66)"/>
+  </g>
+</defs></svg>
 <div id="haut" hidden></div>
 <div id="avance" hidden><i></i></div>
 <div id="main"></div>
@@ -394,6 +462,7 @@ function render(){
   nav.hidden = !onglet;
   if(onglet) nav.innerHTML = ONGLETS.map(([k,l])=>`<button data-go="${k}"${S.view===k?' aria-current="page"':""}>${l}</button>`).join("");
   main.scrollTop=0;
+  place();
   const f=document.getElementById("cFiltre");
   if(f && S.cQ){ f.value=S.cQ; f.dispatchEvent(new Event("input",{bubbles:true})); }
   const carr=document.getElementById("carr"), pts=document.getElementById("points");
@@ -433,7 +502,26 @@ function fermeMenu(sec){
   if(sec) menu.innerHTML="";
 }
 
+/* Les barres flottent au-dessus de la liste pour que le verre ait quelque chose
+   à flouter. Leurs hauteurs changent d'un écran à l'autre : on les mesure. */
+function place(){
+  const hH = haut.hidden ? 0 : haut.offsetHeight;
+  const aH = avance.hidden ? 0 : 2;
+  const nH = nav.hidden ? 0 : nav.offsetHeight;
+  const bH = barre.hidden ? 0 : barre.offsetHeight;
+  avance.style.top = hH+"px";
+  barre.style.bottom = nH+"px";
+  main.style.paddingTop = hH
+    ? (hH+aH)+"px"
+    : "calc(env(safe-area-inset-top,0px) + "+(aH+10)+"px)";
+  main.style.paddingBottom = (nH||bH)
+    ? (nH+bH+20)+"px"
+    : "calc(env(safe-area-inset-bottom,0px) + 24px)";
+}
+addEventListener("resize", place);
+
 /* ---------- Aujourd'hui ---------- */
+const RAMEAU = cls => `<svg class="rameau ${cls}" viewBox="0 0 140 220" aria-hidden="true"><use href="#amandier"/></svg>`;
 function phrase(c){
   const n=c.n;
   if(c.type==="prevu")  return "Tu avais prévu ceci pour le "+human(n)+" :";
@@ -456,19 +544,19 @@ function vToday(){
   const d = now.getDate()+" "+MOIS[now.getMonth()];
   Z.action = bouton("Noter quelque chose", 'data-go="note"');
   if(!db.nodes.length){
-    Z.html = `<p class="titre-page">Rien encore.</p><p class="ssTitre">${d}</p>
+    Z.html = RAMEAU("marque") + `<p class="titre-page">Rien encore.</p><p class="ssTitre">${d}</p>
       <div class="block amorce" style="margin-top:14px">Note la première chose : ce qu'Il a fait, ce que tu as fait, ou ce que quelqu'un a fait.</div>
       ${liste(ligne({titre:"Voir un exemple", attr:'data-act="demo"'}))}`;
     return;
   }
   const cartes=remontees();
   if(!cartes.length){
-    Z.html = `<p class="titre-page">Rien ne revient aujourd'hui.</p><p class="ssTitre">${d}</p>
+    Z.html = RAMEAU("marque") + `<p class="titre-page">Rien ne revient aujourd'hui.</p><p class="ssTitre">${d}</p>
       <div class="block amorce" style="margin-top:14px">Tout ce qu'Il a fait a reçu quelque chose de toi. Note la suite quand elle vient.</div>`;
     return;
   }
   const recents=db.nodes.slice().sort(parDate).slice(0,4);
-  Z.html = `<p class="titre-page">Ce qui revient</p><p class="ssTitre">${d}</p>
+  Z.html = RAMEAU("marque") + `<p class="titre-page">Ce qui revient</p><p class="ssTitre">${d}</p>
     <div class="carr" id="carr">${cartes.map(carte).join("")}</div>
     ${cartes.length>1 ? `<div class="points" id="points">${cartes.map((c,i)=>`<i${i?"":' class="on"'}></i>`).join("")}</div>` : ""}
     ${titreBloc("Derniers gardés")}
@@ -575,8 +663,9 @@ function vNode(){
   Z.titre="Un acte"; Z.retour=true; Z.plus=true;
   const par=(n.par||[]).map(node).filter(Boolean), enf=enfants(n.id);
   const dte=human(n);
-  let h=`<div class="block" style="margin-top:20px">
-      <p class="grand ${estParole(n)?"voix":""}">${esc(n.txt)}</p>
+  let h=`<div class="block" style="margin-top:20px;position:relative">
+      ${RAMEAU("filigrane")}
+      <p class="grand ${estParole(n)?"voix":""}" style="position:relative;max-width:76%">${esc(n.txt)}</p>
       <p class="meta">${esc(acteurTxt(n))}${dte?" · "+dte:""}${n.man?" · "+manCourt(n.man):""}${n.etat&&n.etat!=="fait"?" · "+ETAT[n.etat]:""}</p>
     </div>`;
   h+=titreBloc("En réponse à");

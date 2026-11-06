@@ -1,11 +1,11 @@
 /* Ében-Ézer — hors-ligne, mais jamais figé.
    La page : le réseau d'abord, le cache en secours (pour recevoir les corrections).
    Le reste (composants, icônes, police) : le cache d'abord. */
-const CACHE = "ebenezer-v5";
+const CACHE = "ebenezer-v6";
 const SOCLE = ["./", "./index.html", "./manifest.webmanifest",
                "./vendor/framework7-bundle.min.css",
-               "./vendor/instrument-serif-latin.woff2",
-               "./vendor/instrument-serif-latin-ext.woff2",
+               "./vendor/lora-latin.woff2",
+               "./vendor/lora-latin-ext.woff2",
                "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {

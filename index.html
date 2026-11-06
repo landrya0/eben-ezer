@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <title>Ében-Ézer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#F2F1F7" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#FAF4EC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14100E" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Ében-Ézer">
@@ -14,106 +14,210 @@
 <link rel="stylesheet" href="vendor/framework7-bundle.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;600&display=swap">
 <style>
-/* Les composants viennent de Framework7. Ici : la couleur, la voix de Dieu,
-   et la charpente (barre du haut, onglets, action principale). */
-:root{
-  --f7-theme-color:#5747C7;
-  --f7-theme-color-rgb:87,71,199;
-  --f7-theme-color-shade:#4435B2;
-  --f7-theme-color-tint:#7264D6;
-  --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
-  --voix:#2A2367;
-  --haut:#F7F7FB;
-  --filet:rgba(0,0,0,.14);
-}
-.dark{ --voix:#C6BCFA; --haut:#1C1C1E; --filet:rgba(255,255,255,.16); }
-.ios{ --f7-page-bg-color:#F2F1F7; }
-html,body{height:100%}
-body{margin:0;display:flex;flex-direction:column;overflow:hidden;background:var(--f7-page-bg-color)}
+/* Les composants viennent de Framework7. Ici : la chaleur, la voix de Dieu,
+   la hiérarchie des textes, et la charpente.
 
-/* --- barre du haut --- */
+   Règle de lecture, tenue partout :
+   · serif            → ce qui est dit (Sa parole, les actes) et les titres de page
+   · sans MAJUSCULES  → les intitulés de section, jamais autre chose
+   · sans normal      → ce que l'application dit
+   · couleur d'accent → uniquement ce qui se touche                              */
+:root{
+  --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+
+  --f7-theme-color:#8A6A2F;
+  --f7-theme-color-rgb:138,106,47;
+  --f7-theme-color-shade:#6E5424;
+  --f7-theme-color-tint:#A07E3C;
+
+  --f7-page-bg-color:#FAF4EC;
+  --f7-list-strong-bg-color:#FFFDF9;
+  --f7-text-color:#241C17;
+  --f7-list-item-border-color:rgba(72,48,34,.13);
+  --f7-list-outline-inset-border-color:rgba(72,48,34,.13);
+  --f7-list-outline-border-color:rgba(72,48,34,.13);
+  --f7-list-item-after-text-color:#8B7868;
+  --f7-list-item-text-text-color:#8B7868;
+  --f7-list-item-subtitle-text-color:#8B7868;
+  --f7-block-title-text-color:#8B7868;
+  --f7-block-title-font-size:11px;
+  --f7-list-link-pressed-bg-color:rgba(138,106,47,.09);
+
+  --muted:#8B7868;
+  --voix:#45341C;
+  --haut:#FCF7F0;
+  --filet:rgba(72,48,34,.14);
+  --ombre:0 1px 2px rgba(72,40,24,.06), 0 16px 34px -22px rgba(72,40,24,.45);
+}
+/* Un sombre chaud : un noir qui tire sur le brun, des cartes qui ne sont pas grises. */
+.dark{
+  --f7-theme-color:#D4A95C;
+  --f7-theme-color-rgb:212,169,92;
+  --f7-theme-color-shade:#C2974A;
+  --f7-theme-color-tint:#E0B974;
+
+  --f7-page-bg-color:#14100E;
+  --f7-list-strong-bg-color:#221B17;
+  --f7-block-strong-bg-color:#221B17;
+  --f7-text-color:#F4EBE1;
+  --f7-list-item-border-color:rgba(255,238,222,.09);
+  --f7-list-outline-inset-border-color:rgba(255,238,222,.09);
+  --f7-list-outline-border-color:rgba(255,238,222,.09);
+  --f7-list-item-after-text-color:#A89486;
+  --f7-list-item-text-text-color:#A89486;
+  --f7-list-item-subtitle-text-color:#A89486;
+  --f7-block-title-text-color:#A89486;
+  --f7-list-group-title-bg-color:#1B1512;
+  --f7-list-group-title-text-color:#A89486;
+  --f7-list-link-pressed-bg-color:rgba(255,238,222,.07);
+  --f7-actions-button-border-color:rgba(255,238,222,.10);
+  --f7-actions-label-text-color:#A89486;
+  --f7-input-text-color:#F4EBE1;
+  --f7-bars-text-color:#F4EBE1;
+
+  --muted:#A89486;
+  --voix:#F0DCB9;
+  --haut:#1D1714;
+  --filet:rgba(255,238,222,.11);
+  --ombre:0 1px 2px rgba(0,0,0,.5), 0 16px 34px -22px rgba(0,0,0,.9);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;display:flex;flex-direction:column;overflow:hidden;
+  background:var(--f7-page-bg-color);font-family:var(--sans)}
+
+/* ---------- hiérarchie des textes ---------- */
+/* Intitulé de section : petit, capitales, espacé. Jamais confondu avec une phrase. */
+.block-title{font-family:var(--sans);font-weight:700;letter-spacing:.11em;
+  text-transform:uppercase;font-size:11px;color:var(--f7-block-title-text-color);
+  margin-top:30px;margin-bottom:9px}
+/* Titre de page : serif, grand, serré. */
+.titre-page{font-family:var(--serif);font-size:33px;font-weight:600;letter-spacing:-.022em;
+  margin:24px 16px 3px;line-height:1.14;color:var(--f7-text-color)}
+.ssTitre{margin:0 16px 4px;font-size:13.5px;color:var(--muted);line-height:1.5}
+/* Ce qui est dit : serif, filet d'accent à gauche — on ne peut pas le prendre pour un titre. */
+.grand{font-family:var(--serif);font-size:26px;line-height:1.3;letter-spacing:-.012em;
+  margin:0;color:var(--f7-text-color);border-left:2px solid var(--filet);padding-left:16px}
+.grand.voix{color:var(--voix);border-left-color:var(--f7-theme-color)}
+.voix{font-family:var(--serif);color:var(--voix)}
+/* Les mentions : petites, en sans, espacées — on ne les lit pas comme une phrase. */
+.meta{font-family:var(--sans);font-size:12.5px;font-weight:500;letter-spacing:.015em;
+  color:var(--muted);margin:13px 0 0 18px;line-height:1.5}
+/* Ce que l'application explique : sans, gris, jamais serif. */
+.amorce{font-family:var(--sans);font-size:14.5px;line-height:1.52;color:var(--muted);margin:0}
+/* Dans les listes : le titre est une phrase, en sans ; le serif est réservé à ce qui est dit. */
+.list .item-title{font-family:var(--sans);font-size:16px;font-weight:500;line-height:1.35;
+  white-space:normal;color:var(--f7-text-color)}
+.list .item-title.serif{font-family:var(--serif);font-weight:400;font-size:17.5px;
+  letter-spacing:-.008em;color:var(--voix)}
+.list .item-subtitle{font-family:var(--sans);font-size:13px;font-weight:400;
+  white-space:normal;margin-top:3px;letter-spacing:.005em}
+.list .item-text{font-family:var(--sans);font-size:13.5px;line-height:1.45;
+  white-space:normal;overflow:visible;-webkit-line-clamp:4;margin-top:4px}
+.list .item-after{font-family:var(--sans);font-size:12.5px;font-variant-numeric:tabular-nums;
+  white-space:nowrap;flex-shrink:0;align-self:flex-start;padding-top:3px}
+.list .item-inner{align-items:flex-start}
+/* La couleur d'accent ne dit qu'une chose : ceci se touche. */
+.lien .item-title{color:var(--f7-theme-color);font-weight:600}
+.coche{color:var(--f7-theme-color);font-weight:700}
+.vide{margin:0;padding:13px 16px;color:var(--muted);font-size:14.5px;font-style:italic}
+
+/* ---------- ce qui revient : des cartes qui défilent ---------- */
+.carr{display:flex;gap:13px;overflow-x:auto;scroll-snap-type:x mandatory;
+  padding:16px 16px 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.carr::-webkit-scrollbar{display:none}
+.carte{scroll-snap-align:center;flex:0 0 87%;display:flex;flex-direction:column;
+  background:var(--f7-list-strong-bg-color);border:1px solid var(--filet);
+  border-radius:18px;padding:19px 19px 17px;box-shadow:var(--ombre);
+  text-decoration:none;color:inherit;-webkit-tap-highlight-color:transparent}
+.carte:active{transform:scale(.985)}
+.carte .quand{font-family:var(--sans);font-size:11px;font-weight:700;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--f7-theme-color)}
+.carte .grand{font-size:23px;border-left-width:2px;padding-left:14px}
+.carte .meta{margin:12px 0 0 16px}
+.points{display:flex;justify-content:center;gap:6px;padding:2px 0 4px}
+.points i{width:6px;height:6px;border-radius:50%;background:var(--filet);transition:background .2s}
+.points i.on{background:var(--f7-theme-color)}
+
+/* ---------- barre du haut ---------- */
 #haut{flex:0 0 auto;display:flex;align-items:center;gap:4px;min-height:52px;
   padding:calc(6px + env(safe-area-inset-top,0px)) 8px 6px;
   background:var(--haut);border-bottom:1px solid var(--filet)}
 #haut[hidden]{display:none}
-#haut .t{flex:1 1 auto;text-align:center;font-size:17px;font-weight:600;
+#haut .t{flex:1 1 auto;min-width:0;text-align:center;font-size:16px;font-weight:600;
+  letter-spacing:-.01em;color:var(--f7-text-color);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#haut button{min-width:46px;min-height:44px;border:0;background:none;color:var(--f7-theme-color);
-  display:flex;align-items:center;justify-content:center;gap:2px;font-size:17px;padding:0 6px;cursor:pointer}
+#haut button{flex:0 0 auto;width:auto;min-width:46px;min-height:44px;border:0;background:none;
+  color:var(--f7-theme-color);display:flex;align-items:center;justify-content:center;gap:2px;
+  font-size:16px;padding:0 6px;cursor:pointer}
 #haut button[disabled]{opacity:0;pointer-events:none}
 
-/* --- avancement de l'assistant --- */
-#avance{flex:0 0 auto;height:2px;background:rgba(127,127,127,.22)}
+/* ---------- avancement ---------- */
+#avance{flex:0 0 auto;height:2px;background:var(--filet)}
 #avance[hidden]{display:none}
 #avance i{display:block;height:100%;background:var(--f7-theme-color);transition:width .25s ease}
 
-/* --- contenu --- */
+/* ---------- contenu ---------- */
 #main{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  padding-bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+  padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
 #main.plat{padding-top:env(safe-area-inset-top,0px)}
 
-/* --- une seule action principale par écran --- */
+/* ---------- une seule action principale ---------- */
 #acte{flex:0 0 auto;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));
   background:var(--haut);border-top:1px solid var(--filet)}
 #acte[hidden]{display:none}
 #acte.surNav{padding-bottom:10px}
-#acte .button{width:100%}
+#acte .button{width:100%;box-shadow:var(--ombre);font-weight:600;letter-spacing:.005em}
 
-/* --- onglets --- */
+/* ---------- onglets ---------- */
 #nav{flex:0 0 auto;display:flex;background:var(--haut);
   border-top:1px solid var(--filet);padding-bottom:env(safe-area-inset-bottom,0px)}
 #nav[hidden]{display:none}
 #nav button{flex:1 1 0;min-height:49px;border:0;background:none;font-size:11px;
-  color:var(--f7-text-color);opacity:.5;padding:0 2px;cursor:pointer}
-#nav button[aria-current="page"]{color:var(--f7-theme-color);opacity:1;font-weight:600}
+  font-weight:500;color:var(--muted);padding:0 2px;cursor:pointer}
+#nav button[aria-current="page"]{color:var(--f7-theme-color);font-weight:700}
 
-/* --- la voix de Dieu --- */
-.voix{font-family:var(--serif);color:var(--voix);line-height:1.34;letter-spacing:-.01em}
-.grand{font-family:var(--serif);font-size:27px;line-height:1.3;letter-spacing:-.015em;margin:0}
-.titre-page{font-family:var(--serif);font-size:32px;font-weight:600;letter-spacing:-.02em;
-  margin:22px 16px 2px;line-height:1.15}
-.ssTitre{margin:0 16px 4px;font-size:14px;opacity:.55}
-.rouge{color:#D7263D}
-.dark .rouge{color:#FF6B7A}
-.coche{color:var(--f7-theme-color);font-weight:600}
-.item-title.serif{font-family:var(--serif);font-size:17px}
-.vide{margin:0;padding:14px 16px;opacity:.5;font-size:15px}
+/* ---------- puces de filtre ---------- */
 .puces{display:flex;gap:8px;overflow-x:auto;padding:12px 16px;scrollbar-width:none}
 .puces::-webkit-scrollbar{display:none}
-.puce{flex:0 0 auto;width:auto;min-height:33px;padding:0 14px;border-radius:17px;font-size:13px;
-  border:1px solid var(--filet);background:transparent;color:var(--f7-text-color);cursor:pointer}
-.puce[aria-pressed="true"]{background:var(--f7-theme-color);color:#fff;border-color:var(--f7-theme-color)}
+.puce{flex:0 0 auto;width:auto;min-height:33px;padding:0 14px;border-radius:17px;
+  font-family:var(--sans);font-size:13px;font-weight:500;border:1px solid var(--filet);
+  background:transparent;color:var(--muted);cursor:pointer}
+.puce[aria-pressed="true"]{background:var(--f7-theme-color);color:#fff;
+  border-color:var(--f7-theme-color)}
+
+/* ---------- saisie ---------- */
 textarea.dicte{width:100%;min-height:120px;border:0;background:transparent;resize:none;
-  font-family:var(--serif);font-size:21px;line-height:1.4;color:var(--f7-text-color);padding:0}
+  font-family:var(--serif);font-size:22px;line-height:1.4;letter-spacing:-.01em;
+  color:var(--f7-text-color);padding:0}
+textarea.dicte::placeholder{color:var(--muted);opacity:.65}
 textarea.dicte:focus{outline:0}
 .micro{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:0 15px;
-  border-radius:19px;font-size:14px;border:1px solid var(--f7-theme-color);
-  background:transparent;color:var(--f7-theme-color);cursor:pointer}
+  border-radius:19px;font-family:var(--sans);font-size:13.5px;font-weight:600;
+  border:1px solid var(--f7-theme-color);background:transparent;color:var(--f7-theme-color);cursor:pointer}
 .micro.on{background:var(--f7-theme-color);color:#fff}
 @keyframes bat{0%,100%{opacity:1}50%{opacity:.4}}
 .micro.on svg{animation:bat 1.1s ease-in-out infinite}
-.actions-button.rouge{color:#D7263D}
-.dark .actions-button.rouge{color:#FF6B7A}
-/* Framework7 cache ses fenêtres avec display:none et compte sur son JS
-   pour les montrer. On n'embarque pas son JS : on fait ces deux lignes. */
-.actions-backdrop{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.4);
+
+/* ---------- feuilles d'action (Framework7 les cache, son JS les montre ; on fait sans) ---------- */
+.actions-backdrop{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(20,10,6,.45);
   z-index:13000;opacity:0;visibility:hidden;transition:opacity .3s}
 .actions-backdrop.backdrop-in{opacity:1;visibility:visible}
 .actions-modal{display:none;position:fixed;left:0;right:0;bottom:0;z-index:13500}
 .actions-modal.modal-in{display:block;animation:monte .28s cubic-bezier(.2,.8,.3,1)}
 @keyframes monte{from{transform:translate3d(0,100%,0)}to{transform:none}}
+.actions-button{font-family:var(--sans)}
+.actions-button.rouge{color:#B3303F}
+.dark .actions-button.rouge{color:#FF8591}
+.dark .button-fill{color:#14100E}
 
-/* Les titres doivent passer à la ligne : ce sont des phrases, pas des étiquettes. */
-.list .item-title{white-space:normal}
-.list .item-subtitle,.list .item-text{white-space:normal;overflow:visible;-webkit-line-clamp:3}
-.list .item-after{white-space:nowrap;flex-shrink:0;align-self:flex-start;padding-top:2px}
-.list .item-inner{align-items:flex-start}
-#haut button{flex:0 0 auto;width:auto}
-#haut .t{min-width:0}
 .toast{position:fixed;left:50%;transform:translateX(-50%);
   bottom:calc(96px + env(safe-area-inset-bottom,0px));
-  background:rgba(0,0,0,.86);color:#fff;padding:11px 18px;border-radius:22px;
-  font-size:14px;z-index:14000;max-width:80%;text-align:center}
+  background:#241C17;color:#FAF4EC;padding:11px 18px;border-radius:22px;
+  font-family:var(--sans);font-size:14px;z-index:14000;max-width:80%;text-align:center;
+  box-shadow:var(--ombre)}
+.dark .toast{background:#F4EBE1;color:#14100E}
 </style>
 </head>
 <body>
@@ -187,19 +291,63 @@ function acteurTxt(n){
 function dieuNodes(){ return db.nodes.filter(n=>n.kind!=="ecriture" && (n.act==="dieu" || (n.act==="gens" && n.man))); }
 function parDate(a,b){ return (b.date||"").localeCompare(a.date||""); }
 
-/* ---------- ce qui revient ---------- */
-function remontee(){
-  const now=new Date(), m=now.getMonth()+1, j=now.getDate();
-  const anniv = dieuNodes().filter(n=>{ const p=parse(n.date); return p && n.prec==="j" && p.m===m && p.d===j && p.y<now.getFullYear(); })
-    .sort((a,b)=>a.date.localeCompare(b.date));
-  if(anniv.length) return {type:"anniv", n:anniv[0]};
-  const prevu = db.nodes.filter(n=>n.etat==="prevu" && n.date && n.date<=today())
-    .sort((a,b)=>(a.date||"").localeCompare(b.date||""));
-  if(prevu.length) return {type:"prevu", n:prevu[0]};
-  const dette = dieuNodes().filter(n=>!enfants(n.id).some(e=>e.act==="moi"))
-    .sort((a,b)=>(a.date||"").localeCompare(b.date||""));
-  if(dette.length) return {type:"dette", n:dette[0]};
+/* ---------- ce qui revient ----------
+   Pas un seul souvenir : tout ce qui revient aujourd'hui, à faire défiler.
+   Une semaine, un mois, un an — et, quand la mémoire est pleine, le hasard. */
+function jour0(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function joursDepuis(n){
+  const p=parse(n.date); if(!p) return null;
+  return Math.round((jour0(new Date()) - new Date(p.y,p.m-1,p.d)) / 86400000);
+}
+const FENETRES = [
+  {j:7,   tol:0, t:"Il y a une semaine"},
+  {j:14,  tol:1, t:"Il y a deux semaines"},
+  {j:30,  tol:2, t:"Il y a un mois"},
+  {j:91,  tol:4, t:"Il y a trois mois"},
+  {j:182, tol:5, t:"Il y a six mois"}
+];
+function ansJourPourJour(n){
+  const p=parse(n.date), now=new Date();
+  if(!p || n.prec!=="j") return 0;
+  if(p.m!==now.getMonth()+1 || p.d!==now.getDate()) return 0;
+  const a=now.getFullYear()-p.y;
+  return a>0 ? a : 0;
+}
+function carteAnniv(n){
+  const a=ansJourPourJour(n);
+  if(a) return {n:n, type:"anniv", quand:"Il y a "+(a===1?"un an":a+" ans"), rang:100-a};
+  const j=joursDepuis(n);
+  if(j==null || j<=1) return null;
+  for(let i=0;i<FENETRES.length;i++){
+    const f=FENETRES[i];
+    if(Math.abs(j-f.j)<=f.tol) return {n:n, type:"anniv", quand:f.t, rang:i};
+  }
   return null;
+}
+function remontees(){
+  const vus={}, cartes=[];
+  const prends=c=>{ if(c && !vus[c.n.id]){ vus[c.n.id]=1; cartes.push(c); } };
+
+  db.nodes.filter(n=>n.etat==="prevu" && n.date && n.date<=today())
+    .sort((a,b)=>(a.date||"").localeCompare(b.date||""))
+    .slice(0,2)
+    .forEach(n=>prends({n:n, type:"prevu", quand:"Tu avais prévu"}));
+
+  dieuNodes().map(carteAnniv).filter(Boolean)
+    .sort((a,b)=>a.rang-b.rang).forEach(prends);
+
+  dieuNodes().filter(n=>!enfants(n.id).some(e=>e.act==="moi"))
+    .sort((a,b)=>(a.date||"").localeCompare(b.date||""))
+    .slice(0,2)
+    .forEach(n=>prends({n:n, type:"dette", quand:"Sans réponse de toi"}));
+
+  /* Quand il y en a beaucoup, le hasard ramène ce qu'on ne cherchait pas. */
+  const reste=dieuNodes().filter(n=>!vus[n.id]);
+  for(let k=0; k<3 && reste.length && cartes.length<8; k++){
+    const n=reste.splice(Math.floor(Math.random()*reste.length),1)[0];
+    prends({n:n, type:"hasard", quand:"Au hasard"});
+  }
+  return cartes;
 }
 
 /* ---------- charpente ---------- */
@@ -242,6 +390,11 @@ function render(){
   nav.hidden = !onglet;
   if(onglet) nav.innerHTML = ONGLETS.map(([k,l])=>`<button data-go="${k}"${S.view===k?' aria-current="page"':""}>${l}</button>`).join("");
   main.scrollTop=0;
+  const carr=document.getElementById("carr"), pts=document.getElementById("points");
+  if(carr && pts) carr.addEventListener("scroll", ()=>{
+    const i=Math.round(carr.scrollLeft/(carr.scrollWidth/pts.children.length));
+    for(let k=0;k<pts.children.length;k++) pts.children[k].className = k===i ? "on" : "";
+  }, {passive:true});
 }
 
 /* ---------- briques Framework7 ---------- */
@@ -275,42 +428,46 @@ function fermeMenu(sec){
 }
 
 /* ---------- Aujourd'hui ---------- */
+function phrase(c){
+  const n=c.n;
+  if(c.type==="prevu")  return "Tu avais prévu ceci pour le "+human(n)+" :";
+  if(c.type==="dette")  return "Tu n'as jamais rien rendu pour ceci :";
+  if(c.type==="hasard") return "Te souviens-tu de ceci ?";
+  return n.act==="gens" ? "Il est passé par "+esc(gensNom(n.gid))+" :"
+       : (n.man==="parle" ? "Il t'a dit ceci :" : "Il a fait ceci :");
+}
+function carte(c){
+  const n=c.n;
+  return `<a class="carte" data-node="${n.id}">
+    <span class="quand">${esc(c.quand)}</span>
+    <span class="amorce" style="margin:9px 0 10px">${phrase(c)}</span>
+    <span class="grand ${estParole(n)?"voix":""}">${esc(n.txt)}</span>
+    <span class="meta">${esc(acteurTxt(n))}${human(n)?" · "+human(n):""}</span>
+  </a>`;
+}
 function vToday(){
   const now=new Date();
   const d = now.getDate()+" "+MOIS[now.getMonth()];
   Z.action = bouton("Noter quelque chose", 'data-go="note"');
   if(!db.nodes.length){
     Z.html = `<p class="titre-page">Rien encore.</p><p class="ssTitre">${d}</p>
-      <div class="block">Note la première chose : ce qu'Il a fait, ce que tu as fait, ou ce que quelqu'un a fait.</div>
+      <div class="block amorce" style="margin-top:14px">Note la première chose : ce qu'Il a fait, ce que tu as fait, ou ce que quelqu'un a fait.</div>
       ${liste(ligne({titre:"Voir un exemple", attr:'data-act="demo"'}))}`;
     return;
   }
-  const r=remontee();
-  if(!r){
+  const cartes=remontees();
+  if(!cartes.length){
     Z.html = `<p class="titre-page">Rien ne revient aujourd'hui.</p><p class="ssTitre">${d}</p>
-      <div class="block">Tout ce qu'Il a fait a reçu quelque chose de toi. Note la suite quand elle vient.</div>`;
+      <div class="block amorce" style="margin-top:14px">Tout ce qu'Il a fait a reçu quelque chose de toi. Note la suite quand elle vient.</div>`;
     return;
   }
-  if(r.type==="prevu"){
-    Z.html = `<p class="ssTitre" style="margin-top:22px">${d}</p>
-      <p class="titre-page" style="margin-top:2px;font-size:21px">Tu avais prévu ceci :</p>
-      <div class="block"><p class="grand">${esc(r.n.txt)}</p>
-        <p style="opacity:.55;font-size:13px;margin-top:10px">${esc(acteurTxt(r.n))} · pour le ${human(r.n)}</p></div>
-      ${liste(ligne({titre:"Ouvrir cet acte", attr:'data-node="'+r.n.id+'"'})+
-              ligne({titre:"J'y renonce", attr:'data-abandon="'+r.n.id+'"'}))}`;
-    Z.action = bouton("C'est fait", 'data-fait="'+r.n.id+'"');
-    return;
-  }
-  const a=ansDepuis(r.n);
-  const intro = r.type==="dette" ? "Tu n'as jamais rien rendu pour ceci :"
-    : (r.n.act==="gens" ? `Il y a ${a} an${a>1?"s":""} jour pour jour, Il est passé par ${esc(gensNom(r.n.gid))} :`
-      : `Il y a ${a} an${a>1?"s":""} jour pour jour, ${r.n.man==="parle"?"Dieu t'a dit ceci":"Dieu a fait ceci"} :`);
-  Z.html = `<p class="ssTitre" style="margin-top:22px">${d}</p>
-    <div class="block" style="margin-top:8px"><p style="opacity:.6;font-size:15px;line-height:1.45;margin:0">${intro}</p>
-      <p class="grand ${estParole(r.n)?"voix":""}" style="margin-top:14px">${esc(r.n.txt)}</p>
-      <p style="opacity:.55;font-size:13px;margin-top:10px">${esc(acteurTxt(r.n))} · ${human(r.n)}</p></div>
-    ${liste(ligne({titre:enfants(r.n.id).some(e=>e.act==="moi")?"Voir ce que tu y as répondu":"Ouvrir cet acte",
-                   attr:'data-node="'+r.n.id+'"'}))}`;
+  const recents=db.nodes.slice().sort(parDate).slice(0,4);
+  Z.html = `<p class="titre-page">Ce qui revient</p><p class="ssTitre">${d}</p>
+    <div class="carr" id="carr">${cartes.map(carte).join("")}</div>
+    ${cartes.length>1 ? `<div class="points" id="points">${cartes.map((c,i)=>`<i${i?"":' class="on"'}></i>`).join("")}</div>` : ""}
+    ${titreBloc("Derniers gardés")}
+    ${liste(recents.map(n=>ligne({titre:esc(n.txt), serif:estParole(n),
+        sous:esc(acteurTxt(n)), apres:human(n), attr:'data-node="'+n.id+'"'})).join(""))}`;
 }
 
 /* ---------- Ses œuvres ---------- */
@@ -355,7 +512,7 @@ function vRevel(){
     }).join(""));
   } else {
     h+=liste(chiffres().map(t=>ligne({titre:t})).join(""));
-    h+=`<div class="block" style="opacity:.5;font-size:13px">Aucune moyenne n'est un jugement.</div>`;
+    h+=`<div class="block amorce">Aucune moyenne n'est un jugement.</div>`;
   }
   h+=liste(ligne({titre:"Mes données", attr:'data-go="data"'}));
   Z.html=h;
@@ -396,7 +553,7 @@ function vActes(){
     h+=liste(arr.map(n=>ligne({titre:esc(n.txt),
       sous:(n.dest==="gens"?"à "+esc(gensNom(n.dgid)):(n.dest==="moi"?"pour moi":"à Dieu")),
       apres:human(n), attr:'data-node="'+n.id+'"'})).join(""));
-    if(reste>0) h+=`<div class="block" style="opacity:.5;font-size:13px">…et ${reste} autre${reste>1?"s":""}.</div>`;
+    if(reste>0) h+=`<div class="block amorce">…et ${reste} autre${reste>1?"s":""}.</div>`;
     return h;
   };
   const faits=mien.filter(n=>n.etat==="fait").sort(parDate);
@@ -414,30 +571,30 @@ function vNode(){
   const dte=human(n);
   let h=`<div class="block" style="margin-top:20px">
       <p class="grand ${estParole(n)?"voix":""}">${esc(n.txt)}</p>
-      <p style="opacity:.55;font-size:13px;margin-top:12px">${esc(acteurTxt(n))}${dte?" · "+dte:""}${n.man?" · "+manCourt(n.man):""}${n.etat&&n.etat!=="fait"?" · "+ETAT[n.etat]:""}</p>
+      <p class="meta">${esc(acteurTxt(n))}${dte?" · "+dte:""}${n.man?" · "+manCourt(n.man):""}${n.etat&&n.etat!=="fait"?" · "+ETAT[n.etat]:""}</p>
     </div>`;
-  h+=titreBloc("Ce qui a précédé");
+  h+=titreBloc("En réponse à");
   h+=liste(
     (par.length ? par.map(p=>ligne({titre:esc(p.txt), serif:estParole(p),
         sous:esc(acteurTxt(p))+(human(p)?" · "+human(p):""), attr:'data-node="'+p.id+'"'})).join("")
-      : ligne({titre:`<span style="opacity:.5">Rien de rattaché</span>`}))
-    + ligne({titre:`<span class="coche">Rattacher ce qui a précédé</span>`, attr:'data-lierview="'+n.id+'"'}));
-  h+=titreBloc("Ce qui a suivi");
+      : ligne({titre:`<span class="rien">Rien de rattaché</span>`}))
+    + ligne({titre:`<span class="coche">Rattacher une cause</span>`, attr:'data-lierview="'+n.id+'"'}));
+  h+=titreBloc("Mes retours");
   h+= enf.length
     ? liste(enf.map(e=>ligne({titre:esc(e.txt),
         sous:esc(acteurTxt(e))+(e.etat&&e.etat!=="fait"?" · "+ETAT[e.etat]:""),
         apres:human(e), attr:'data-node="'+e.id+'"'})).join(""))
-    : `<p class="vide">Rien, pour l'instant.</p>`;
+    : `<p class="vide">Aucun retour, pour l'instant.</p>`;
   Z.html=h;
   Z.action = (n.etat==="prevu")
     ? bouton("C'est fait", 'data-fait="'+n.id+'"')
-    : bouton("Attacher ma réponse", 'data-attach="'+n.id+'"');
+    : bouton("Attacher un retour", 'data-attach="'+n.id+'"');
 }
 function menuNode(){
   const n=node(S.nodeId); if(!n) return;
   const g=[{label:"Cet acte"},{txt:"Corriger", attr:'data-act="edit"'}];
   if(n.etat==="prevu"){ g.push({txt:"J'y renonce", attr:'data-abandon="'+n.id+'"'}); }
-  else { g.push({txt:"Attacher ma réponse", attr:'data-attach="'+n.id+'"'}); }
+  else { g.push({txt:"Attacher un retour", attr:'data-attach="'+n.id+'"'}); }
   g.push({txt:"Supprimer", rouge:true, attr:'data-act="askDel"'});
   ouvreMenu([g, [{txt:"Annuler", attr:'data-act="fermeMenu"'}]]);
 }
@@ -457,14 +614,14 @@ function vEdit(){
   Z.action = bouton("Garder", 'data-act="saveEdit"');
 }
 
-/* ---------- rattacher ce qui a précédé ---------- */
+/* ---------- rattacher une cause ---------- */
 function vLier(){
   const n=node(S.nodeId); if(!n){ S.view="today"; return render(); }
-  Z.titre="Ce qui a précédé"; Z.retour=true;
+  Z.titre="Rattacher une cause"; Z.retour=true;
   const exclus=dessous(n.id);
   const cands=db.nodes.filter(x=>exclus.indexOf(x.id)===-1).sort(parDate).slice(0,40);
-  let h=`<div class="block" style="margin-top:18px"><p class="voix" style="font-size:18px;margin:0">${esc(n.txt)}</p>
-    <p style="opacity:.55;font-size:13px;margin-top:10px">Coche une parole, une prière, un bienfait d'avant.</p></div>`;
+  let h=`<div class="block" style="margin-top:18px"><p class="grand voix" style="font-size:21px">${esc(n.txt)}</p>
+    <p class="meta">Coche une parole, une prière, un bienfait d'avant.</p></div>`;
   if(cands.length>8) h+=champ("pFilter","Filtrer…");
   h+= cands.length ? liste(cands.map(x=>{
         const on=(n.par||[]).indexOf(x.id)!==-1;
@@ -485,7 +642,7 @@ function neuf(act){ return {act:act,gid:null,dest:"dieu",dgid:null,txt:"",man:""
 /* L'ordre des questions se déduit du brouillon : une question par écran. */
 function etapes(d){
   const e=[];
-  if(!d.fige) e.push("qui");
+  e.push("qui");
   if(d.act==="gens") e.push("gens");
   if(d.act==="moi") e.push("dest");
   if(d.act==="moi" && d.dest==="gens") e.push("destGens");
@@ -507,11 +664,14 @@ function vNote(){
   const parent = d.fige && d.par.length ? node(d.par[0]) : null;
 
   if(cle==="qui"){
-    Z.titre="Qu'est-ce que tu gardes ?";
-    Z.html = liste(
-      ligne({titre:"Dieu a fait…", sous:"sans passer par personne", serif:true, attr:'data-qui="dieu"'})+
-      ligne({titre:"J'ai fait…", serif:true, attr:'data-qui="moi"'})+
-      ligne({titre:"Quelqu'un a fait…", sous:"même si c'est Lui derrière", serif:true, attr:'data-qui="gens"'}));
+    Z.titre = parent ? "Qui a répondu ?" : "Qu'est-ce que tu gardes ?";
+    Z.html = liste(parent
+      ? ligne({titre:"Dieu a répondu…", sous:"sans passer par personne", serif:true, attr:'data-qui="dieu"'})+
+        ligne({titre:"J'ai répondu…", serif:true, attr:'data-qui="moi"'})+
+        ligne({titre:"Quelqu'un a répondu…", sous:"même si c'est Lui derrière", serif:true, attr:'data-qui="gens"'})
+      : ligne({titre:"Dieu a fait…", sous:"sans passer par personne", serif:true, attr:'data-qui="dieu"'})+
+        ligne({titre:"J'ai fait…", serif:true, attr:'data-qui="moi"'})+
+        ligne({titre:"Quelqu'un a fait…", sous:"même si c'est Lui derrière", serif:true, attr:'data-qui="gens"'}));
   }
   else if(cle==="dest"){
     Z.titre="Pour qui ?";
@@ -550,7 +710,7 @@ function vNote(){
   else if(cle==="man"){
     Z.titre = d.act==="dieu" ? "Sa manière ?" : "Reconnais-tu Sa main ?";
     let h="";
-    if(d.act==="gens") h+=`<div class="block" style="margin-top:16px;opacity:.6;font-size:14px">Si tu choisis une manière, cet acte entrera dans Ses œuvres.</div>`;
+    if(d.act==="gens") h+=`<div class="block amorce" style="margin-top:16px">Si tu choisis une manière, cet acte entrera dans Ses œuvres.</div>`;
     h+=liste(Object.keys(MAN).map(k=>ligne({titre:MAN[k], serif:true,
       apres:d.man===k?`<span class="coche">✓</span>`:"", attr:'data-man="'+k+'"'})).join(""));
     Z.html=h;
@@ -559,7 +719,7 @@ function vNote(){
   else if(cle==="par"){
     Z.titre="En réponse à quoi ?";
     const cands=db.nodes.filter(n=>n.etat!=="prevu" && n.etat!=="abandon").sort(parDate).slice(0,30);
-    let h=`<div class="block" style="margin-top:16px;opacity:.6;font-size:14px">Une parole, une prière, un bienfait d'avant. Autant de liens que nécessaire.</div>`;
+    let h=`<div class="block amorce" style="margin-top:16px">Une parole, une prière, un bienfait d'avant. Autant de liens que nécessaire.</div>`;
     if(cands.length>8) h+=champ("pFilter","Filtrer…");
     h+= cands.length ? liste(cands.map(n=>ligne({titre:esc(n.txt), serif:estParole(n),
           sous:esc(acteurTxt(n))+(human(n)?" · "+human(n):""),
@@ -579,7 +739,7 @@ function vNote(){
   }
 }
 function rappel(p){
-  return `<div class="block" style="margin-top:16px;opacity:.6;font-size:14px">En réponse à :
+  return `<div class="block amorce" style="margin-top:16px">En réponse à :
     <span class="${estParole(p)?"voix":""}">${esc(p.txt)}</span></div>`;
 }
 /* La date est toujours visible. L'état est une question séparée. */
@@ -599,7 +759,7 @@ function blocQuand(id, val, prec, avecEtat, etat){
 /* ---------- mes données ---------- */
 function vData(){
   Z.titre="Mes données"; Z.retour=true;
-  Z.html = `<div class="block" style="margin-top:18px;opacity:.65;font-size:14px">Tout est gardé sur ce téléphone, et nulle part ailleurs. Copie ce texte de temps en temps et garde-le quelque part : c'est ta sauvegarde.</div>
+  Z.html = `<div class="block amorce" style="margin-top:18px">Tout est gardé sur ce téléphone, et nulle part ailleurs. Copie ce texte de temps en temps et garde-le quelque part : c'est ta sauvegarde.</div>
     ${liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
       <textarea id="dump" style="min-height:150px;font-size:12px">${esc(JSON.stringify(db))}</textarea></div></div></li>`)}
     ${liste(ligne({titre:"Remplacer par ce texte", attr:'data-act="restore"'})+
@@ -607,14 +767,16 @@ function vData(){
   Z.action = bouton("Copier", 'data-act="copy"');
 }
 
-const VUES = {today:vToday, oeuvres:vOeuvres, revel:vRevel, actes:vActes,
+/* Depuis n'importe quel onglet, le geste reste à portée. */
+function vListe(f){ return function(){ f(); if(!Z.action) Z.action=bouton("Noter quelque chose",'data-go="note"'); }; }
+const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), actes:vListe(vActes),
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData};
 
 /* ---------- dictée ---------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec=null, recId=null, recTail="";
 function micBloc(id){
-  if(!SR) return `<p style="opacity:.5;font-size:13px;margin-top:12px">Tu peux dicter : touche le micro de ton clavier.</p>`;
+  if(!SR) return `<p class="amorce" style="margin-top:12px">Tu peux dicter : touche le micro de ton clavier.</p>`;
   return `<div style="margin-top:14px"><button class="micro" data-mic="${id}">${MICSVG} Dicter</button></div>`;
 }
 function colle(a,b){ if(!a) return b; return /\s$/.test(a) ? a+b : a+" "+b; }
@@ -693,7 +855,11 @@ document.addEventListener("click", ev=>{
   }
   if(g.filtre){ S.filtre=g.filtre; return render(); }
   if(g.rev){ S.rev=g.rev; return render(); }
-  if(g.qui){ S.draft=neuf(g.qui); S.step=1; return render(); }
+  if(g.qui){
+    const a=S.draft||{};
+    S.draft=neuf(g.qui); S.draft.par=(a.par||[]).slice(); S.draft.fige=!!a.fige;
+    S.step=1; return render();
+  }
   if(g.dest){ S.draft.dest=g.dest; S.step++; return render(); }
   if(g.gens){ S.draft[g.champ]=g.gens; S.step++; return render(); }
   if(g.sug){ const e=document.getElementById("nTxt"); if(e){ e.value=g.sug; e.dispatchEvent(new Event("input",{bubbles:true})); e.focus(); } return; }
@@ -751,9 +917,14 @@ const actions={
       kind:(d.act==="dieu"&&d.man==="parle")?"rhema":"acte",
       date:valDate("nDate"),prec:d.prec||"j",etat:d.act==="moi"?(d.etat||"fait"):"fait",par:d.par.slice()};
     db.nodes.push(n); save();
-    const vers = d.fige ? d.par[0] : n.id, fige=d.fige;
-    S.draft=null; S.step=0; S.view="node"; S.nodeId=vers; S.prev="today";
-    toast(fige?"Attaché.":"Gardé."); render();
+    /* On repart là où l'acte est désormais rangé : le disciple le voit,
+       et l'écran a ses onglets — il n'est jamais enfermé. */
+    const onglet = n.act==="moi" ? "actes" : "oeuvres";
+    const ou = n.act==="moi" ? "Mes actes" : "Ses œuvres";
+    const fige=d.fige;
+    S.draft=null; S.step=0; S.prev=onglet;
+    if(fige){ S.view="node"; S.nodeId=d.par[0]; } else { S.view=onglet; S.nodeId=n.id; }
+    toast(fige ? "Rattaché · dans "+ou : "Gardé dans "+ou); render();
   },
   edit(){ fermeMenu(); const n=node(S.nodeId); if(!n) return; S.eMan=n.man||""; S.eEtat=n.etat||"fait"; S.ePrec=n.prec||"j"; S.view="edit"; render(); },
   saveEdit(){

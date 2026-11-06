@@ -183,8 +183,8 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 #avance[hidden]{display:none}
 #avance i{display:block;height:100%;background:var(--f7-theme-color);transition:width .25s ease}
 
-#acte{position:absolute;left:0;right:0;z-index:20;
-  padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));
+#bas{position:absolute;left:0;right:0;bottom:0;z-index:20}
+#acte{padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));
   background:var(--barre);border-top:1px solid var(--filet);
   -webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou)}
 #acte[hidden]{display:none}
@@ -194,7 +194,7 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
   border:1px solid rgba(157,183,164,.42);box-shadow:0 1px 0 var(--eclat) inset,
   0 10px 26px -14px var(--lueur)}
 
-#nav{position:absolute;left:0;right:0;bottom:0;z-index:20;display:flex;
+#nav{display:flex;
   background:var(--barre);border-top:1px solid var(--filet);
   padding-bottom:env(safe-area-inset-bottom,0px);
   -webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou)}
@@ -292,8 +292,7 @@ textarea.dicte:focus{outline:0}
 <div id="haut" hidden></div>
 <div id="avance" hidden><i></i></div>
 <div id="main"></div>
-<div id="acte" hidden></div>
-<nav id="nav" hidden aria-label="Navigation"></nav>
+<div id="bas"><div id="acte" hidden></div><nav id="nav" hidden aria-label="Navigation"></nav></div>
 <div class="actions-backdrop" id="fond"></div>
 <div class="actions-modal" id="menu"></div>
 
@@ -422,6 +421,7 @@ function remontees(){
 /* ---------- charpente ---------- */
 const main=document.getElementById("main"), haut=document.getElementById("haut"),
       nav=document.getElementById("nav"), barre=document.getElementById("acte"),
+      bas=document.getElementById("bas"),
       avance=document.getElementById("avance"), menu=document.getElementById("menu"),
       fond=document.getElementById("fond");
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
@@ -462,7 +462,7 @@ function render(){
   nav.hidden = !onglet;
   if(onglet) nav.innerHTML = ONGLETS.map(([k,l])=>`<button data-go="${k}"${S.view===k?' aria-current="page"':""}>${l}</button>`).join("");
   main.scrollTop=0;
-  place();
+  place(); requestAnimationFrame(place);
   const f=document.getElementById("cFiltre");
   if(f && S.cQ){ f.value=S.cQ; f.dispatchEvent(new Event("input",{bubbles:true})); }
   const carr=document.getElementById("carr"), pts=document.getElementById("points");
@@ -507,18 +507,27 @@ function fermeMenu(sec){
 function place(){
   const hH = haut.hidden ? 0 : haut.offsetHeight;
   const aH = avance.hidden ? 0 : 2;
-  const nH = nav.hidden ? 0 : nav.offsetHeight;
-  const bH = barre.hidden ? 0 : barre.offsetHeight;
+  const basH = bas.offsetHeight;
   avance.style.top = hH+"px";
-  barre.style.bottom = nH+"px";
   main.style.paddingTop = hH
     ? (hH+aH)+"px"
     : "calc(env(safe-area-inset-top,0px) + "+(aH+10)+"px)";
-  main.style.paddingBottom = (nH||bH)
-    ? (nH+bH+20)+"px"
+  main.style.paddingBottom = basH
+    ? (basH+20)+"px"
     : "calc(env(safe-area-inset-bottom,0px) + 24px)";
 }
 addEventListener("resize", place);
+/* Au tout premier affichage, le téléphone ne connaît pas encore la hauteur de
+   sa barre d'accueil, et la police n'est pas arrivée : les barres grandissent
+   après coup, et l'action se retrouvait cachée. On replace dès que ça bouge. */
+addEventListener("orientationchange", place);
+try{
+  const o=new ResizeObserver(()=>place());
+  o.observe(haut,{box:"border-box"});   /* la bordure, pas le contenu : c'est le
+     rembourrage de l'encoche qui grandit, et il n'entre pas dans la boîte de contenu */
+  o.observe(bas,{box:"border-box"});
+}catch(e){}
+try{ if(document.fonts && document.fonts.ready) document.fonts.ready.then(place); }catch(e){}
 
 /* ---------- Aujourd'hui ---------- */
 const RAMEAU = cls => `<svg class="rameau ${cls}" viewBox="0 0 140 220" aria-hidden="true"><use href="#amandier"/></svg>`;

@@ -239,7 +239,8 @@ const ETATS = [["fait","C'est fait"],["encours","Ça dure encore"],["prevu","C'e
 
 let db = {nodes:[], gens:[], noms:[], seq:1};
 let S = {view:"today", step:0, draft:null, filtre:"tout", rev:"noms", prev:"today", nodeId:null,
-         eMan:"", eEtat:"fait", ePrec:"j"};
+         eMan:"", eEtat:"fait", ePrec:"j",
+         cNeuf:false, cTxt:"", cType:"", cQ:""};
 
 /* ---------- stockage ---------- */
 function sane(v){
@@ -369,6 +370,9 @@ function render(){
   if(rec) micArret();
   fermeMenu(true);
   zero();
+  const surCause = S.view==="lier" ||
+    (S.view==="note" && S.draft && etapes(S.draft)[S.step]==="par");
+  if(!surCause){ S.cNeuf=false; S.cTxt=""; S.cType=""; S.cQ=""; }
   (VUES[S.view]||vToday)();
   const onglet = ONGLETS.some(o=>o[0]===S.view);
   haut.hidden = !Z.titre && !Z.retour && !Z.fermer;
@@ -390,6 +394,8 @@ function render(){
   nav.hidden = !onglet;
   if(onglet) nav.innerHTML = ONGLETS.map(([k,l])=>`<button data-go="${k}"${S.view===k?' aria-current="page"':""}>${l}</button>`).join("");
   main.scrollTop=0;
+  const f=document.getElementById("cFiltre");
+  if(f && S.cQ){ f.value=S.cQ; f.dispatchEvent(new Event("input",{bubbles:true})); }
   const carr=document.getElementById("carr"), pts=document.getElementById("points");
   if(carr && pts) carr.addEventListener("scroll", ()=>{
     const i=Math.round(carr.scrollLeft/(carr.scrollWidth/pts.children.length));
@@ -625,33 +631,43 @@ const NEUFS = [
   ["dieu",     "Quelque chose qu'Il a fait",   "", false]
 ];
 function choixCause(sel, exclus){
+  /* Deuxième mode : on écrit la cause qui manque. La liste disparaît. */
+  if(S.cNeuf){
+    return `<div class="block" style="margin-top:18px">
+        <textarea class="dicte" id="cNeuf" placeholder="La parole, la prière, l'acte qui a précédé…"
+          style="min-height:84px">${esc(S.cTxt)}</textarea>${micBloc("cNeuf")}</div>`
+      + titreBloc("Qu'est-ce que c'est ?")
+      + liste(NEUFS.map(n=>ligne({titre:n[1], sous:n[2], serif:n[3],
+          apres:S.cType===n[0]?`<span class="coche">✓</span>`:"",
+          attr:'data-ctype="'+n[0]+'"'})).join(""));
+  }
+  /* Premier mode : on cherche dans ce qui est déjà gardé. */
   const cands = db.nodes
     .filter(x => exclus.indexOf(x.id)===-1 && x.etat!=="prevu" && x.etat!=="abandon")
     .sort(parDate);
-  let h = champ("cFiltre","Cherche : une parole, une prière, un acte…");
-  h += cands.length
-    ? liste(cands.map(x=>ligne({titre:esc(x.txt), serif:estParole(x),
-        sous:esc(acteurTxt(x))+(human(x)?" · "+human(x):""),
-        apres:sel.indexOf(x.id)!==-1?`<span class="coche">✓</span>`:"",
-        attr:'data-par="'+x.id+'"'})).join(""), "cands")
-    : `<p class="vide">Rien d'autre dans ta mémoire pour l'instant.</p>`;
-  h += `<p class="vide" id="rien" hidden>Rien ne correspond. Écris-le, puis dis ce que c'est.</p>`;
-  h += titreBloc("Ça n'y est pas encore")
-    + `<div class="block amorce">Écris-le dans le champ ci-dessus, puis choisis :</div>`
-    + liste(NEUFS.map(n=>ligne({titre:n[1], sous:n[2], serif:n[3],
-        attr:'data-neuf="'+n[0]+'"'})).join(""));
-  return h;
+  return champ("cFiltre","Cherche : une parole, une prière, un acte…")
+    + liste(ligne({titre:`<span class="coche">+ Ajouter quelque chose de nouveau</span>`,
+        attr:'data-act="causeNeuf"'}))
+    + (cands.length
+        ? liste(cands.map(x=>ligne({titre:esc(x.txt), serif:estParole(x),
+            sous:esc(acteurTxt(x))+(human(x)?" · "+human(x):""),
+            apres:sel.indexOf(x.id)!==-1?`<span class="coche">✓</span>`:"",
+            attr:'data-par="'+x.id+'"'})).join(""), "cands")
+        : `<p class="vide">Rien d'autre dans ta mémoire pour l'instant.</p>`)
+    + `<p class="vide" id="rien" hidden>Rien ne correspond. Touche « Ajouter quelque chose de nouveau ».</p>`;
 }
 
 /* ---------- rattacher une cause ---------- */
 function vLier(){
   const n=node(S.nodeId); if(!n){ S.view="today"; return render(); }
-  Z.titre="Rattacher une cause"; Z.retour=true;
+  Z.titre = S.cNeuf ? "Ajouter une cause" : "Rattacher une cause"; Z.retour=true;
   Z.html = `<div class="block" style="margin-top:18px">
       <p class="grand ${estParole(n)?"voix":""}" style="font-size:21px">${esc(n.txt)}</p>
-      <p class="meta">Une parole, une prière, un bienfait d'avant.</p></div>`
+      <p class="meta">${S.cNeuf ? "Ce qui a précédé n'était pas encore gardé. Écris-le ici."
+        : "Une parole, une prière, un bienfait d'avant."}</p></div>`
     + choixCause(n.par||[], dessous(n.id));
-  Z.action = bouton("Terminer", 'data-back="1"');
+  Z.action = S.cNeuf ? bouton("Ajouter et lier", 'data-act="ajoute"')
+                     : bouton("Terminer", 'data-back="1"');
 }
 
 /* ---------- l'assistant : noter, et attacher une réponse ---------- */
@@ -734,13 +750,18 @@ function vNote(){
     Z.action = bouton(d.man?"Continuer":"Passer", 'data-act="suite"');
   }
   else if(cle==="par"){
-    Z.titre="En réponse à quoi ?";
-    Z.html = `<div class="block amorce" style="margin-top:16px">Une parole, une prière, un bienfait d'avant. Autant de liens que nécessaire.</div>`
+    Z.titre = S.cNeuf ? "Ajouter une cause" : "En réponse à quoi ?";
+    Z.html = `<div class="block amorce" style="margin-top:16px">${S.cNeuf
+        ? "Ce qui a précédé n'était pas encore gardé. Écris-le ici."
+        : "Une parole, une prière, un bienfait d'avant. Autant de liens que nécessaire."}</div>`
       + choixCause(d.par, []);
-    const der = S.step===etapes(d).length-1;
-    Z.action = d.par.length
-      ? bouton((der?"Garder — ":"Continuer — ")+d.par.length+" lien"+(d.par.length>1?"s":""), 'data-act="'+(der?"saveNote":"suite")+'"')
-      : bouton(der?"Garder sans lien":"Non, comme ça", 'data-act="'+(der?"saveNote":"suite")+'"');
+    if(S.cNeuf){ Z.action = bouton("Ajouter et lier", 'data-act="ajoute"'); }
+    else {
+      const der = S.step===etapes(d).length-1;
+      Z.action = d.par.length
+        ? bouton((der?"Garder — ":"Continuer — ")+d.par.length+" lien"+(d.par.length>1?"s":""), 'data-act="'+(der?"saveNote":"suite")+'"')
+        : bouton(der?"Garder sans lien":"Non, comme ça", 'data-act="'+(der?"saveNote":"suite")+'"');
+    }
   }
   else {
     Z.titre="Quand ?";
@@ -831,8 +852,10 @@ function micBascule(id){
 /* ---------- saisies gardées ---------- */
 document.addEventListener("input", ev=>{
   const id=ev.target.id;
+  if(id==="cNeuf"){ S.cTxt=ev.target.value; return; }
   if(id==="cFiltre"){
     const q=ev.target.value.trim().toLowerCase();
+    S.cQ=ev.target.value;
     let vus=0;
     [].forEach.call(document.querySelectorAll("[data-par]"), el=>{
       const li=el.closest("li")||el;
@@ -851,12 +874,13 @@ document.addEventListener("input", ev=>{
 /* ---------- gestes ---------- */
 fond.addEventListener("click", ()=>fermeMenu());
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-node],[data-filtre],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-prec],[data-sug],[data-mic],[data-act],[data-neuf],[data-attach],[data-lierview],[data-fait],[data-abandon],[data-back]");
+  const t=ev.target.closest("[data-go],[data-node],[data-filtre],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-fait],[data-abandon],[data-back]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
   if(g.go){ fermeMenu(); S.view=g.go; if(g.go==="note"){S.step=0;S.draft=null;} return render(); }
   if(g.back){
+    if(S.cNeuf){ S.cNeuf=false; S.cTxt=""; S.cType=""; return render(); }
     if(S.view==="note" && S.step>0){ S.step--; return render(); }
     if(S.view==="note"){ S.view=S.prev||"today"; S.draft=null; return render(); }
     if(S.view==="lier"||S.view==="edit"){ S.view="node"; return render(); }
@@ -864,7 +888,7 @@ document.addEventListener("click", ev=>{
   }
   if(g.node){ fermeMenu(); if(["node","lier","edit","note"].indexOf(S.view)===-1) S.prev=S.view; S.nodeId=g.node; S.view="node"; return render(); }
   if(g.lierview){ S.nodeId=g.lierview; S.view="lier"; return render(); }
-  if(g.neuf){ return actions.neuf(g.neuf); }
+  if(g.ctype){ S.cTxt=((document.getElementById("cNeuf")||{}).value)||S.cTxt; S.cType=g.ctype; return render(); }
   if(g.attach){
     fermeMenu(); S.nodeId=g.attach;
     S.draft=neuf("moi"); S.draft.fige=true; S.draft.par=[g.attach];
@@ -923,10 +947,14 @@ const actions={
   /* La cause n'était pas encore gardée : on la garde ici, et on la lie.
      Elle hérite de la date de l'acte qu'elle précède — à corriger d'un geste
      en l'ouvrant, c'est toujours plus juste qu'aujourd'hui. */
-  neuf(quoi){
-    const el=document.getElementById("cFiltre"), v=((el||{}).value||"").trim();
-    if(!v) return toast("Écris-le d'abord dans le champ de recherche");
-    const cible = (S.view==="lier") ? node(S.nodeId) : S.draft;
+  causeNeuf(){ S.cNeuf=true; S.cTxt=""; S.cType=""; render(); },
+  causeListe(){ S.cNeuf=false; S.cTxt=""; S.cType=""; render(); },
+  ajoute(){
+    const el=document.getElementById("cNeuf");
+    const v=((el&&el.value)||S.cTxt||"").trim();
+    if(!v) return toast("Écris ou dicte la cause");
+    if(!S.cType) return toast("Dis ce que c'est");
+    const quoi=S.cType, cible=(S.view==="lier") ? node(S.nodeId) : S.draft;
     const n={id:nid(), act:(quoi==="moi"?"moi":"dieu"), gid:null,
       dest:(quoi==="moi"?"dieu":null), dgid:null, txt:v,
       man:(quoi==="rhema"?"parle":""),
@@ -934,8 +962,9 @@ const actions={
       date:(cible&&cible.date)||today(), prec:(cible&&cible.prec)||"j",
       etat:"fait", par:[]};
     db.nodes.push(n);
-    if(S.view==="lier"){ const c=node(S.nodeId); if(c){ c.par=c.par||[]; c.par.push(n.id); } save(); }
-    else if(S.draft){ S.draft.par.push(n.id); save(); }
+    if(S.view==="lier"){ const c=node(S.nodeId); if(c){ c.par=c.par||[]; c.par.push(n.id); } }
+    else if(S.draft){ S.draft.par.push(n.id); }
+    save(); S.cNeuf=false; S.cTxt=""; S.cType="";
     toast("Ajouté et lié"); render();
   },
   saveNote(){

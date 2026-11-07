@@ -342,7 +342,7 @@ body.avecRail .entete .rouage{top:calc(var(--rail,0px) + 5px)}
 #rail.plie .tic .pt{width:54px;height:3px;border-radius:2px;
   margin:2px 0 2px max(16px,env(safe-area-inset-left,0px));
   border:0;box-shadow:none;animation:respire 2.8s ease-in-out infinite}
-#rail.plie .tic.vieux .pt{background:var(--muted);animation:none}
+#rail.plie .tic.vieux .pt,#rail.plie .tic.rien .pt{background:var(--muted);animation:none}
 @keyframes respire{0%,100%{opacity:1}50%{opacity:.38}}
 /* Sept pixels, c'est beau à voir et impossible à viser. La zone sensible
    déborde donc sous le trait — mais s'arrête avant le coin droit, où le
@@ -543,7 +543,8 @@ body.avecRail .entete .rouage{top:calc(var(--rail,0px) + 5px)}
 .tic .dur{flex:0 0 auto;font-family:var(--sans);font-size:13.5px;font-weight:700;
   font-variant-numeric:tabular-nums;
   letter-spacing:.01em;font-variant-numeric:tabular-nums;color:var(--f7-theme-color)}
-.tic.vieux .dur{color:var(--muted)}
+.tic.vieux .dur,.tic.rien .dur{color:var(--muted)}
+.tic.rien .quoi{font-weight:500;font-style:italic;color:var(--muted)}
 .tic .dur i{font-style:normal;font-size:.76em;font-weight:600;opacity:.5;
   margin-left:3px;vertical-align:.42em;line-height:1;font-variant-numeric:tabular-nums}
 @keyframes pouls{0%,100%{box-shadow:0 0 0 0 var(--lueur)}50%{box-shadow:0 0 0 6px transparent}}
@@ -682,7 +683,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v45";
+const VERSION = "v46";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -1490,6 +1491,20 @@ const PLUS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
    chaque seconde annulerait une tape commencée. */
 let chronoEtat="";
 function secondes(ms){ return String(Math.floor(Math.max(0,ms)/1000)%60).padStart(2,"0"); }
+/* Le rail disparaissait dès qu'on s'arrêtait, et la chaîne du compte se
+   rompait sans bruit : rien à l'écran ne disait qu'on avait cessé de dire.
+   Il reste donc, et il continue de compter — non pas une activité, mais
+   l'absence d'activité, depuis la fin du dernier bloc. C'est la même idée
+   que la bande grise de « Mon temps » (13.bw), portée à l'instant présent :
+   le temps non compté n'est pas une inconnue, c'est une réponse par défaut,
+   et on la voit courir. Sans seuil ici — c'est tout l'objet que de montrer
+   le creux dès la première minute. */
+function creuxVif(){
+  const a=db.temps||[];
+  let fin=0;
+  for(let i=0;i<a.length;i++){ if(!a[i].fin) return null; if(a[i].fin>fin) fin=a[i].fin; }
+  return fin ? {deb:fin} : null;
+}
 
 /* ---------- replier le rail ----------
    Le rail dit une chose vraie en permanence, et c'est pourquoi il a une
@@ -1541,10 +1556,25 @@ rail.addEventListener("click", function(ev){
 }, true);
 function majChrono(){
   const o=ouvert();
+  const vif = o ? null : creuxVif();
   const etait=rail.hidden;
-  rail.hidden = !o;
-  if(!o){
+  rail.hidden = !o && !vif;
+  if(rail.hidden){
     if(!etait){ rail.innerHTML=""; chronoEtat=""; haut.classList.remove("sousRail"); place(); }
+    return;
+  }
+  if(vif){
+    const d = Date.now()-vif.deb;
+    railNote("creux");
+    if(chronoEtat!=="creux" || !rail.firstElementChild){
+      chronoEtat="creux";
+      rail.innerHTML = `<a class="tic rien" data-act="comblerVif"><i class="pt creux"></i>`
+        + `<span class="quoi">Rien de compté</span><span class="dur"></span></a>`;
+    }
+    rail.classList.toggle("plie", railPlie);
+    if(etait){ haut.classList.add("sousRail"); place(); }
+    const e=rail.querySelector(".dur");
+    if(e) e.innerHTML = esc(hm(d))+`<i>${secondes(d)}</i>`;
     return;
   }
   const ec = Date.now()-o.deb;
@@ -2709,6 +2739,7 @@ function vPointer(){
   const o = ouvert(), q = (S.tQ||"").trim(), cats = CATS();
   let h = "";
   if(corr) h += `<div class="block amorce" style="margin-top:16px"><b>${esc(tacheNom(corr.t))}</b>, de ${hmin(new Date(corr.deb))} à ${corr.fin?hmin(new Date(corr.fin)):"maintenant"}.</div>`;
+  else if(trou && trou.vif) h += `<div class="block amorce" style="margin-top:16px">Depuis ${hmin(new Date(trou.deb))}, rien n'est compté — ${hm(Date.now()-trou.deb)}. Dis à quoi tout ce temps est allé : le compte reprendra là, sans trou.</div>`;
   else if(trou) h += `<div class="block amorce" style="margin-top:16px">De ${hmin(new Date(trou.deb))} à ${hmin(new Date(trou.fin))} — ${hm(trou.fin-trou.deb)} — rien n'a été compté. Dis à quoi c'est allé.</div>`;
   else if(o) h += `<div class="block amorce" style="margin-top:16px">Depuis ${hmin(new Date(o.deb))}, le temps va à <b>${esc(tacheNom(o.t))}</b> — ${hm(Date.now()-o.deb)}.</div>`;
   else h += `<div class="block amorce" style="margin-top:16px">Rien n'est compté. À partir de ce que tu touches ici, le temps aura un destinataire.</div>`;
@@ -3311,9 +3342,13 @@ function poseTache(id){
      s'il y en a un — reste le dernier, ce dont tout le compte dépend. */
   if(S.trou){
     const t=S.trou; S.trou=null;
-    db.temps.push({id:uid("b"), t:id, deb:t.deb, fin:t.fin, maj:Date.now()});
+    const b={id:uid("b"), t:id, deb:t.deb, maj:Date.now()};
+    if(!t.vif) b.fin=t.fin;
+    db.temps.push(b);
     db.temps.sort(function(a,b){ return a.deb-b.deb; });
-    save(); toast("Comblé : "+tacheNom(id)); depile("temps"); return render();
+    save();
+    if(t.vif){ S.pile=[]; S.view="today"; toast("On compte : "+tacheNom(id)+", depuis "+hmin(new Date(t.deb))); return render(); }
+    toast("Comblé : "+tacheNom(id)); depile("temps"); return render();
   }
   if(S.blocId){
     const b=blocT(S.blocId);
@@ -3409,6 +3444,14 @@ const actions={
     depile("temps"); render();
   },
   stopBloc(){ fermeMenu(); arrete(); S.blocId=null; toast("Arrêté."); render(); },
+  /* Le creux vif ne se comble pas comme un creux d'archive : celui-ci
+     touche l'instant présent. Le bloc qu'on en tire reste donc ouvert — on
+     a dit à quoi allait tout ce temps, et il y va encore. La chaîne du
+     compte n'est pas rompue, ce qui était tout l'objet. S'il ne va plus
+     nulle part, l'arrêt est à une tape. */
+  comblerVif(){ const v=creuxVif(); if(!v) return;
+    S.blocId=null; S.trou={deb:v.deb, vif:true};
+    empile(); S.view="pointer"; render(); },
   arretNet(){ const o=ouvert(); const n=o?tacheNom(o.t):"";
     arrete(); S.pile=[]; S.view="today";
     toast(n ? "Arrêté. Le temps ne va plus à « "+n+" »." : "Arrêté."); render(); },

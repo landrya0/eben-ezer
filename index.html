@@ -397,7 +397,7 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
    vide pendant que la suivante n'était qu'une tranche de syllabes coupées.
    On borne : au-delà, les cartes se tiennent côte à côte au lieu de
    s'étirer. */
-.carte{scroll-snap-align:center;flex:0 0 min(87%, 380px);display:flex;flex-direction:column;
+.carte{scroll-snap-align:center;flex:0 0 87%;display:flex;flex-direction:column;
   background:var(--verre);border:1px solid var(--filet);border-radius:18px;
   padding:19px 19px 17px;box-shadow:var(--ombre);text-decoration:none;color:inherit;
   -webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou);
@@ -416,6 +416,17 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 .points{display:flex;justify-content:center;gap:6px;padding:2px 0 4px}
 .points i{width:6px;height:6px;border-radius:50%;background:var(--filet);transition:background .2s}
 .points i.on{background:var(--f7-theme-color)}
+/* Sur un téléphone, la carte suivante dépasse d'un doigt : c'est ce qui dit
+   qu'il y en a d'autres, et on la lit comme une invitation à glisser.
+   Dès qu'il y a de la place, la même coupure ne s'excuse plus — on voit une
+   phrase tranchée au milieu d'un mot et on croit à un défaut. Alors deux
+   cartes entières, et ce sont les points qui disent la suite. Seule, une
+   carte prend toute la largeur : une demi-carte suivie de vide serait une
+   maladresse de plus. */
+@media (min-width:720px){
+  .carte{flex-basis:calc((100% - 13px)/2)}
+  .carte:only-child{flex-basis:100%}
+}
 
 /* ---------- le compteur : toujours là, toujours vrai ---------- */
 /* Il ne dit qu'une chose — à quoi va le temps en ce moment — et il la dit
@@ -423,10 +434,14 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
    il se creuse quand le bloc dure depuis trop longtemps pour être honnête,
    et le chiffre pâlit avec lui. Aucun mot de reproche : un signe suffit. */
 #chrono{flex:1 1 auto;min-width:0;display:block}
+/* Le compteur flottait en verre translucide, juste à côté d'une pastille
+   opaque : la liste passait au travers, et le chevauchement se lisait comme
+   un défaut d'affichage plutôt que comme un objet posé dessus. Ce qui flotte
+   au-dessus d'une liste est opaque — c'était déjà la règle de la pastille, le
+   compteur la suit, avec l'ombre qui dit de combien il flotte. */
 .tic{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 15px;
-  border-radius:26px;background:var(--verre);
-  -webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou);
-  box-shadow:var(--ombre);color:inherit;text-decoration:none}
+  border-radius:26px;background:#FFFCF9;border:1px solid var(--filet);
+  box-shadow:0 10px 24px -12px rgba(26,42,32,.5);color:inherit;text-decoration:none}
 .tic:active{transform:scale(.985)}
 .tic .pt{flex:0 0 auto;width:9px;height:9px;border-radius:50%;
   background:var(--f7-theme-color);animation:pouls 2.8s ease-in-out infinite}
@@ -441,7 +456,8 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 .tic .dur i{font-style:normal;font-size:.76em;font-weight:600;opacity:.5;
   margin-left:3px;vertical-align:.42em;line-height:1;font-variant-numeric:tabular-nums}
 @keyframes pouls{0%,100%{box-shadow:0 0 0 0 var(--lueur)}50%{box-shadow:0 0 0 6px transparent}}
-.dark .tic{background:#20241F;border:1px solid rgba(157,183,164,.26)}
+.dark .tic{background:#20241F;border:1px solid rgba(157,183,164,.26);
+  box-shadow:0 1px 0 var(--eclat) inset, 0 12px 28px -14px #000}
 
 /* ---------- la part de chacun ---------- */
 /* Des heures d'abord, la part ensuite, et une barre pour que l'œil saisisse
@@ -552,7 +568,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v34";
+const VERSION = "v35";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */

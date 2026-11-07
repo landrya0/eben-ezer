@@ -327,6 +327,24 @@ body.avecRail .entete .rouage{top:calc(var(--rail,0px) + 5px)}
   background:var(--barre);border-bottom:1px solid var(--filet);
   -webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou)}
 #rail[hidden]{display:none}
+/* Replié, le rail ne disparaît pas : il se réduit à un trait. Le disciple a
+   le droit de dégager le haut de son écran, il n'a pas le droit d'oublier
+   qu'un compteur tourne — et c'est pour qu'on n'oublie pas que le rail
+   existe (13.bt). Le point qui battait s'étire donc en une barre de trois
+   pixels, qui respire au même rythme : moins de place, même phrase. */
+#rail.plie{border-bottom:0}
+#rail.plie .tic{min-height:0;height:7px;padding:0;gap:0;overflow:hidden}
+#rail.plie .tic .quoi,#rail.plie .tic .dur{display:none}
+#rail.plie .tic .pt{width:54px;height:3px;border-radius:2px;
+  margin:2px 0 2px max(16px,env(safe-area-inset-left,0px));
+  border:0;box-shadow:none;animation:respire 2.8s ease-in-out infinite}
+#rail.plie .tic.vieux .pt{background:var(--muted);animation:none}
+@keyframes respire{0%,100%{opacity:1}50%{opacity:.38}}
+/* Sept pixels, c'est beau à voir et impossible à viser. La zone sensible
+   déborde donc sous le trait — mais s'arrête avant le coin droit, où le
+   rouage attend son propre doigt. */
+#rail.plie::after{content:"";position:absolute;top:100%;height:16px;
+  left:0;right:56px}
 /* Quand le rail est là, c'est lui qui porte l'encoche : la barre en dessous
    ne doit pas la payer une seconde fois. */
 #haut.sousRail{padding-top:6px}
@@ -655,7 +673,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v41";
+const VERSION = "v42";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -1316,7 +1334,13 @@ const ICONES = {
                 <path d="M12 19.8V5.4M12 4.8l-2.3 2.5M12 4.8l2.3 2.5"/>
                 <path d="M18.5 19.8V9.5M18.5 8.9l-2.3 2.5M18.5 8.9l2.3 2.5"/>`)
 };
-const ONGLETS = [["today","Aujourd'hui"],["oeuvres","Ses œuvres"],["revel","Révélations"],["actes","Mes actes"]];
+/* L'ordre n'est pas libre : les deux premiers sont à gauche du geste de
+   noter, les deux derniers à sa droite. Juste à droite vient donc « Mes
+   actes », là où tombe ce qu'on vient d'écrire — le voisin immédiat du
+   geste est l'endroit où le geste aboutit. « Révélations » va au bout :
+   c'est l'onglet le plus lent, celui de ce qu'on a fini par connaître de
+   Lui, et il n'a pas à être sous le pouce. */
+const ONGLETS = [["today","Aujourd'hui"],["oeuvres","Ses œuvres"],["actes","Mes actes"],["revel","Révélations"]];
 
 /* Chaque vue remplit ces zones. Une seule action principale par écran. */
 let Z = {};
@@ -1448,6 +1472,55 @@ const PLUS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
    chaque seconde annulerait une tape commencée. */
 let chronoEtat="";
 function secondes(ms){ return String(Math.floor(Math.max(0,ms)/1000)%60).padStart(2,"0"); }
+
+/* ---------- replier le rail ----------
+   Le rail dit une chose vraie en permanence, et c'est pourquoi il a une
+   place à lui (13.bt). Mais une place à soi n'est pas un droit de rester :
+   on doit pouvoir dégager le haut de l'écran pour lire. Replier n'est donc
+   pas masquer — il reste un trait qui respire, et le compte continue.
+   Le choix est gardé, avec le bloc pour lequel il a été fait : replier son
+   compteur du matin ne doit pas replier d'avance celui du soir. */
+const PLIK="ebenezer.rail";
+let railPlie=false, railBloc="", railPrevenu=false;
+try{ railPlie=localStorage.getItem(PLIK)==="1"; railBloc=localStorage.getItem(PLIK+".b")||""; }catch(e){}
+function plieRail(v){
+  v=!!v;
+  rail.classList.toggle("plie", v);
+  if(v===railPlie) return;
+  railPlie=v;
+  try{ localStorage.setItem(PLIK, v?"1":"0"); }catch(e){}
+  place();
+}
+function railNote(id){
+  if(id===railBloc) return;
+  railBloc=id; railPrevenu=false;
+  try{ localStorage.setItem(PLIK+".b", id||""); }catch(e){}
+  plieRail(false);
+}
+/* Un glissé vertical sur le rail le replie ou le rouvre. On exige un vrai
+   mouvement — dix-huit pixels, et plus haut que large — pour qu'un doigt
+   qui tremble en tapant n'emporte pas le bandeau. Et on empêche alors la
+   tape : sans cela, le glissé ouvrirait aussi le pointage. */
+let railDoigt=null;
+rail.addEventListener("touchstart", function(ev){
+  const t=ev.changedTouches[0]; railDoigt={x:t.clientX, y:t.clientY};
+}, {passive:true});
+rail.addEventListener("touchend", function(ev){
+  if(!railDoigt) return;
+  const t=ev.changedTouches[0];
+  const dy=t.clientY-railDoigt.y, dx=t.clientX-railDoigt.x;
+  railDoigt=null;
+  if(Math.abs(dy)<18 || Math.abs(dx)>Math.abs(dy)) return;
+  ev.preventDefault();
+  plieRail(dy<0);
+}, {passive:false});
+/* Replié, le trait ne mène plus au pointage : il se rouvre. On intercepte
+   à la descente, avant que la tape n'atteigne le lien qu'il contient. */
+rail.addEventListener("click", function(ev){
+  if(!railPlie) return;
+  ev.preventDefault(); ev.stopPropagation();
+  plieRail(false);
+}, true);
 function majChrono(){
   const o=ouvert();
   const etait=rail.hidden;
@@ -1458,6 +1531,12 @@ function majChrono(){
   }
   const ec = Date.now()-o.deb;
   const vieux = ec>=10*3600000;
+  /* Un pointage qui commence rouvre le rail : c'est le reçu du geste qu'on
+     vient de faire. Un compteur qui atteint dix heures le rouvre aussi, une
+     fois — l'app prévient, puis se tait ; elle ne retient pas la main de
+     celui qui le replie à nouveau. */
+  railNote(o.id);
+  if(vieux && !railPrevenu){ railPrevenu=true; plieRail(false); }
   const etat = o.id+"|"+tacheNom(o.t)+"|"+(vieux?"v":"");
   if(etat!==chronoEtat || !rail.firstElementChild){
     chronoEtat=etat;
@@ -1466,6 +1545,7 @@ function majChrono(){
   }
   /* Le rail qui apparaît ou disparaît décale toute la page : on remesure,
      mais seulement à ce moment-là, jamais à chaque seconde. */
+  rail.classList.toggle("plie", railPlie);
   if(etait){ haut.classList.add("sousRail"); place(); }
   const d=rail.querySelector(".dur");
   if(d) d.innerHTML = esc(hm(ec))+`<i>${secondes(ec)}</i>`;

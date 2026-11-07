@@ -752,7 +752,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v56";
+const VERSION = "v57";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -793,13 +793,14 @@ const TACHES_SOCLE = [
   ["Attente","reste"],["Écrans","reste"]
 ];
 
-let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], exp:0, seq:1};
+let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], livres:[], exp:0, seq:1};
 let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an", rev:"noms", pile:[], nodeId:null,
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
          per:"jour", tQ:"", tCat:"", blocId:null, medId:null, trou:null, quand:null,
          noteFocus:false, frisZ:null, enPlus:false, tchId:null,
-         lu:null, luA:null, luZ:null, luPlein:false, tSp:null};
+         lu:null, luA:null, luZ:null, luPlein:false, tSp:null,
+         pgL:null, pgA:null, pgZ:null, lvId:null};
 
 /* Un seul « écran précédent » ne suffisait pas : en ouvrant un retour depuis
    un acte, il finissait par désigner l'acte lui-même, et le bouton Retour ne
@@ -827,13 +828,14 @@ function sane(v){
   const d = {nodes:Array.isArray(o.nodes)?o.nodes:[], gens:Array.isArray(o.gens)?o.gens:[],
           noms:Array.isArray(o.noms)?o.noms:[], mans:Array.isArray(o.mans)?o.mans:[],
           cats:Array.isArray(o.cats)?o.cats:[], taches:Array.isArray(o.taches)?o.taches:[],
+          livres:Array.isArray(o.livres)?o.livres:[],
           temps:Array.isArray(o.temps)?o.temps:[], exp:(typeof o.exp==="number")?o.exp:0,
           morts:(o.morts && typeof o.morts==="object")?o.morts:{},
           maj:(typeof o.maj==="number")?o.maj:0,
           seq:(typeof o.seq==="number"&&o.seq>0)?o.seq:1};
   /* Les fiches d'avant la synchronisation n'ont pas d'heure. On leur en donne
      la plus ancienne possible : la moindre écriture réelle les dépassera. */
-  [d.nodes,d.gens,d.noms,d.mans,d.cats,d.taches,d.temps].forEach(function(a){
+  [d.nodes,d.gens,d.noms,d.mans,d.cats,d.taches,d.temps,d.livres].forEach(function(a){
     a.forEach(function(x){ if(x && typeof x.maj!=="number") x.maj=1; });
   });
   /* Un bloc sans départ ou sans activité ne dit rien : on nettoie et on
@@ -1548,8 +1550,10 @@ function render(){
   /* L'interrupteur ne se garde pas : « en plus » oublié d'hier ferait
      démarrer une activité par-dessus une autre sans qu'on l'ait voulu. */
   if(S.view!=="pointer"){ S.tQ=""; S.tCat=""; S.enPlus=false; }
-  if(S.view!=="pointer" && S.view!=="temps" && S.view!=="bloc" && S.view!=="frise" && S.view!=="lecture"){ S.blocId=null; S.trou=null; }
+  if(S.view!=="pointer" && S.view!=="temps" && S.view!=="bloc" && S.view!=="frise"
+     && S.view!=="lecture" && S.view!=="pages" && S.view!=="livre"){ S.blocId=null; S.trou=null; }
   if(S.view!=="lecture"){ S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false; }
+  if(S.view!=="pages" && S.view!=="livre"){ S.pgL=null; S.pgA=null; S.pgZ=null; }
   if(S.view!=="pointer") S.tSp=null;
   (VUES[S.view]||vToday)();
   const onglet = ONGLETS.some(o=>o[0]===S.view);
@@ -2405,6 +2409,24 @@ function porteLecture(){
     sous:"Le compteur part, à "+esc(nomPlat(debutPlat())),
     attr:'data-act="bibleGo"'});
 }
+/* Un livre entamé se reprend ; la ligne dit lequel et à quelle page, pour
+   qu'on sache avant d'ouvrir. Elle n'existe que si une activité porte ce
+   type-là : l'app ne va pas inventer une activité dont elle ignore la
+   catégorie — c'est au disciple de dire si sa lecture est pour Dieu, pour
+   lui, ou pour son travail. */
+function porteLivre(){
+  const id=tacheLivre();
+  if(!id) return "";
+  const o=ouverts().filter(function(b){ return b.t===id; })[0];
+  if(o) return ligne({titre:"Arrêter la lecture",
+    sous:esc(hm(Date.now()-o.deb))+" — tu diras jusqu'à quelle page",
+    attr:'data-act="livreStop"'});
+  const l=livre(dernierLivre());
+  const pg=l ? pageLue(l.id) : 0;
+  return ligne({titre: l ? "Continuer « "+esc(l.nom)+" »" : "Lire un livre",
+    sous: (l && pg) ? "Le compteur part, à la page "+(pg+1) : "Le compteur part",
+    attr:'data-act="livreGo"'});
+}
 function portePointage(){
   const o=ouvert();
   return titreBloc("Ou bien","ecart") + liste(ligne(o
@@ -2413,7 +2435,7 @@ function portePointage(){
        attr:'data-go="pointer"'}
     : {titre:"Compter mon temps", sous:"Dire à quoi va ton temps",
        attr:'data-go="pointer"'})
-    + porteLecture(), "lien");
+    + porteLecture() + porteLivre(), "lien");
 }
 function vNote(){
   const d=S.draft||(S.draft=neuf(null));
@@ -2938,6 +2960,7 @@ function fusionne(A, B){
     noms:  fusionListe(A.noms,   B.noms,   morts),
     mans:  fusionListe(A.mans,   B.mans,   morts),
     cats:  fusionListe(A.cats,   B.cats,   morts),
+    livres:fusionListe(A.livres, B.livres, morts),
     taches:fusionListe(A.taches, B.taches, morts),
     temps: fusionTemps(fusionListe(A.temps, B.temps, morts)),
     morts: morts,
@@ -3025,7 +3048,7 @@ function vPointer(){
       <div class="block amorce">Dans quoi la ranger ? C'est ce rangement, et lui seul, qui fera les parts.</div>
       <div class="puces">${cats.map(c=>`<button class="puce" data-tcat="${c.id}" aria-pressed="${S.tCat===c.id}">${esc(c.nom)}</button>`).join("")}</div>
       <div class="block amorce" style="margin-top:14px">Et qu'est-ce qu'on y note, en plus du temps ?</div>
-      <div class="puces" id="tTypes">${[["","Rien de plus"],["bible","Lecture de la Bible"]].map(function(x){
+      <div class="puces" id="tTypes">${[["","Rien de plus"],["bible","Lecture de la Bible"],["livre","Lecture d'un livre"]].map(function(x){
         const vu = S.tSp===null||S.tSp===undefined ? spDeNom(q) : S.tSp;
         return `<button class="puce" data-tsp="${x[0]}" aria-pressed="${vu===x[0]}">${x[1]}</button>`;
       }).join("")}</div>
@@ -3275,6 +3298,26 @@ function vMonTemps(){
      parts vivent au-dessus, dans « La part de chacun », et nulle part
      ailleurs — c'est ce qui évite d'avoir deux chiffres qui se contredisent
      sur le même écran. */
+  const pf=pagesFen(f.t0, f.t1);
+  if(pf.pg || (db.livres||[]).length){
+    h += titreBloc("Mes lectures","ecart");
+    h += liste(ligne({titre:"Pages lues",
+        sous: pf.p ? "En "+pf.p+" passage"+(pf.p>1?"s":"")+" "+f.nom : "Rien de lu "+f.nom,
+        apres:esc(String(pf.pg))})
+      + (db.livres||[]).slice()
+        .sort(function(x,y){ return (livreFini(x)?1:0)-(livreFini(y)?1:0)
+                                 || pageLue(y.id)-pageLue(x.id); })
+        .map(function(l){
+          const vu=pageLue(l.id), tot=l.pages||0, reste=Math.max(0, tot-vu);
+          return ligne({titre:esc(l.nom),
+            sous: livreFini(l) ? "Fini"
+                : (tot ? partPc(Math.min(vu,tot), tot)+" % — il reste "+pagesTxt(reste)
+                       : "Nombre de pages inconnu"),
+            apres: esc(tot ? vu+" / "+tot : String(vu)),
+            attr:'data-lv="'+l.id+'"'});
+        }).join(""));
+  }
+
   const tids=Object.keys(c.par).sort((a,b)=>c.par[b]-c.par[a]);
   h += titreBloc("Activité par activité","ecart");
   if(porte) h += `<div class="block amorce">Chacune compte tout son temps. Quand plusieurs sont menées de front, leur somme dépasse la journée — c'est voulu : la journée, elle, est au-dessus.</div>`;
@@ -3354,6 +3397,7 @@ function vMonTemps(){
     return ligne({titre:esc(tacheNom(b.t))+(b.porte?` <span class="pte">porte l'heure</span>`:""),
       sous:jourBref(a)+hmin(new Date(a))+" → "+(b.fin?hmin(new Date(b.fin)):"maintenant")
         +((b.lu&&b.lu.length)?`<span class="lus">${esc(passagesTxt(b))}</span>`:"")
+        +((b.pg&&b.pg.length)?`<span class="lus">${esc(passagesPgTxt(b))}</span>`:"")
         +(b.note?`<span class="medNote">${esc(b.note)}</span>`:""),
       apres:esc(hm((b.fin||n2)-a)), attr:'data-bloc="'+b.id+'"'});
   }).join(""));
@@ -3559,11 +3603,16 @@ function passagesDe(a, z){
    rien dire. Un bloc trop court a déjà été effacé : on ne demande pas ce
    qu'on a lu en vingt secondes. */
 function apresArret(bs, repli){
-  const b=(bs||[]).filter(function(x){ return x && blocT(x.id) && spTache(x.t)==="bible"; })[0];
+  const b=(bs||[]).filter(function(x){
+    const sp=x ? spTache(x.t) : "";
+    return x && blocT(x.id) && (sp==="bible" || sp==="livre");
+  })[0];
   if(!b) return false;
   S.pile=[]; S.view=repli||"today"; empile();
-  S.blocId=b.id; S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false;
-  S.view="lecture";
+  S.blocId=b.id;
+  S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false;
+  S.pgL=null; S.pgA=null; S.pgZ=null;
+  S.view = spTache(b.t)==="livre" ? "pages" : "lecture";
   return true;
 }
 function debutPlat(){
@@ -3681,14 +3730,172 @@ function vTache(){
       apres: sp!=="bible" ? `<span class="coche">✓</span>` : "", attr:'data-sp="-"'})
     + ligne({titre:"Les chapitres de la Bible",
       sous:"Le livre et les chapitres lus, avec la reprise là où tu t'es arrêté",
-      apres: sp==="bible" ? `<span class="coche">✓</span>` : "", attr:'data-sp="bible"'}));
+      apres: sp==="bible" ? `<span class="coche">✓</span>` : "", attr:'data-sp="bible"'})
+    + ligne({titre:"Les pages d'un livre",
+      sous:"Plusieurs livres de front, chacun avec son signet et son avancement",
+      apres: sp==="livre" ? `<span class="coche">✓</span>` : "", attr:'data-sp="livre"'}));
   if(sp==="bible"){
     const n=chapDistincts(t.id);
     h+=titreBloc("Ce que tu as traversé","ecart");
     h+=liste(ligne({titre:"Chapitres distincts", sous:"Relire ne l'agrandit pas",
         apres:esc(n+" / "+BIBLE_CH)}));
   }
+  if(sp==="livre"){
+    h+=titreBloc("Tes livres","ecart");
+    h+=liste(((db.livres||[]).map(function(l){
+        const vu=pageLue(l.id), tot=l.pages||0;
+        return ligne({titre:esc(l.nom), sous: livreFini(l) ? "Fini" : "En cours",
+          apres:esc(tot ? vu+" / "+tot : String(vu)), attr:'data-lv="'+l.id+'"'});
+      }).join("")) + ligne({titre:"Ajouter un livre", attr:'data-act="livreNeuf"'}));
+  }
   Z.html=h;
+}
+
+
+/* ---------- la bibliothèque : où j'en suis dans mes livres ---------- */
+/* Même besoin que pour l'Écriture, et une différence qui commande tout : la
+   Bible est une liste close que l'app connaît par cœur ; une bibliothèque,
+   non. Le disciple la déclare donc — le titre, et le nombre de pages, sans
+   quoi « j'en suis à la 84 » ne dit rien d'un avancement.
+   Et l'on mène plusieurs livres de front comme on mène plusieurs activités
+   de front : chacun garde son propre signet, et c'est le dernier touché qui
+   se propose, pour que le cas courant reste à un geste (13.ck). */
+function livre(id){ return (db.livres||[]).filter(function(l){ return l.id===id; })[0]; }
+function livreNom(id){ const l=livre(id); return l ? l.nom : "—"; }
+function livrePages(id){ const l=livre(id); return (l && l.pages>0) ? l.pages : 0; }
+function livreId(nom, pages){
+  const v=String(nom||"").trim(); if(!v) return "";
+  const l=(db.livres||[]).filter(function(x){ return x.nom.toLowerCase()===v.toLowerCase(); })[0];
+  if(l){ if(pages>0 && l.pages!==pages){ l.pages=pages; touche(l); } return l.id; }
+  const id=uid("l");
+  db.livres=(db.livres||[]).concat([{id:id, nom:cap(v), pages:pages>0?pages:0, maj:Date.now()}]);
+  return id;
+}
+/* Le signet se lit dans l'archive, jamais tenu à jour à part : la page la
+   plus avancée qu'on ait notée dans ce livre-là. */
+function pageLue(lid){
+  let m=0;
+  (db.temps||[]).forEach(function(b){
+    (b.pg||[]).forEach(function(r){ if(r[0]===lid && r[2]>m) m=r[2]; });
+  });
+  return m;
+}
+/* Fini, c'est soit la dernière page atteinte, soit le disciple qui le dit —
+   on repose un livre avant la fin, et ce n'est pas à l'app d'en juger. */
+function livreFini(l){
+  if(!l) return false;
+  if(l.fini) return true;
+  return l.pages>0 && pageLue(l.id)>=l.pages;
+}
+function livresOuverts(){ return (db.livres||[]).filter(function(l){ return !livreFini(l); }); }
+function dernierLivre(){
+  let der="", quand=-1;
+  (db.temps||[]).forEach(function(b){
+    (b.pg||[]).forEach(function(r){ if(b.deb>quand){ quand=b.deb; der=r[0]; } });
+  });
+  const l=der ? livre(der) : null;
+  if(l && !livreFini(l)) return l.id;
+  const ouv=livresOuverts();
+  return ouv.length ? ouv[0].id : (l ? l.id : "");
+}
+function pagesTxt(n){ return n+" page"+(n>1?"s":""); }
+function nomPassagePg(r){
+  const n=livreNom(r[0]);
+  return r[1]===r[2] ? n+", page "+r[1] : n+", pages "+r[1]+" à "+r[2];
+}
+function passagesPgTxt(b){ return (b.pg||[]).map(nomPassagePg).join(" · "); }
+function pagesFen(t0, t1){
+  let pg=0, p=0;
+  (db.temps||[]).forEach(function(b){
+    if(!b.pg || !b.pg.length || b.deb<t0 || b.deb>=t1) return;
+    b.pg.forEach(function(r){ pg+=r[2]-r[1]+1; p++; });
+  });
+  return {pg:pg, p:p};
+}
+function tacheLivre(){
+  const ts=(db.taches||[]).filter(function(t){ return spTache(t.id)==="livre"; });
+  if(!ts.length) return "";
+  if(ts.length===1) return ts[0].id;
+  const freq=cumul(minuit(29), Date.now()).par;
+  return ts.slice().sort(function(a,b){ return (freq[b.id]||0)-(freq[a.id]||0); })[0].id;
+}
+function listePg(b){
+  return liste(b.pg.map(function(r,i){
+    return ligne({titre:esc(nomPassagePg(r)), sous:pagesTxt(r[2]-r[1]+1),
+      apres:`<span class="rouge">Retirer</span>`, attr:'data-pgsup="'+i+'"'});
+  }).join(""));
+}
+
+/* Une seule liste, comme pour l'Écriture : le départ est le signet, et la
+   seule question est jusqu'où. Les autres livres entamés sont là, en
+   pastilles — changer de livre reste un geste, pas un écran. */
+function vPages(){
+  const b=blocT(S.blocId);
+  if(!b){ depile("temps"); return render(); }
+  Z.titre="Ce que tu as lu"; Z.retour=true;
+  if(!(db.livres||[]).length){
+    Z.html=`<div class="block amorce" style="margin-top:16px">Aucun livre n'est encore déclaré. Dis-en un — son titre et son nombre de pages — et l'app tiendra ton signet dedans.</div>`
+      + liste(ligne({titre:"Ajouter un livre", attr:'data-act="livreNeuf"'}), "lien");
+    return;
+  }
+  if(!S.pgL || !livre(S.pgL)) S.pgL = dernierLivre() || db.livres[0].id;
+  const l=livre(S.pgL), tot=livrePages(l.id), vue=pageLue(l.id);
+  if(S.pgA===null || S.pgA===undefined){
+    S.pgA = tot ? Math.min(tot, vue+1) : vue+1;
+    S.pgZ = S.pgA;
+  }
+  const a=S.pgA, z=Math.max(a, S.pgZ);
+  let h=`<div class="block amorce" style="margin-top:16px">${
+    vue ? "Tu reprends <b>"+esc(l.nom)+"</b> à la page <b>"+a+"</b>. Jusqu'où es-tu allé ?"
+        : "Tu commences <b>"+esc(l.nom)+"</b>. Jusqu'où es-tu allé ?"
+  }</div>`;
+  const ouv=livresOuverts();
+  if(ouv.length>1 || (ouv.length===1 && ouv[0].id!==l.id) || (db.livres||[]).length>1){
+    h+=`<div class="puces">${(db.livres||[]).filter(function(x){ return !livreFini(x) || x.id===l.id; })
+      .map(function(x){ return `<button class="puce" data-pgl="${x.id}" aria-pressed="${x.id===l.id}">${esc(x.nom)}</button>`; }).join("")}</div>`;
+  }
+  h+=titreBloc("Jusqu'où");
+  let o="";
+  const bout = tot ? tot : a+500;
+  for(let i=a;i<=bout;i++) o+=`<option value="${i}"${i===z?" selected":""}>${i}</option>`;
+  h+=liste(champSel("pgZ", "Dernière page lue", o));
+  const reste = tot ? Math.max(0, tot-z) : 0;
+  h+=`<div class="block amorce"><b>${esc(nomPassagePg([l.id,a,z]))}</b> — ${pagesTxt(z-a+1)}.${
+    !tot ? "" : (reste ? " Il te restera "+pagesTxt(reste)+" sur "+tot+"." : " Tu l'auras terminé.")}</div>`;
+  h+=liste(ligne({titre:"Un autre livre", sous:"En ajouter un, ou corriger ses pages",
+      attr:'data-act="livreNeuf"'})
+    + ligne({titre:"Ce livre", sous:esc(l.nom)+(tot?" — "+tot+" pages":" — pages inconnues"),
+      attr:'data-lv="'+l.id+'"'}), "lien");
+  if((b.pg||[]).length){
+    h+=titreBloc("Déjà noté sur ce bloc","ecart");
+    h+=listePg(b);
+  }
+  Z.html=h;
+  Z.action=bouton("Garder", 'data-act="addPg"');
+}
+
+/* Un livre est une fiche minuscule — un titre, un nombre de pages — et
+   c'est le nombre de pages qui fait tout le reste : sans lui, « page 84 »
+   est un chiffre sans horizon. */
+function vLivre(){
+  const l=S.lvId ? livre(S.lvId) : null;
+  Z.titre = l ? "Ce livre" : "Un livre"; Z.retour=true;
+  let h=`<div class="block amorce" style="margin-top:16px">Le titre, et le nombre de pages — c'est lui qui permet de dire où tu en es, et ce qu'il te reste.</div>`;
+  h+=titreBloc("Le titre");
+  h+=champ("lvNom", "Le titre du livre", "text", l?esc(l.nom):"", 'autocapitalize="sentences"');
+  h+=titreBloc("Le nombre de pages","ecart");
+  h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
+      <input type="number" id="lvPages" inputmode="numeric" min="1" max="9999" placeholder="240" value="${(l&&l.pages)?l.pages:""}"></div></div></li>`);
+  if(l){
+    const vue=pageLue(l.id);
+    h+=titreBloc("Où tu en es","ecart");
+    h+=liste(ligne({titre:"Page atteinte", apres:esc(String(vue)+(l.pages?" / "+l.pages:""))})
+      + ligne({titre: l.fini ? "Finalement, je ne l'ai pas fini" : "Je l'ai fini",
+               sous: l.fini ? "Il reviendra dans les livres en cours" : "Il quittera les livres en cours",
+               attr:'data-act="livreFin"'}));
+  }
+  Z.html=h;
+  Z.action=bouton(l?"Garder":"Ajouter ce livre", 'data-act="livreGarder"');
 }
 
 function vBloc(){
@@ -3714,6 +3921,12 @@ function vBloc(){
     if((b.lu||[]).length) h+=listeLu(b);
     h+=liste(ligne({titre:(b.lu||[]).length ? "Ajouter un passage" : "Dire les chapitres lus",
         sous:"Le livre et les chapitres traversés", attr:'data-act="direLu"'}), "lien");
+  }
+  if(spTache(b.t)==="livre"){
+    h+=titreBloc("Ce que tu as lu","ecart");
+    if((b.pg||[]).length) h+=listePg(b);
+    h+=liste(ligne({titre:(b.pg||[]).length ? "Ajouter un passage" : "Dire les pages lues",
+        sous:"Le livre et les pages traversées", attr:'data-act="direPg"'}), "lien");
   }
   h+=titreBloc("Le début","ecart");
   h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
@@ -3926,7 +4139,7 @@ function vListe(f){ return function(){ f(); }; }
 const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), actes:vListe(vActes), chemin:vChemin, faits:vFaits,
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData,
               pointer:vPointer, temps:vMonTemps, bloc:vBloc, quand:vQuand, frise:vFrise,
-              tache:vTache, lecture:vLecture,
+              tache:vTache, lecture:vLecture, pages:vPages, livre:vLivre,
               sync:vSync, reglages:vReglages};
 
 /* ---------- dictée ---------- */
@@ -3999,6 +4212,7 @@ document.addEventListener("input", ev=>{
      une fin plus tôt que le début n'existe pas : l'écran se redessine, et
      les trois listes restent d'accord entre elles. */
   if(id==="luZ"){ S.luZ=+ev.target.value; return render(); }
+  if(id==="pgZ"){ S.pgZ=+ev.target.value; return render(); }
   if(id==="luLiv" || id==="luDeb" || id==="luFin"){
     if(!S.lu) return;
     const v=+ev.target.value;
@@ -4105,7 +4319,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup],[data-tch],[data-sp],[data-lusup],[data-tsp]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup],[data-tch],[data-sp],[data-lusup],[data-tsp],[data-pgl],[data-pgsup],[data-lv]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -4161,6 +4375,15 @@ document.addEventListener("click", ev=>{
     t.sp = g.sp==="-" ? "" : g.sp;
     touche(t); save(); toast("Noté."); return render();
   }
+  if(g.pgl){ S.pgL=g.pgl; S.pgA=null; S.pgZ=null; return render(); }
+  if(g.lv){ empile(); S.lvId=g.lv; S.view="livre"; return render(); }
+  if(g.pgsup!==undefined){
+    const b=blocT(S.blocId); if(!b || !b.pg) return;
+    const r=b.pg[+g.pgsup]; if(!r) return;
+    b.pg.splice(+g.pgsup, 1);
+    if(!b.pg.length) delete b.pg;
+    touche(b); save(); toast("Retiré : "+nomPassagePg(r)); return render();
+  }
   if(g.lusup!==undefined){
     const b=blocT(S.blocId); if(!b || !b.lu) return;
     const r=b.lu[+g.lusup]; if(!r) return;
@@ -4180,6 +4403,9 @@ document.addEventListener("click", ev=>{
         .concat(spTache(b.t)==="bible" ? [{txt:(b.lu&&b.lu.length) ? "Corriger les chapitres lus"
                                                                    : "Dire les chapitres lus",
                                             attr:'data-act="direLu"'}] : [])
+        .concat(spTache(b.t)==="livre" ? [{txt:(b.pg&&b.pg.length) ? "Corriger les pages lues"
+                                                                   : "Dire les pages lues",
+                                            attr:'data-act="direPg"'}] : [])
         .concat(chevauche(b) ? [{txt: b.porte ? "Rendre l'heure à ce qui tournait déjà"
                                                : "C'est ça qui portait l'heure",
                                   attr:'data-act="porteBloc"'}] : [])
@@ -4308,6 +4534,19 @@ const actions={
   /* Le même écran, mais le curseur déjà dans la note : la porte manquait,
      et « Corriger les heures » ne disait à personne qu'on pouvait écrire. */
   direBloc(){ fermeMenu(); empile(); S.view="bloc"; S.noteFocus=true; render(); },
+  livreGo(){
+    const id=tacheLivre(); if(!id) return;
+    pointe(id, false); S.pile=[]; S.view="today";
+    toast("On compte : "+tacheNom(id)); render();
+  },
+  livreStop(){
+    const id=tacheLivre();
+    const b=ouverts().filter(function(x){ return x.t===id; })[0];
+    if(!b) return render();
+    arreteUn(b); S.pile=[]; S.view="today";
+    toast("Arrêté : "+tacheNom(id));
+    apresArret([b]); render();
+  },
   bibleGo(){
     const id=tacheBible() || tacheId("Lecture de la Parole", "dieu", "bible");
     pointe(id, false); S.pile=[]; S.view="today";
@@ -4323,6 +4562,38 @@ const actions={
   },
   direLu(){ fermeMenu(); empile(); S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false;
     S.view="lecture"; render(); },
+  direPg(){ fermeMenu(); empile(); S.pgL=null; S.pgA=null; S.pgZ=null;
+    S.view="pages"; render(); },
+  livreNeuf(){ empile(); S.lvId=null; S.view="livre"; render(); },
+  livreFin(){
+    const l=livre(S.lvId); if(!l) return;
+    if(l.fini) delete l.fini; else l.fini=1;
+    touche(l); save(); toast(l.fini ? "Fini." : "Remis en cours."); render();
+  },
+  livreGarder(){
+    const nom=String(val("lvNom")||"").trim();
+    const pg=parseInt(val("lvPages"), 10);
+    if(!nom) return toast("Écris le titre du livre");
+    if(!(pg>0)) return toast("Dis combien il a de pages");
+    if(S.lvId){
+      const l=livre(S.lvId);
+      if(l){ l.nom=cap(nom); l.pages=pg; touche(l); save(); }
+      toast("Gardé."); depile("temps"); return render();
+    }
+    const id=livreId(nom, pg); save();
+    S.pgL=id; S.pgA=null; S.pgZ=null;
+    toast("Ajouté : "+livreNom(id));
+    depile("pages"); render();
+  },
+  addPg(){
+    const b=blocT(S.blocId);
+    if(!b || !S.pgL || S.pgA===null) return;
+    const a=S.pgA, z=Math.max(a, S.pgZ);
+    b.pg=(b.pg||[]).concat([[S.pgL, a, z]]);
+    touche(b); save();
+    toast(nomPassagePg([S.pgL,a,z])+" · "+pagesTxt(z-a+1));
+    depile("temps"); render();
+  },
   /* Le cas rare s'atteint depuis le cas courant, jamais l'inverse. */
   luPlein(){ S.luPlein=true; S.lu=null; render(); },
   addLuSimple(){

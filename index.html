@@ -274,6 +274,21 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 #acte[hidden]{display:none}
 #acte.surNav{padding-bottom:10px}
 #acte .button{width:100%;font-weight:600;letter-spacing:.005em;box-shadow:var(--ombre)}
+/* La même phrase écrite en travers des quatre onglets finit par n'être plus
+   lue : c'est un bandeau, pas une invitation. Le geste tient dans un rond,
+   posé au pouce droit, et le bas de l'écran redevient calme. La phrase
+   revient là où l'archive est vide — c'est le seul moment où il faut encore
+   dire quoi faire. */
+#acte.rond{display:flex;justify-content:flex-end;padding:8px 16px 12px;
+  background:none;border-top:0;-webkit-backdrop-filter:none;backdrop-filter:none}
+#acte.rond.surNav{padding-bottom:12px}
+#acte .rond{display:flex;align-items:center;justify-content:center;
+  width:58px;height:58px;border-radius:50%;background:var(--f7-theme-color);color:#fff;
+  box-shadow:0 12px 28px -12px rgba(26,42,32,.55);cursor:pointer}
+#acte .rond svg{display:block;width:27px;height:27px}
+.dark #acte .rond{background:rgba(157,183,164,.19);color:#C8DFCE;
+  border:1px solid rgba(157,183,164,.46);
+  box-shadow:0 1px 0 var(--eclat) inset, 0 12px 30px -14px var(--lueur)}
 .dark #acte .button-fill{background:rgba(157,183,164,.17);color:#C4DCCA;
   border:1px solid rgba(157,183,164,.42);box-shadow:0 1px 0 var(--eclat) inset,
   0 10px 26px -14px var(--lueur)}
@@ -677,7 +692,7 @@ const ONGLETS = [["today","Aujourd'hui"],["oeuvres","Ses œuvres"],["revel","Ré
 
 /* Chaque vue remplit ces zones. Une seule action principale par écran. */
 let Z = {};
-function zero(){ Z = {titre:"", retour:false, fermer:false, plus:false, action:"", avance:0, haut:"", file:false, html:""}; }
+function zero(){ Z = {titre:"", retour:false, fermer:false, plus:false, action:"", rond:false, avance:0, haut:"", file:false, html:""}; }
 
 function render(){
   if(rec) micArret();
@@ -706,7 +721,7 @@ function render(){
   main.className = haut.hidden ? "plat" : "";
   main.innerHTML = (Z.haut && Z.file ? `<header class="entete">${Z.haut}</header>` : "") + Z.html;
   barre.hidden = !Z.action;
-  barre.className = onglet ? "surNav" : "";
+  barre.className = (onglet?"surNav":"") + (Z.rond?" rond":"");
   if(Z.action) barre.innerHTML = Z.action;
   nav.hidden = !onglet;
   if(onglet) nav.innerHTML = ONGLETS.map(([k,l])=>`<button data-go="${k}"${S.view===k?' aria-current="page"':""}>${ICONES[k]||""}<span>${l}</span></button>`).join("");
@@ -751,6 +766,14 @@ function champ(id, ph, type, val){
     <input type="${type||"text"}" id="${id}" placeholder="${ph||""}" value="${val||""}"></div></div></li>`);
 }
 function bouton(txt, attr){ return `<a class="button button-large button-fill button-round" ${attr}>${txt}</a>`; }
+const PLUS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><path d="M12 5.4v13.2M5.4 12h13.2"/></svg>`;
+/* Tant qu'il n'y a rien à lire, le geste se dit en toutes lettres. Dès qu'il
+   y a une archive, il se montre. */
+function gesteNoter(){
+  if(!db.nodes.length){ Z.action = bouton("Noter quelque chose", 'data-go="note"'); return; }
+  Z.action = `<a class="rond" data-go="note" aria-label="Noter quelque chose">${PLUS}</a>`;
+  Z.rond = true;
+}
 function titreBloc(t, cls){ return `<div class="block-title ${cls||""}">${t}</div>`; }
 
 /* ---------- menu ••• ---------- */
@@ -816,7 +839,7 @@ function carte(c){
 function vToday(){
   const now=new Date();
   const d = now.getDate()+" "+MOIS[now.getMonth()];
-  Z.action = bouton("Noter quelque chose", 'data-go="note"');
+  gesteNoter();
   if(!db.nodes.length){
     Z.file = true;
     Z.haut = RAMEAU("marque") + `<p class="titre-page">Rien encore.</p><p class="ssTitre">${d}</p>`;
@@ -1405,7 +1428,7 @@ function vData(){
 }
 
 /* Depuis n'importe quel onglet, le geste reste à portée. */
-function vListe(f){ return function(){ f(); if(!Z.action) Z.action=bouton("Noter quelque chose",'data-go="note"'); }; }
+function vListe(f){ return function(){ f(); if(!Z.action) gesteNoter(); }; }
 const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), actes:vListe(vActes), chemin:vChemin, faits:vFaits,
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData};
 

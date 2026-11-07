@@ -561,6 +561,11 @@ body.avecRail .entete .rouage{top:calc(var(--rail,0px) + 5px)}
 .tv b{font-size:14px;font-weight:700;color:var(--f7-theme-color);letter-spacing:.01em}
 .tj{display:block;height:5px;margin-top:8px;border-radius:3px;background:var(--filet);overflow:hidden}
 .tj i{display:block;height:100%;min-width:3px;border-radius:3px;background:var(--f7-theme-color)}
+/* La part du temps non compté se lit comme les autres, mais elle n'est pas
+   une part comme les autres : personne ne l'a réclamée. Grise, donc, et sa
+   jauge aussi — on la voit sans qu'elle se vante. */
+.tl.creuse .tn,.tl.creuse .tv b{color:var(--muted)}
+.tl.creuse .tj i{background:var(--muted);opacity:.5}
 
 /* ---------- puces de filtre ---------- */
 .puces{display:flex;gap:8px;overflow-x:auto;padding:12px 16px;scrollbar-width:none}
@@ -677,7 +682,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v44";
+const VERSION = "v45";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -923,6 +928,15 @@ function fenetre(){
   return {t0:d?d.deb:n, t1:n, nom:"depuis le début"};
 }
 function pcent(x, tot){ return tot ? Math.round(x*100/tot) : 0; }
+/* Sur trente jours, une heure de prière pèse deux dixièmes de pour cent.
+   L'arrondir à zéro serait faux — une heure a été donnée — et dur pour
+   rien. Sous le demi pour cent, on écrit donc le dixième. */
+function partPc(x, tot){
+  if(!tot) return "0";
+  const p=x*100/tot;
+  if(p>0 && p<0.5) return String(Math.round(p*10)/10).replace(".", ",");
+  return String(Math.round(p));
+}
 
 /* ---------- les médias ---------- */
 /* Une photo ne tient pas dans la mémoire du navigateur où vit l'archive :
@@ -2747,9 +2761,15 @@ function vPointer(){
 }
 
 /* ---------- mon temps ---------- */
-/* Des heures et des parts. Le dénominateur n'est pas la journée entière mais
-   ce qui a été compté : une part sur du temps qu'on n'a jamais réclamé serait
-   un chiffre inventé. L'écran dit donc toujours sur quoi il compte. */
+/* Des heures et des parts. Le dénominateur a d'abord été ce qui avait été
+   compté, et non la journée : une part sur du temps qu'on n'a jamais réclamé
+   paraissait un chiffre inventé. Elle ne l'est plus, depuis qu'on tient pour
+   principe que **le temps non comptabilisé n'était pas pour Dieu** (13.bw).
+   Ce n'est pas un trou dans la connaissance, c'est une réponse par défaut.
+   Le dénominateur est donc le temps entier de la fenêtre, et ce qui n'a pas
+   été compté y paraît pour ce qu'il vaut. Sans quoi, celui qui ne pointe que
+   sa prière lirait qu'il a donné cent pour cent de sa vie à Dieu — et ce
+   serait, au sens strict, une louange empruntée. */
 function vMonTemps(){
   Z.titre="Mon temps"; Z.retour=true;
   const f=fenetre(), c=cumul(f.t0, f.t1);
@@ -2758,23 +2778,31 @@ function vMonTemps(){
     h += `<p class="vide">Rien de compté ${f.nom}. Touche le compteur, en bas, et dis à quoi tu es.</p>`;
     Z.html=h; return;
   }
-  h += `<div class="block amorce"><b>${esc(hm(c.tot))}</b> comptés ${f.nom}. Les parts se lisent sur ce total.</div>`;
+  const ecoule=Math.max(c.tot, f.t1-f.t0);
+  const creux=Math.max(0, ecoule-c.tot);
+  h += `<div class="block amorce"><b>${esc(hm(c.tot))}</b> comptés sur <b>${esc(hm(ecoule))}</b> ${f.nom}. Les parts se lisent sur le temps entier : ce qu'on n'a pas compté, on le tient pour n'ayant pas été pour Lui.</div>`;
 
   const parCat={};
   Object.keys(c.par).forEach(function(tid){ const k=tacheCat(tid); parCat[k]=(parCat[k]||0)+c.par[tid]; });
   const vus=CATS().filter(x=>parCat[x.id]).sort((a,b)=>parCat[b.id]-parCat[a.id]);
   h += titreBloc("La part de chacun");
   h += `<div class="tps">`+vus.map(function(x){
-    const p=pcent(parCat[x.id], c.tot);
+    const l=partPc(parCat[x.id], ecoule), w=ecoule ? parCat[x.id]*100/ecoule : 0;
     return `<div class="tl"><span class="tn">${esc(x.nom)}</span>
-      <span class="tv"><b>${p} %</b>${esc(hm(parCat[x.id]))}</span>
-      <span class="tj"><i style="width:${p}%"></i></span></div>`;
-  }).join("")+`</div>`;
+      <span class="tv"><b>${l} %</b>${esc(hm(parCat[x.id]))}</span>
+      <span class="tj"><i style="width:${w}%"></i></span></div>`;
+  }).join("")
+   /* Une minute d'écart entre deux lectures d'horloge n'est pas un creux :
+      sans ce seuil, un jour entièrement compté affichait « Non compté 0 % ». */
+   + (creux>=60000 ? `<div class="tl creuse"><span class="tn">Non compté</span>
+      <span class="tv"><b>${partPc(creux, ecoule)} %</b>${esc(hm(creux))}</span>
+      <span class="tj"><i style="width:${ecoule?creux*100/ecoule:0}%"></i></span></div>` : "")
+   + `</div>`;
 
   const tids=Object.keys(c.par).sort((a,b)=>c.par[b]-c.par[a]);
   h += titreBloc("Activité par activité","ecart");
   h += liste(tids.map(tid=>ligne({titre:esc(tacheNom(tid)), sous:esc(catNom(tacheCat(tid))),
-      apres:esc(hm(c.par[tid]))+" · "+pcent(c.par[tid], c.tot)+" %"})).join(""));
+      apres:esc(hm(c.par[tid]))+" · "+partPc(c.par[tid], ecoule)+" %"})).join(""));
 
   /* Les blocs ne se lisaient qu'aujourd'hui, tant qu'ils ne portaient qu'une
      heure : une heure passée ne se relit pas. Depuis qu'ils portent ce qu'on

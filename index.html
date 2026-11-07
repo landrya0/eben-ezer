@@ -1686,6 +1686,20 @@ async function syFetch(chemin, opt){
   if(!r.ok){ const e=new Error((j&&(j.msg||j.message||j.error_description||j.error))||("HTTP "+r.status)); e.code=r.status; e.corps=j; throw e; }
   return j;
 }
+/* Le code par courriel suppose deux choses fragiles : que le gabarit du
+   courriel ait été modifié pour porter le code au lieu d'un lien, et que le
+   courrier arrive. Le mot de passe ne suppose rien et n'envoie rien. C'est
+   donc lui par défaut, et le code reste en secours. Il ne garde d'ailleurs
+   qu'une porte : ce qu'il y a derrière est chiffré de toute façon. */
+async function sySignup(mail, mdp){
+  return syFetch("/auth/v1/signup", {method:"POST", jeton:false, body:{email:mail, password:mdp}});
+}
+async function syMotDePasse(mail, mdp){
+  const j=await syFetch("/auth/v1/token?grant_type=password", {method:"POST", jeton:false, body:{email:mail, password:mdp}});
+  SY.jwt=j.access_token; SY.raf=j.refresh_token; SY.exp=Date.now()+((j.expires_in||3600)*1000);
+  SY.uid=(j.user&&j.user.id)||""; SY.mail=mail; sySave();
+  return j;
+}
 async function syCode(mail){ await syFetch("/auth/v1/otp", {method:"POST", jeton:false, body:{email:mail, create_user:true}}); }
 async function syValide(mail, code){
   const j=await syFetch("/auth/v1/verify", {method:"POST", jeton:false, body:{email:mail, token:code, type:"email"}});
@@ -1715,7 +1729,7 @@ async function syEcrit(doc){
   const corps=await chiffre(doc, SY.phr);
   await syFetch("/rest/v1/etat", {method:"POST",
     headers:{"Prefer":"resolution=merge-duplicates,return=minimal"},
-    body:{uid:SY.uid, doc:corps, jalon:j}});
+    body:{uid:SY.uid, doc:corps, jalon:j, maj:new Date().toISOString()}});
   return j;
 }
 
@@ -1769,7 +1783,11 @@ function syDit(e){
   const m=String(e&&e.message||e);
   if(/OperationError|operation-specific/i.test(m)) return "La phrase de passe ne correspond pas";
   if(/relation .* does not exist|42P01/i.test(m)) return "La table « etat » manque encore";
-  if(/JWT|token|401/i.test(m)) return "Connexion expirée — refais le code";
+  if(/not confirmed/i.test(m)) return "Décoche « Confirm email » dans Supabase";
+  if(/already registered/i.test(m)) return "Ce compte existe : mot de passe incorrect";
+  if(/Invalid login|invalid_grant/i.test(m)) return "Adresse ou mot de passe incorrect";
+  if(/Password should be|at least/i.test(m)) return "Mot de passe trop court";
+  if(/JWT|token|401/i.test(m)) return "Connexion expirée — reconnecte-toi";
   if(/Failed to fetch|NetworkError/i.test(m)) return "Serveur injoignable";
   return m.slice(0,70);
 }
@@ -2049,7 +2067,10 @@ function vSync(){
   }
   Z.avance=(e+1)/4;
   if(e===0){
-    h+=`<div class="block amorce" style="margin-top:18px">Sur <b>supabase.com</b> : crée un compte, puis un projet. Dans <b>SQL Editor</b>, colle le texte ci-dessous et exécute-le. Puis, dans <b>Project Settings → API</b>, recopie ici l'URL et la clé <b>anon</b>.</div>`;
+    h+=`<div class="block amorce" style="margin-top:18px">Sur <b>supabase.com</b> : crée un compte, puis un projet. Trois choses à y faire, dans l'ordre :</div>`;
+    h+=liste(ligne({titre:"1. SQL Editor", texte:"Colle le texte ci-dessous et exécute-le. C'est la table, et la règle qui fait que toi seul la lis."})+
+             ligne({titre:"2. Authentication → Sign In / Providers → Email", texte:"Décoche <b>Confirm email</b>. Sans ça, Supabase attend que tu cliques un lien reçu par courriel avant de te laisser entrer."})+
+             ligne({titre:"3. Project Settings → API", texte:"Recopie ici l'URL du projet et la clé <b>anon</b>."}));
     h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
         <textarea id="sql" readonly style="min-height:150px;font-size:11.5px">${esc(SQL)}</textarea></div></div></li>`);
     h+=liste(ligne({titre:"Copier ce texte", attr:'data-act="copieSql"'}), "lien");
@@ -2058,9 +2079,17 @@ function vSync(){
     h+=champ("syCle","Clé anon (un long jeton)","text",esc(SY.cle||""));
     h+=`<div class="block amorce">La clé <b>anon</b> est faite pour être publique : seule la règle posée plus haut décide qui lit quoi. Ne colle jamais la clé <b>service_role</b>.</div>`;
     Z.action=bouton("Continuer", 'data-act="syProjet"');
-  } else if(e===1){
-    h+=`<div class="block amorce" style="margin-top:18px">Ton adresse. Supabase t'enverra un code à six chiffres — pas un lien : un lien s'ouvrirait dans Safari au lieu de ton application.</div>`;
+  } else if(e===1 && !S.syOtp){
+    h+=`<div class="block amorce" style="margin-top:18px">Ton adresse et un mot de passe. La première fois, le compte se crée tout seul ; ensuite c'est la même chose sur la tablette.</div>`;
     h+=champ("syMail","toi@exemple.com","email",esc(SY.mail||""));
+    h+=champ("syMdp","Mot de passe","password","");
+    h+=`<div class="block amorce">Ce mot de passe ne garde qu'une porte : derrière, l'archive est chiffrée par ta phrase de passe, que Supabase ne connaît pas.</div>`;
+    h+=liste(ligne({titre:"Je préfère un code par courriel", attr:'data-act="syParCode"'}), "lien");
+    Z.action=bouton("Se connecter", 'data-act="syEntre"');
+  } else if(e===1){
+    h+=`<div class="block amorce" style="margin-top:18px">Supabase enverra un code à six chiffres — à condition que le gabarit « Magic Link » ait été modifié pour porter <b>{{ .Token }}</b>. Sans quoi tu recevras un lien, qui s'ouvrirait hors de ton application.</div>`;
+    h+=champ("syMail","toi@exemple.com","email",esc(SY.mail||""));
+    h+=liste(ligne({titre:"Revenir au mot de passe", attr:'data-act="syParMdp"'}), "lien");
     Z.action=bouton("Recevoir un code", 'data-act="syEnvoieCode"');
   } else if(e===2){
     h+=`<div class="block amorce" style="margin-top:18px">Le code envoyé à <b>${esc(SY.mail)}</b>.</div>`;
@@ -2518,6 +2547,26 @@ const actions={
     if(c.length<20) return toast("Colle la clé anon");
     if(/service_role/.test(c)) return toast("Pas celle-là : la clé anon");
     SY.url=u; SY.cle=c; sySave(); S.syEtape=1; render();
+  },
+  syParCode(){ S.syOtp=true; SY.mail=(val("syMail")||SY.mail||"").trim(); sySave(); render(); },
+  syParMdp(){ S.syOtp=false; SY.mail=(val("syMail")||SY.mail||"").trim(); sySave(); render(); },
+  async syEntre(){
+    const m=(val("syMail")||"").trim(), p=val("syMdp");
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)) return toast("Écris ton adresse");
+    if(p.length<8) return toast("Au moins huit caractères");
+    SY.mail=m; sySave(); toast("…");
+    try{
+      try{ await syMotDePasse(m, p); }
+      catch(e){
+        const t=String(e&&e.message||"");
+        if(!/Invalid login|invalid_grant/i.test(t)) throw e;
+        /* Pas encore de compte sur ce projet : on le crée, puis on entre. */
+        await sySignup(m, p);
+        await syMotDePasse(m, p);
+      }
+      const r=await syLit(false);
+      S.syExiste=!!r; S.syEtape=3; render();
+    }catch(e){ toast(syDit(e)); }
   },
   async syEnvoieCode(){
     const m=(val("syMail")||SY.mail||"").trim();

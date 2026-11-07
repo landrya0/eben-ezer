@@ -752,7 +752,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v53";
+const VERSION = "v54";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -1004,9 +1004,16 @@ function arrete(){
 }
 function arreteUn(b){ if(!b || b.fin) return; fermeBloc(b); save(); }
 
+/* Sous la minute, l'app annonçait « 0 min » d'un temps qu'elle avait pourtant
+   compté à la milliseconde. Un bloc de trente-cinq secondes existe, il pèse
+   dans les totaux, et l'écran le niait — or un chiffre faux, si petit soit-il,
+   fait douter de tous les autres. Elle le dit maintenant en secondes, et le
+   dernier mot sur ce qui est trop court pour être gardé reste au seuil des
+   vingt secondes, qui lui efface vraiment (13.ch). */
 function hm(ms){
-  const m=Math.max(0, Math.floor(ms/60000));
-  const h=Math.floor(m/60), r=m%60;
+  const s=Math.max(0, Math.round(ms/1000));
+  if(s<60) return s+" s";
+  const m=Math.floor(s/60), h=Math.floor(m/60), r=m%60;
   if(!h) return m+" min";
   return r ? h+" h "+String(r).padStart(2,"0") : h+" h";
 }
@@ -1652,6 +1659,11 @@ const PLUS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
    chaque seconde annulerait une tape commencée. */
 let chronoEtat="";
 function secondes(ms){ return String(Math.floor(Math.max(0,ms)/1000)%60).padStart(2,"0"); }
+/* Le rail dit la minute en grand et la seconde en exposant. Sous la minute,
+   la grande valeur EST la seconde : la répéter donnerait « 35 s 35 ». */
+function railDur(ms){
+  return ms<60000 ? esc(hm(ms)) : esc(hm(ms))+`<i>${secondes(ms)}</i>`;
+}
 /* Le rail disparaissait dès qu'on s'arrêtait, et la chaîne du compte se
    rompait sans bruit : rien à l'écran ne disait qu'on avait cessé de dire.
    Il reste donc, et il continue de compter — non pas une activité, mais
@@ -1735,7 +1747,7 @@ function majChrono(){
     rail.classList.toggle("plie", railPlie);
     if(etait){ haut.classList.add("sousRail"); place(); }
     const e=rail.querySelector(".dur");
-    if(e) e.innerHTML = esc(hm(d))+`<i>${secondes(d)}</i>`;
+    if(e) e.innerHTML = railDur(d);
     return;
   }
   const ec = Date.now()-o.deb;
@@ -1763,7 +1775,7 @@ function majChrono(){
   rail.classList.toggle("plie", railPlie);
   if(etait){ haut.classList.add("sousRail"); place(); }
   const d=rail.querySelector(".dur");
-  if(d) d.innerHTML = esc(hm(ec))+`<i>${secondes(ec)}</i>`;
+  if(d) d.innerHTML = railDur(ec);
 }
 setInterval(function(){ if(!document.hidden) majChrono(); }, 1000);
 document.addEventListener("visibilitychange", function(){ if(!document.hidden) majChrono(); });

@@ -752,7 +752,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v51";
+const VERSION = "v52";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -835,13 +835,22 @@ function sane(v){
   [d.nodes,d.gens,d.noms,d.mans,d.cats,d.taches,d.temps].forEach(function(a){
     a.forEach(function(x){ if(x && typeof x.maj!=="number") x.maj=1; });
   });
-  /* Un bloc sans départ ou sans activité ne dit rien ; deux blocs mal rangés
-     font un « maintenant » qui n'est pas le dernier. On nettoie et on range
-     une fois pour toutes, au chargement. */
+  /* Un bloc sans départ ou sans activité ne dit rien : on nettoie et on
+     range une fois pour toutes, au chargement.
+     Ce qu'on ne fait plus ici : fermer un bloc sans fin parce qu'un autre
+     commence après lui. Quand il n'y avait qu'une file, un bloc ouvert qui
+     n'était pas le dernier était forcément une avarie, et le refermer sur le
+     départ du suivant remettait la journée d'aplomb. Depuis qu'on mène
+     plusieurs choses de front (13.by), c'est la situation la plus ordinaire
+     qui soit : l'application tourne depuis 8 h, une réunion s'ouvre à 9 h
+     par-dessus — et la simple ouverture de l'écran arrêtait l'application à
+     9 h. Tout ce qui avait suivi devenait du temps non compté, et plus rien
+     ne tournait : « subitement, rien n'était fait depuis ». Un bloc sans fin
+     est un bloc EN COURS, et personne ne le ferme à la place du disciple
+     (13.cf). */
   d.temps = d.temps.filter(b=>b && typeof b.deb==="number" && b.t)
                    .sort((a,b)=>a.deb-b.deb);
-  d.temps.forEach((b,i)=>{ if(!b.id) b.id="b"+(d.seq++)+"-"+DEV;
-    if(i<d.temps.length-1 && !b.fin) b.fin=d.temps[i+1].deb; });
+  d.temps.forEach(b=>{ if(!b.id) b.id="b"+(d.seq++)+"-"+DEV; });
   /* La date d'un acte dit quand il est arrivé ; elle ne dit pas dans quel
      ordre on l'a gardé. Deux actes du même jour se présentaient donc dans
      l'ordre où ils dormaient en mémoire — c'est-à-dire le plus ancien
@@ -2812,43 +2821,65 @@ function finDe(b){ return (typeof b.fin==="number") ? b.fin : SANSFIN; }
    deux. Les découper ici effacerait en silence ce qu'on vient de déclarer :
    on prie en se lavant, on corrige une heure, et la prière est rognée. Seule
    une activité se découpe donc elle-même (13.bz). */
-function fusionTemps(liste){
-  const dits=(liste||[]).slice().sort(function(a,b){ return ((a.maj||0)-(b.maj||0)) || (a.deb-b.deb); });
-  let ligne=[];
-  dits.forEach(function(b){
-    const d=b.deb, f=finDe(b);
-    if(!(f>d)) return;
-    const suite=[];
-    ligne.forEach(function(x){
-      const xd=x.deb, xf=finDe(x);
-      if(xf<=d || xd>=f || x.t!==b.t){ suite.push(x); return; }
-      if(xd<d) suite.push(Object.assign({}, x, {fin:d}));
-      /* La queue d'un bloc coupé en deux doit porter un identifiant que les
-         deux appareils calculent pareil, sinon ils divergeraient à la
-         fusion suivante. On le dérive de la coupure elle-même. */
-      if(xf>f) suite.push(Object.assign({}, x, {deb:f, id:x.id+"@"+f}));
-    });
-    suite.push(Object.assign({}, b));
-    ligne=suite;
+/* Le temps couvert par une liste de blocs — l'union, jamais la somme. Il
+   sert de garde-fou : aucune fusion n'a le droit de le faire diminuer. */
+function couvert(liste){
+  const sp=(liste||[]).map(function(b){ return [b.deb, finDe(b)]; })
+    .filter(function(s){ return s[1]>s[0]; })
+    .sort(function(a,b){ return a[0]-b[0]; });
+  let t=0, d=null, f=0;
+  sp.forEach(function(s){
+    if(d===null){ d=s[0]; f=s[1]; return; }
+    if(s[0]<=f){ if(s[1]>f) f=s[1]; return; }
+    t+=f-d; d=s[0]; f=s[1];
   });
-  ligne.sort(function(a,b){ return a.deb-b.deb; });
+  return d===null ? 0 : t+(f-d);
+}
+/* Deux blocs de la même activité qui se recouvrent, c'est une seule présence
+   dite deux fois : on les RÉUNIT.
+   On faisait l'inverse, et c'était une machine à effacer. Le dernier bloc
+   touché mordait sur les anciens de la même activité, et ce qui se trouvait
+   entièrement sous sa dent disparaissait. Tant qu'il n'y avait qu'une file,
+   mordre se défendait : dire « je priais à 9 h » revenait à dire « je ne
+   faisais rien d'autre ». Mais un bloc EN COURS n'a pas de fin — pour le
+   calcul, il va jusqu'à la fin des temps. Il mordait donc sur TOUT ce qui le
+   suivait dans la même activité. Rouvrir la prière de 7 h effaçait celle de
+   9 h ; reculer le début de ce qui tourne effaçait la séance du matin. Et
+   « Garder » appelait cette fusion puis posait une pierre tombale sur ce
+   qu'elle avait fait tomber : même la synchronisation ne pouvait plus le
+   ramener.
+   Une réunion ne perd jamais une minute ; une morsure en perd toujours. Un
+   bloc ne se raccourcit donc plus que par la main du disciple, sur ses
+   propres bornes, à lui seul (13.cf). */
+function fusionTemps(liste){
+  const ligne=(liste||[]).filter(function(b){ return finDe(b)>b.deb; })
+    .map(function(b){ return Object.assign({}, b); })
+    .sort(function(a,b){ return (a.deb-b.deb) || (finDe(a)-finDe(b)); });
   const out=[], der={};
   ligne.forEach(function(b){
-    if(!(finDe(b)>b.deb)) return;
     const p=der[b.t];
-    /* Recollé : deux morceaux voisins de la même activité redeviennent un
-       seul bloc, sinon la journée se lirait en confettis. */
-    if(p && p.t===b.t && finDe(p)===b.deb){
-      p.fin=b.fin; p.maj=Math.max(p.maj||0,b.maj||0);
-      /* Recoller deux morceaux ne doit pas effacer ce qu'on a écrit sur
-         l'un d'eux : une note tient à l'occurrence, pas à l'heure. */
+    /* Collés ou recouverts, deux morceaux de la même activité n'en font
+       qu'un : la journée ne se lit pas en confettis, et rien ne tombe. */
+    if(p && finDe(p)>=b.deb){
+      if(finDe(b)>finDe(p)){
+        if(typeof b.fin==="number") p.fin=b.fin; else delete p.fin;
+      }
+      p.maj=Math.max(p.maj||0, b.maj||0);
+      if(b.porte) p.porte=1;
+      /* Réunir deux morceaux ne doit rien effacer de ce qu'on y a écrit :
+         une note et des chapitres tiennent à ce qui a été vécu, pas à
+         l'heure qui le porte. */
       const a=(p.note||"").trim(), c=(b.note||"").trim();
       if(c && c!==a) p.note = a ? (a+"\n"+c) : c;
+      if(b.lu && b.lu.length) p.lu=(p.lu||[]).concat(b.lu);
       return;
     }
     out.push(b); der[b.t]=b;
   });
-  out.forEach(function(b){ if(b.fin===SANSFIN) delete b.fin; });
+  /* Si jamais une règle future se remettait à rogner, on rend la liste telle
+     quelle : garder deux fois la même minute se corrige d'une tape, une
+     minute perdue ne revient pas. */
+  if(couvert(out) < couvert(liste)) return (liste||[]).slice();
   return out;
 }
 

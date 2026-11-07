@@ -282,23 +282,21 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 #acte.geste{display:flex;justify-content:flex-end;padding:8px 16px 12px;
   background:none;border-top:0;-webkit-backdrop-filter:none;backdrop-filter:none}
 #acte.geste.surNav{padding-bottom:12px}
-#acte .rond{display:flex;align-items:center;justify-content:center;
-  width:58px;height:58px;border-radius:50%;background:var(--f7-theme-color);color:#fff;
-  box-shadow:0 12px 28px -12px rgba(26,42,32,.55);cursor:pointer}
-#acte .rond svg{display:block;width:27px;height:27px}
-.dark #acte .rond{background:rgba(157,183,164,.19);color:#C8DFCE;
-  border:1px solid rgba(157,183,164,.46);
-  box-shadow:0 1px 0 var(--eclat) inset, 0 12px 30px -14px var(--lueur)}
-/* La pastille : le même geste discret, mais il garde son mot. */
+/* La pastille : le geste discret, mais il garde son mot.
+   Les autres boutons de l'application sont translucides parce qu'ils ont
+   toujours eu une barre de verre dépoli derrière eux. La pastille flotte
+   seule au-dessus de la liste : translucide, elle laissait passer le texte
+   d'une ligne sous elle, et on lisait « Aller travailler » à travers le mot
+   « Noter ». Un bouton qui flotte est opaque. */
 #acte .pastille{display:inline-flex;align-items:center;gap:8px;
   height:52px;padding:0 22px 0 18px;border-radius:26px;
   background:var(--f7-theme-color);color:#fff;
   font-family:var(--sans);font-size:15.5px;font-weight:600;letter-spacing:.004em;
   box-shadow:0 12px 28px -12px rgba(26,42,32,.55);cursor:pointer}
 #acte .pastille svg{display:block;width:19px;height:19px;flex:0 0 auto}
-.dark #acte .pastille{background:rgba(157,183,164,.19);color:#C8DFCE;
+.dark #acte .pastille{background:#2B3129;color:#C8DFCE;
   border:1px solid rgba(157,183,164,.46);
-  box-shadow:0 1px 0 var(--eclat) inset, 0 12px 30px -14px var(--lueur)}
+  box-shadow:0 1px 0 var(--eclat) inset, 0 14px 30px -12px #000}
 .dark #acte .button-fill{background:rgba(157,183,164,.17);color:#C4DCCA;
   border:1px solid rgba(157,183,164,.42);box-shadow:0 1px 0 var(--eclat) inset,
   0 10px 26px -14px var(--lueur)}

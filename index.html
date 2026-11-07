@@ -341,18 +341,26 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 /* ---------- la tablette : une colonne, pas une nappe ---------- */
 /* Déverrouiller le paysage ne suffit pas. Une phrase qui court sur mille
    pixels cesse d'être lisible : au retour à la ligne, l'œil ne retrouve plus
-   laquelle il quitte. L'application garde donc la colonne du téléphone, posée
-   au milieu de l'écran, et les barres suivent la colonne au lieu de s'étirer
-   avec lui — quatre onglets écartés sur toute la largeur d'une tablette ne
-   sont plus une barre, c'est une frise. Le fond déborde de part et d'autre :
-   c'est la nappe, et elle n'a rien à porter. */
-@media (min-width:720px){
-  :root{--colonne:640px}
+   celle qu'il quitte. Le texte garde donc la colonne du téléphone, posée au
+   milieu de l'écran.
+   Mais les barres, elles, vont d'un bord à l'autre. Resserrées comme le
+   texte, elles flottaient au milieu de l'écran sans rien toucher, et ça ne
+   se lit pas comme une intention : ça se lit comme un écran mal réglé. Une
+   barre tient le bord ; seul ce qu'elle porte se range sur la colonne.
+   Et le seuil est haut : une tablette tenue debout fait huit cents points de
+   large, c'est-à-dire un grand téléphone, et on ne lui prend pas sa largeur
+   pour rien. La colonne n'apparaît qu'au vrai paysage. */
+@media (min-width:900px){
+  :root{--colonne:700px}
   #main>*{max-width:var(--colonne);margin-left:auto;margin-right:auto}
-  #haut, #avance, #bas{left:50%;right:auto;transform:translateX(-50%);
-    width:100%;max-width:var(--colonne)}
-  #haut{border-left:1px solid var(--filet);border-right:1px solid var(--filet)}
-  #nav{border-left:1px solid var(--filet);border-right:1px solid var(--filet)}
+  #haut{padding-left:max(8px,calc((100% - var(--colonne))/2));
+        padding-right:max(8px,calc((100% - var(--colonne))/2))}
+  #haut.libre{padding-left:max(0px,calc((100% - var(--colonne))/2));
+              padding-right:max(0px,calc((100% - var(--colonne))/2))}
+  #acte, #acte.geste{padding-left:max(16px,calc((100% - var(--colonne))/2));
+                     padding-right:max(16px,calc((100% - var(--colonne))/2))}
+  #nav{padding-left:max(0px,calc((100% - var(--colonne))/2));
+       padding-right:max(0px,calc((100% - var(--colonne))/2))}
 }
 /* Un téléphone couché a de la largeur mais presque pas de hauteur : trois
    étages de mobilier y mangeraient tout. On resserre les barres plutôt que
@@ -529,7 +537,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v32";
+const VERSION = "v33";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -2890,6 +2898,13 @@ addEventListener("online", function(){ if(SY.actif) syMaintenant(); });
    fois à ce que celui-ci soit tenu pour durable — c'est tout ce qu'un site
    peut demander, et ça ne remplace pas un fichier gardé ailleurs. */
 try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+/* Android fige l'orientation au moment de l'installation : la petite
+   application fabriquée alors porte « portrait » dans son manifeste, et
+   relire la page n'y change rien. Demander à la page de lever le verrou
+   suffit parfois à rendre la rotation sans réinstaller ; quand ça ne suffit
+   pas, ça ne casse rien, et il reste à retirer puis remettre l'icône. */
+try{ if(screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); }catch(e){}
+
 /* La mise à jour doit arriver sans qu'on ait à supprimer l'app.
    « updateViaCache: none » empêche le téléphone de servir un vieux sw.js ;
    on redemande une vérification à chaque fois que l'app revient à l'écran ;

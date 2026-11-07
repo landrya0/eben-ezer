@@ -268,6 +268,10 @@ body.avecRail .entete .rouage{top:calc(var(--rail,0px) + 5px)}
   display:flex;align-items:center;justify-content:center;border:1px solid var(--filet);
   background:var(--verre);backdrop-filter:var(--flou);color:var(--f7-text-color)}
 .medNote{display:block;margin-top:3px;font-style:italic;white-space:pre-wrap}
+/* Un creux n'est pas un bloc : il n'a pas de nom, il a une absence de nom.
+   Il se lit donc en gris et en italique — présent dans la liste, jamais
+   confondu avec ce qu'on a vraiment compté. */
+.item-title .creux{color:var(--muted);font-style:italic;font-weight:500}
 /* Enregistrer demande de savoir que ça tourne : le point bat, et les
    secondes défilent. Sans compteur, on parle en se demandant si on parle. */
 .enr{position:fixed;z-index:13500;left:50%;transform:translateX(-50%);
@@ -673,7 +677,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v43";
+const VERSION = "v44";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -718,7 +722,7 @@ let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], exp
 let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an", rev:"noms", pile:[], nodeId:null,
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
-         per:"jour", tQ:"", tCat:"", blocId:null, medId:null};
+         per:"jour", tQ:"", tCat:"", blocId:null, medId:null, trou:null};
 
 /* Un seul « écran précédent » ne suffisait pas : en ouvrant un retour depuis
    un acte, il finissait par désigner l'acte lui-même, et le bouton Retour ne
@@ -1358,7 +1362,7 @@ function render(){
     (S.view==="note" && S.draft && etapes(S.draft)[S.step]==="par");
   if(!surCause){ S.cNeuf=false; S.cTxt=""; S.cType=""; S.cQ=""; }
   if(S.view!=="pointer"){ S.tQ=""; S.tCat=""; }
-  if(S.view!=="pointer" && S.view!=="temps" && S.view!=="bloc") S.blocId=null;
+  if(S.view!=="pointer" && S.view!=="temps" && S.view!=="bloc"){ S.blocId=null; S.trou=null; }
   (VUES[S.view]||vToday)();
   const onglet = ONGLETS.some(o=>o[0]===S.view);
   const colle = Z.haut && !Z.file;
@@ -2685,13 +2689,25 @@ function fusionne(A, B){
    suis-je maintenant, et à quoi étais-je tout à l'heure. */
 function vPointer(){
   const corr = S.blocId ? blocT(S.blocId) : null;
-  Z.titre = corr ? "C'était quoi ?" : "À quoi maintenant ?";
+  const trou = (!corr && S.trou) ? S.trou : null;
+  Z.titre = (corr||trou) ? "C'était quoi ?" : "À quoi maintenant ?";
   Z.retour = true;
   const o = ouvert(), q = (S.tQ||"").trim(), cats = CATS();
   let h = "";
   if(corr) h += `<div class="block amorce" style="margin-top:16px"><b>${esc(tacheNom(corr.t))}</b>, de ${hmin(new Date(corr.deb))} à ${corr.fin?hmin(new Date(corr.fin)):"maintenant"}.</div>`;
+  else if(trou) h += `<div class="block amorce" style="margin-top:16px">De ${hmin(new Date(trou.deb))} à ${hmin(new Date(trou.fin))} — ${hm(trou.fin-trou.deb)} — rien n'a été compté. Dis à quoi c'est allé.</div>`;
   else if(o) h += `<div class="block amorce" style="margin-top:16px">Depuis ${hmin(new Date(o.deb))}, le temps va à <b>${esc(tacheNom(o.t))}</b> — ${hm(Date.now()-o.deb)}.</div>`;
   else h += `<div class="block amorce" style="margin-top:16px">Rien n'est compté. À partir de ce que tu touches ici, le temps aura un destinataire.</div>`;
+  /* S'arrêter n'était possible qu'au fond d'un menu, sur un bloc, depuis
+     « Mon temps » : trois gestes pour dire qu'on ne fait plus rien. Or on
+     s'arrête souvent, et sans savoir ce qui vient après. L'arrêt est donc
+     ici, en clair, juste sous ce qui tourne. Il ne range rien ailleurs : le
+     temps écoulé reste à l'activité qu'il a servie, et ce qui suit n'est
+     compté à personne — parce qu'il n'a servi personne. */
+  if(o && !corr && !trou)
+    h += liste(ligne({titre:"Arrêter de compter",
+      sous:"Le temps déjà passé reste à « "+esc(tacheNom(o.t))+" »",
+      attr:'data-act="arretNet"'}), "lien");
 
   h += liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
       <input type="text" id="tQ" placeholder="Chercher, ou nommer autre chose" value="${esc(S.tQ||"")}" autocomplete="off" autocapitalize="sentences"></div></div></li>`);
@@ -2726,7 +2742,7 @@ function vPointer(){
         attr:'data-tache="'+t.id+'" data-nom="'+esc(t.nom.toLowerCase())+'"'})).join(""))}</div>`;
     });
   }
-  if(!corr) h += liste(ligne({titre:"Mon temps", attr:'data-go="temps"'}), "lien");
+  if(!corr && !trou) h += liste(ligne({titre:"Mon temps", attr:'data-go="temps"'}), "lien");
   Z.html = h;
 }
 
@@ -2770,15 +2786,39 @@ function vMonTemps(){
   const lus=bs.slice(0,60);
   h += titreBloc(S.per==="jour" ? "La journée, bloc par bloc" : "Bloc par bloc","ecart");
   h += `<div class="block amorce">Touche un bloc pour corriger ses heures — ou pour dire ce qui s'y est passé.</div>`;
+  /* Entre deux blocs, il y a parfois un creux : on s'est arrêté, et on n'a
+     rien compté pendant ce temps-là. On ne fabrique pas une activité pour
+     le remplir — « non comptabilisé » serait une part sur du temps qu'on
+     n'a jamais réclamé, et le compteur tournerait toute la nuit sur rien.
+     Le creux se montre donc pour ce qu'il est : un vide, nommé, daté, qu'on
+     peut venir combler plus tard d'une tape. Tant qu'on ne le comble pas,
+     il ne pèse sur aucune part.
+     Dix minutes au moins : en deçà, ce n'est pas un trou, c'est l'écart
+     entre le geste et la pensée. Et pas de creux de tête : avant le premier
+     bloc d'une fenêtre il y a surtout la nuit, qu'on n'a pas à justifier. */
+  const SEUIL=10*60000;
+  /* Toute fenêtre finit à l'instant présent : le dernier creux est donc
+     celui qui sépare le dernier bloc de maintenant, et c'est justement
+     celui qu'on vient d'ouvrir en s'arrêtant. */
+  let hautDuCreux = n2;
   h += liste(lus.map(function(b){
-    const a=Math.max(b.deb, f.t0);
-    return ligne({titre:esc(tacheNom(b.t)),
+    const a=Math.max(b.deb, f.t0), z=Math.min(b.fin||n2, f.t1);
+    let sortie="";
+    if(hautDuCreux-z >= SEUIL) sortie += ligneCreux(z, hautDuCreux);
+    hautDuCreux = a;
+    return sortie + ligne({titre:esc(tacheNom(b.t)),
       sous:jourBref(a)+hmin(new Date(a))+" → "+(b.fin?hmin(new Date(b.fin)):"maintenant")
         +(b.note?`<span class="medNote">${esc(b.note)}</span>`:""),
       apres:esc(hm((b.fin||n2)-a)), attr:'data-bloc="'+b.id+'"'});
   }).join(""));
   if(bs.length>lus.length) h += `<p class="vide">…et ${bs.length-lus.length} blocs plus anciens.</p>`;
   Z.html=h;
+}
+
+function ligneCreux(d, f){
+  return ligne({titre:`<span class="creux">Rien de compté</span>`,
+    sous:jourBref(d)+hmin(new Date(d))+" → "+hmin(new Date(f))+" — dire ce que c'était",
+    apres:esc(hm(f-d)), attr:'data-creux="'+d+"|"+f+'"'});
 }
 
 /* ---------- corriger un bloc de temps ---------- */
@@ -3146,7 +3186,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -3179,6 +3219,11 @@ document.addEventListener("click", ev=>{
   }
   if(g.per){ S.per=g.per; return render(); }
   if(g.tcat){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.tCat=g.tcat; return render(); }
+  if(g.creux){
+    const p=g.creux.split("|");
+    S.blocId=null; S.trou={deb:+p[0], fin:+p[1]};
+    empile(); S.view="pointer"; return render();
+  }
   if(g.tache) return poseTache(g.tache);
   if(g.sugg){ return poseTache(tacheId(g.sugg, g.cat)); }
   if(g.bloc){
@@ -3232,6 +3277,16 @@ document.addEventListener("click", ev=>{
    rendre à un bloc passé son vrai nom. Le même geste, deux destinations. */
 function poseTache(id){
   if(!id) return;
+  /* On ne crée le bloc qu'ici, quand il reçoit enfin un nom : un bloc sans
+     activité, posé d'avance, resterait dans l'archive si on repartait sans
+     choisir. Et on range par heure de départ, pour que le bloc en cours —
+     s'il y en a un — reste le dernier, ce dont tout le compte dépend. */
+  if(S.trou){
+    const t=S.trou; S.trou=null;
+    db.temps.push({id:uid("b"), t:id, deb:t.deb, fin:t.fin, maj:Date.now()});
+    db.temps.sort(function(a,b){ return a.deb-b.deb; });
+    save(); toast("Comblé : "+tacheNom(id)); depile("temps"); return render();
+  }
   if(S.blocId){
     const b=blocT(S.blocId);
     if(b){ b.t=id; touche(b); save(); toast("Corrigé."); }
@@ -3326,6 +3381,9 @@ const actions={
     depile("temps"); render();
   },
   stopBloc(){ fermeMenu(); arrete(); S.blocId=null; toast("Arrêté."); render(); },
+  arretNet(){ const o=ouvert(); const n=o?tacheNom(o.t):"";
+    arrete(); S.pile=[]; S.view="today";
+    toast(n ? "Arrêté. Le temps ne va plus à « "+n+" »." : "Arrêté."); render(); },
   delBloc(){
     fermeMenu();
     db.temps=(db.temps||[]).filter(b=>b.id!==S.blocId);

@@ -752,7 +752,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v55";
+const VERSION = "v56";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -3376,9 +3376,20 @@ function dtl(ms){
   const d=new Date(ms), p=function(n){ return String(n).padStart(2,"0"); };
   return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes());
 }
-function valHeure(id){
+/* Les champs d'heure du téléphone comptent en minutes ; l'archive, elle,
+   compte à la seconde. Rouvrir l'écran de correction et toucher Garder
+   arasait donc les secondes d'une borne qu'on n'avait même pas touchée — et
+   un bloc de quelques secondes ne pouvait plus être gardé du tout, sa fin
+   retombant sur son début, l'app répondant « la fin doit venir après le
+   début » à qui n'avait rien demandé.
+   Tant que la minute affichée n'a pas changé, c'est l'heure d'origine qui
+   est rendue, secondes comprises : un champ ne corrige que ce qu'on y a
+   corrigé. Dès qu'on en change la minute, on parle bien de cette minute-là,
+   et elle commence à zéro seconde (13.cj). */
+function valHeure(id, origine){
   const e=document.getElementById(id);
   if(!e || !e.value) return null;
+  if(typeof origine==="number" && e.value===dtl(origine)) return origine;
   const t=new Date(e.value).getTime();
   return isNaN(t) ? null : t;
 }
@@ -4336,7 +4347,7 @@ const actions={
   bCours(){
     const b=blocT(S.blocId); if(!b) return;
     /* Le début déjà tapé ne doit pas se perdre en basculant la fin. */
-    const d=valHeure("bDeb");
+    const d=valHeure("bDeb", b.deb);
     if(d!==null && d<=Date.now()) b.deb=d;
     noteBloc(b);
     /* Rouvrir un bloc était refusé dès qu'un autre avait commencé après
@@ -4363,7 +4374,7 @@ const actions={
   },
   majBloc(){
     const b=blocT(S.blocId); if(!b) return;
-    const d=valHeure("bDeb"), f=b.fin ? valHeure("bFin") : null;
+    const d=valHeure("bDeb", b.deb), f=b.fin ? valHeure("bFin", b.fin) : null;
     if(d===null) return toast("Pose une heure de début");
     if(b.fin && f===null) return toast("Pose une heure de fin");
     if(f!==null && f<=d) return toast("La fin doit venir après le début");
@@ -4406,7 +4417,8 @@ const actions={
     empile(); S.view="pointer"; render();
   },
   poseQuand(){
-    const d=valHeure("qDeb"), f=valHeure("qFin");
+    const q=S.quand||{};
+    const d=valHeure("qDeb", q.deb), f=valHeure("qFin", q.fin);
     if(d===null) return toast("Pose une heure de début");
     if(f===null) return toast("Pose une heure de fin");
     if(f<=d) return toast("La fin doit venir après le début");

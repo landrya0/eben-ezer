@@ -380,8 +380,11 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 .tic .quoi{flex:1 1 auto;min-width:0;font-family:var(--sans);font-size:14.5px;font-weight:600;
   letter-spacing:.004em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tic .dur{flex:0 0 auto;font-family:var(--sans);font-size:13.5px;font-weight:700;
+  font-variant-numeric:tabular-nums;
   letter-spacing:.01em;font-variant-numeric:tabular-nums;color:var(--f7-theme-color)}
 .tic.vieux .dur{color:var(--muted)}
+.tic .dur i{font-style:normal;font-size:.76em;font-weight:600;opacity:.5;
+  margin-left:3px;vertical-align:.42em;line-height:1;font-variant-numeric:tabular-nums}
 @keyframes pouls{0%,100%{box-shadow:0 0 0 0 var(--lueur)}50%{box-shadow:0 0 0 6px transparent}}
 .dark .tic{background:#20241F;border:1px solid rgba(157,183,164,.26)}
 
@@ -494,7 +497,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v30";
+const VERSION = "v31";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -1017,19 +1020,34 @@ function gesteNoter(){
   Z.geste = true;
 }
 /* Le compteur se réécrit tout seul, sans redessiner l'écran : redessiner
-   ferait sauter la lecture en cours toutes les vingt secondes. */
+   ferait sauter la lecture en cours à chaque seconde.
+   Les secondes défilent — « pour voir comment le temps passe ». Sans elles
+   le bandeau semblait arrêté : une minute entière sans qu'un chiffre bouge,
+   et on finit par croire que rien n'est compté. Elles sont écrites plus
+   petites et plus pâles : le bandeau garde sa voix — « 57 min », « 4 h 20 »
+   — et les secondes ne font que montrer que le temps court.
+   Seul le chiffre est réécrit, jamais le lien qui l'entoure : réécrire tout
+   chaque seconde annulerait une tape commencée. */
+let chronoEtat="";
+function secondes(ms){ return String(Math.floor(Math.max(0,ms)/1000)%60).padStart(2,"0"); }
 function majChrono(){
   const c=document.getElementById("chrono"); if(!c) return;
   const o=ouvert();
-  if(!o){
-    c.innerHTML = `<a class="tic" data-go="pointer"><i class="pt creux"></i><span class="quoi">Rien n'est compté</span><span class="dur">Compter</span></a>`;
-    return;
+  const ec = o ? Date.now()-o.deb : 0;
+  const vieux = ec>=10*3600000;
+  const etat = o ? (o.id+"|"+tacheNom(o.t)+"|"+(vieux?"v":"")) : "rien";
+  if(etat!==chronoEtat || !c.firstElementChild){
+    chronoEtat=etat;
+    c.innerHTML = o
+      ? `<a class="tic${vieux?" vieux":""}" data-go="pointer"><i class="pt"></i>
+          <span class="quoi">${esc(tacheNom(o.t))}</span><span class="dur"></span></a>`
+      : `<a class="tic" data-go="pointer"><i class="pt creux"></i><span class="quoi">Rien n'est compté</span><span class="dur">Compter</span></a>`;
   }
-  const ec=Date.now()-o.deb, vieux=ec>=10*3600000;
-  c.innerHTML = `<a class="tic${vieux?" vieux":""}" data-go="pointer"><i class="pt"></i>
-    <span class="quoi">${esc(tacheNom(o.t))}</span><span class="dur">${hm(ec)}</span></a>`;
+  if(!o) return;
+  const d=c.querySelector(".dur");
+  if(d) d.innerHTML = esc(hm(ec))+`<i>${secondes(ec)}</i>`;
 }
-setInterval(function(){ if(!document.hidden) majChrono(); }, 20000);
+setInterval(function(){ if(!document.hidden) majChrono(); }, 1000);
 document.addEventListener("visibilitychange", function(){ if(!document.hidden) majChrono(); });
 function titreBloc(t, cls){ return `<div class="block-title ${cls||""}">${t}</div>`; }
 

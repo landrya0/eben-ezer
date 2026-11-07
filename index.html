@@ -494,7 +494,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v29";
+const VERSION = "v30";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -1093,6 +1093,31 @@ function carte(c){
     <span class="meta">${esc(acteurTxt(n))}${human(n)?" · "+human(n):""}</span>
   </a>`;
 }
+/* Le rappel de sauvegarde était dans Mes données, et Mes données est passée
+   derrière un rouage : un rappel qu'il faut aller chercher ne rappelle rien.
+   Il revient donc là où le disciple passe tous les jours — tout en bas, après
+   ce qu'il est venu lire, jamais devant.
+   Il ne parle pas avant que l'archive pèse quelque chose : réclamer une
+   sauvegarde au troisième acte, c'est apprendre à ignorer l'avertissement
+   avant qu'il ait servi. Et il ne gronde pas : il dit où en est la copie, et
+   ouvre le partage. Ranger reste le geste du disciple (P9). */
+function rappelFichier(){
+  const n=db.nodes.length + (db.temps||[]).length;
+  if(n<5) return "";
+  const vieux = !db.exp || (Date.now()-db.exp) > 30*86400000;
+  if(!vieux) return "";
+  const quoi = db.exp
+    ? "Ton dernier fichier date du "+new Date(db.exp).toLocaleDateString("fr-FR")+"."
+    : "Tu n'as encore jamais sorti de fichier.";
+  const pourquoi = SY.actif
+    ? "La copie distante te suit, mais elle ne t'appartient pas : un fichier à toi, rangé où tu veux, ne dépend de personne."
+    : "Tout est sur ce téléphone, et nulle part ailleurs.";
+  return titreBloc("Au cas où","ecart")
+    + `<div class="block amorce">${quoi} ${pourquoi}</div>`
+    + liste(ligne({titre:"Sortir un fichier", sous:"iCloud, Drive, Fichiers — où tu veux",
+                   attr:'data-act="fichier"'}), "lien")
+    + `<div style="height:18px"></div>`;
+}
 function vToday(){
   const now=new Date();
   const d = now.getDate()+" "+MOIS[now.getMonth()];
@@ -1109,7 +1134,8 @@ function vToday(){
   if(!cartes.length){
     Z.file = true;
     Z.haut = RAMEAU("marque") + `<p class="titre-page">Rien ne revient aujourd'hui.</p><p class="ssTitre">${d}</p>`;
-    Z.html = `<div class="block amorce" style="margin-top:20px">Tout ce qu'Il a fait a reçu quelque chose de toi. Note la suite quand elle vient.</div>`;
+    Z.html = `<div class="block amorce" style="margin-top:20px">Tout ce qu'Il a fait a reçu quelque chose de toi. Note la suite quand elle vient.</div>`
+      + rappelFichier();
     return;
   }
   const recents=db.nodes.slice().sort(parDate).slice(0,4);
@@ -1118,7 +1144,8 @@ function vToday(){
   Z.html = `<div class="carr" id="carr" style="margin-top:16px">${cartes.map(carte).join("")}</div>
     ${cartes.length>1 ? `<div class="points" id="points">${cartes.map((c,i)=>`<i${i?"":' class="on"'}></i>`).join("")}</div>` : ""}
     ${titreBloc("Derniers gardés")}
-    ${liste(recents.map(n=>ligneActe(n,{attr:'data-node="'+n.id+'"'})).join(""))}`;
+    ${liste(recents.map(n=>ligneActe(n,{attr:'data-node="'+n.id+'"'})).join(""))}
+    ${rappelFichier()}`;
 }
 
 /* ---------- Ses œuvres ---------- */

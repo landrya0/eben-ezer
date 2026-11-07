@@ -149,12 +149,21 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 /* Le code de récupération : fait pour être recopié à la main, donc grand,
    espacé, et à chasse fixe pour qu'aucun signe n'en imite un autre. */
 #haut.libre, .entete{position:relative}
-#haut.libre .rouage, .entete .rouage{position:absolute;right:5px;top:4px;z-index:6;
-  width:42px;min-width:42px;height:42px;min-height:42px;
+/* Le rouage était accroché à l'en-tête : sur deux onglets l'en-tête est fixe
+   et il restait, sur les deux autres elle défile et il partait. Un réglage
+   qui n'est pas toujours au même endroit se cherche. Il est donc posé sur
+   l'écran, pas sur la page — même coin, les quatre onglets, qu'on ait fait
+   défiler ou non. Et comme du texte peut passer dessous, il porte son propre
+   disque de verre : sans lui, on lisait une date à travers la roue. */
+#haut.libre .rouage, .entete .rouage{position:fixed;z-index:25;
+  right:max(5px,env(safe-area-inset-right,0px));
+  top:calc(5px + env(safe-area-inset-top,0px));
+  width:40px;min-width:40px;height:40px;min-height:40px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
-  padding:0;margin:0;border:0;background:none;color:var(--muted);
+  padding:0;margin:0;border:1px solid var(--filet);color:var(--muted);
+  background:var(--verre);-webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou);
   -webkit-appearance:none;-webkit-tap-highlight-color:transparent}
-#haut.libre .rouage svg, .entete .rouage svg{width:21px;height:21px}
+#haut.libre .rouage svg, .entete .rouage svg{width:20px;height:20px}
 #haut.libre .rouage:active, .entete .rouage:active{color:var(--f7-theme-color)}
 .oeilleton{position:relative}
 .oeilleton input{padding-right:42px}
@@ -361,6 +370,7 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
                      padding-right:max(16px,calc((100% - var(--colonne))/2))}
   #nav{padding-left:max(0px,calc((100% - var(--colonne))/2));
        padding-right:max(0px,calc((100% - var(--colonne))/2))}
+  #haut.libre .rouage, .entete .rouage{right:max(5px,calc((100% - var(--colonne))/2 + 5px))}
 }
 /* Un téléphone couché a de la largeur mais presque pas de hauteur : trois
    étages de mobilier y mangeraient tout. On resserre les barres plutôt que
@@ -382,7 +392,12 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 .carr{display:flex;gap:13px;overflow-x:auto;scroll-snap-type:x mandatory;
   padding:14px 16px 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .carr::-webkit-scrollbar{display:none}
-.carte{scroll-snap-align:center;flex:0 0 87%;display:flex;flex-direction:column;
+/* Une carte prenait 87 % de la largeur : juste sur un téléphone, absurde sur
+   une tablette, où trois mots flottaient au milieu de six cents points de
+   vide pendant que la suivante n'était qu'une tranche de syllabes coupées.
+   On borne : au-delà, les cartes se tiennent côte à côte au lieu de
+   s'étirer. */
+.carte{scroll-snap-align:center;flex:0 0 min(87%, 380px);display:flex;flex-direction:column;
   background:var(--verre);border:1px solid var(--filet);border-radius:18px;
   padding:19px 19px 17px;box-shadow:var(--ombre);text-decoration:none;color:inherit;
   -webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou);
@@ -537,7 +552,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v33";
+const VERSION = "v34";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -969,6 +984,9 @@ function render(){
   haut.hidden = !Z.titre && !Z.retour && !Z.fermer && !colle;
   haut.className = colle ? "libre" : "";
   const rouage = onglet ? `<button class="rouage" data-go="reglages" aria-label="Réglages">${ROUAGE}</button>` : "";
+  /* Une barre cachée gardait le contenu de l'écran précédent : invisible,
+     mais bien là, avec un second rouage et des identifiants en double. */
+  if(haut.hidden) haut.innerHTML = "";
   if(!haut.hidden && colle){ haut.innerHTML = rouage + Z.haut; }
   else if(!haut.hidden){
     haut.innerHTML =
@@ -1176,6 +1194,16 @@ function rappelFichier(){
                    attr:'data-act="fichier"'}), "lien")
     + `<div style="height:18px"></div>`;
 }
+/* Une fenêtre haute, c'est une tablette debout ou un grand écran. On ne
+   redessine qu'au passage d'un côté à l'autre : redessiner à chaque pixel
+   d'un redimensionnement ferait sauter la lecture. */
+function haute(){ return window.innerHeight >= 900; }
+let etaitHaute = false;
+try{ etaitHaute = haute(); }catch(e){}
+window.addEventListener("resize", function(){
+  const h = haute();
+  if(h!==etaitHaute){ etaitHaute=h; render(); }
+});
 function vToday(){
   const now=new Date();
   const d = now.getDate()+" "+MOIS[now.getMonth()];
@@ -1196,7 +1224,10 @@ function vToday(){
       + rappelFichier();
     return;
   }
-  const recents=db.nodes.slice().sort(parDate).slice(0,4);
+  /* Quatre derniers gardés remplissent un téléphone et laissent une tablette
+     à moitié vide : le haut de l'écran est dense, le bas ne porte rien. Ce
+     qu'on montre suit donc la place qu'on a. */
+  const recents=db.nodes.slice().sort(parDate).slice(0, haute() ? 9 : 4);
   Z.file = true;
   Z.haut = RAMEAU("marque") + `<p class="titre-page">Ce qui revient</p><p class="ssTitre">${d}</p>`;
   Z.html = `<div class="carr" id="carr" style="margin-top:16px">${cartes.map(carte).join("")}</div>

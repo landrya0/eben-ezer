@@ -1,7 +1,7 @@
 /* Ében-Ézer — hors-ligne, mais jamais figé.
    La page : le réseau d'abord, le cache en secours (pour recevoir les corrections).
    Le reste (composants, icônes, police) : le cache d'abord. */
-const CACHE = "ebenezer-v22";
+const CACHE = "ebenezer-v23";
 const SOCLE = ["./", "./index.html", "./manifest.webmanifest",
                "./vendor/framework7-bundle.min.css",
                "./vendor/lora-latin.woff2",
@@ -27,6 +27,10 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   const r = e.request;
   if (r.method !== "GET") return;
+  /* Rien de ce qui part vers un autre domaine ne passe par ici : une réponse
+     de synchronisation mise en cache servirait une version périmée de
+     l'archive, et le compte serait faux sans qu'on sache pourquoi. */
+  try{ if (new URL(r.url).origin !== self.location.origin) return; }catch(x){ return; }
   const page = r.mode === "navigate" || (r.headers.get("accept") || "").indexOf("text/html") !== -1;
 
   if (page) {

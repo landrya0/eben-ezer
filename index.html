@@ -488,7 +488,7 @@ function manId(txt){
   const m=MANS(), k=Object.keys(m).find(x=>m[x].toLowerCase()===v.toLowerCase());
   if(k) return k;
   db.mans=db.mans||[];
-  const id="man"+(db.seq++); db.mans.push({id:id, txt:v}); return id;
+  const id=uid("man"); db.mans.push({id:id, txt:v, maj:Date.now()}); return id;
 }
 const MOIS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
 const ETAT = {fait:"fait", encours:"en cours", prevu:"prévu", abandon:"abandonné"};
@@ -543,13 +543,20 @@ function sane(v){
           noms:Array.isArray(o.noms)?o.noms:[], mans:Array.isArray(o.mans)?o.mans:[],
           cats:Array.isArray(o.cats)?o.cats:[], taches:Array.isArray(o.taches)?o.taches:[],
           temps:Array.isArray(o.temps)?o.temps:[], exp:(typeof o.exp==="number")?o.exp:0,
+          morts:(o.morts && typeof o.morts==="object")?o.morts:{},
+          maj:(typeof o.maj==="number")?o.maj:0,
           seq:(typeof o.seq==="number"&&o.seq>0)?o.seq:1};
+  /* Les fiches d'avant la synchronisation n'ont pas d'heure. On leur en donne
+     la plus ancienne possible : la moindre écriture réelle les dépassera. */
+  [d.nodes,d.gens,d.noms,d.mans,d.cats,d.taches,d.temps].forEach(function(a){
+    a.forEach(function(x){ if(x && typeof x.maj!=="number") x.maj=1; });
+  });
   /* Un bloc sans départ ou sans activité ne dit rien ; deux blocs mal rangés
      font un « maintenant » qui n'est pas le dernier. On nettoie et on range
      une fois pour toutes, au chargement. */
   d.temps = d.temps.filter(b=>b && typeof b.deb==="number" && b.t)
                    .sort((a,b)=>a.deb-b.deb);
-  d.temps.forEach((b,i)=>{ if(!b.id) b.id="b"+(d.seq++);
+  d.temps.forEach((b,i)=>{ if(!b.id) b.id="b"+(d.seq++)+"-"+DEV;
     if(i<d.temps.length-1 && !b.fin) b.fin=d.temps[i+1].deb; });
   /* La date d'un acte dit quand il est arrivé ; elle ne dit pas dans quel
      ordre on l'a gardé. Deux actes du même jour se présentaient donc dans
@@ -561,8 +568,34 @@ function sane(v){
   return d;
 }
 function load(){ try{ const r=localStorage.getItem(KEY); if(r) db=sane(JSON.parse(r)); }catch(e){} }
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){ toast("Enregistrement impossible"); } }
-function nid(){ return "n"+(db.seq++); }
+/* L'heure locale peut reculer d'un appareil à l'autre ; ce jalon-ci ne doit
+   jamais reculer, sinon une modification vraie passerait pour déjà envoyée. */
+function save(sil){
+  if(!sil) db.maj = Math.max(Date.now(), (db.maj||0)+1);
+  try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){ toast("Enregistrement impossible"); }
+  if(!sil) syPlusTard();
+}
+/* Deux appareils qui créent chacun de leur côté produiraient le même « n42 »
+   et l'un écraserait l'autre à la fusion. Chaque installation porte donc sa
+   marque, tirée une fois et gardée hors de l'archive — elle appartient à
+   l'appareil, pas aux données. */
+const DEV = (function(){
+  try{
+    let d=localStorage.getItem("ebenezer.dev");
+    if(!d){ d=Math.random().toString(36).slice(2,6)+Math.random().toString(36).slice(2,4);
+            localStorage.setItem("ebenezer.dev", d); }
+    return d;
+  }catch(e){ return "x"+Math.random().toString(36).slice(2,7); }
+})();
+function uid(p){ return p+(db.seq++)+"-"+DEV; }
+function nid(){ return uid("n"); }
+/* Qui a parlé en dernier l'emporte : chaque fiche porte l'heure de sa
+   dernière écriture. */
+function touche(o){ if(o) o.maj=Date.now(); return o; }
+/* Une fiche simplement absente d'un appareil ressusciterait à la fusion : on
+   garde donc la trace de ce qui a été supprimé, et pour qui veut la lire,
+   combien de temps. */
+function tue(id){ if(id){ db.morts=db.morts||{}; db.morts[id]=Date.now(); } }
 function ts(){ return Date.now(); }
 function cap(t){ t=String(t||""); return t.charAt(0).toUpperCase()+t.slice(1); }
 function toast(t){ const d=document.createElement("div"); d.className="toast"; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2200); }
@@ -607,7 +640,7 @@ function catId(nom){
   const v=String(nom||"").trim(); if(!v) return "";
   const t=CATS().filter(c=>c.nom.toLowerCase()===v.toLowerCase())[0];
   if(t) return t.id;
-  const id="k"+(db.seq++); db.cats.push({id:id, nom:cap(v)}); return id;
+  const id=uid("k"); db.cats.push({id:id, nom:cap(v), maj:Date.now()}); return id;
 }
 function tache(id){ return (db.taches||[]).filter(t=>t.id===id)[0]; }
 function tacheNom(id){ const t=tache(id); return t ? t.nom : "—"; }
@@ -615,8 +648,8 @@ function tacheCat(id){ const t=tache(id); return t ? (t.cat||"reste") : "reste";
 function tacheId(nom, cat){
   const v=String(nom||"").trim(); if(!v) return "";
   const t=(db.taches||[]).filter(x=>x.nom.toLowerCase()===v.toLowerCase())[0];
-  if(t){ if(cat) t.cat=cat; return t.id; }
-  const id="a"+(db.seq++); db.taches.push({id:id, nom:cap(v), cat:cat||"reste"}); return id;
+  if(t){ if(cat && t.cat!==cat){ t.cat=cat; touche(t); } return t.id; }
+  const id=uid("a"); db.taches.push({id:id, nom:cap(v), cat:cat||"reste", maj:Date.now()}); return id;
 }
 function blocT(id){ return (db.temps||[]).filter(b=>b.id===id)[0]; }
 
@@ -631,14 +664,16 @@ function pointe(tid){
   const n=Date.now(), o=ouvert();
   if(o){
     if(o.t===tid) return false;
-    o.fin=n; if(o.fin-o.deb<20000) db.temps.pop();
+    o.fin=n; touche(o);
+    if(o.fin-o.deb<20000){ db.temps.pop(); tue(o.id); }
   }
-  db.temps.push({id:"b"+(db.seq++), t:tid, deb:n});
+  db.temps.push({id:uid("b"), t:tid, deb:n, maj:n});
   save(); return true;
 }
 function arrete(){
   const o=ouvert(); if(!o) return;
-  o.fin=Date.now(); if(o.fin-o.deb<20000) db.temps.pop();
+  o.fin=Date.now(); touche(o);
+  if(o.fin-o.deb<20000){ db.temps.pop(); tue(o.id); }
   save();
 }
 
@@ -682,7 +717,7 @@ function gensId(nom){
   const k=v.toLowerCase();
   const f=db.gens.find(g=>String(g.nom).trim().toLowerCase()===k);
   if(f) return f.id;
-  const id="g"+(db.seq++); db.gens.push({id:id,nom:v}); return id;
+  const id=uid("g"); db.gens.push({id:id,nom:v,maj:Date.now()}); return id;
 }
 function enfants(id){ return db.nodes.filter(n=>(n.par||[]).indexOf(id)!==-1); }
 function dessous(id){
@@ -859,7 +894,7 @@ function render(){
     (S.view==="note" && S.draft && etapes(S.draft)[S.step]==="par");
   if(!surCause){ S.cNeuf=false; S.cTxt=""; S.cType=""; S.cQ=""; }
   if(S.view!=="pointer"){ S.tQ=""; S.tCat=""; }
-  if(S.view!=="pointer" && S.view!=="temps") S.blocId=null;
+  if(S.view!=="pointer" && S.view!=="temps" && S.view!=="bloc") S.blocId=null;
   (VUES[S.view]||vToday)();
   const onglet = ONGLETS.some(o=>o[0]===S.view);
   const colle = Z.haut && !Z.file;
@@ -1599,6 +1634,239 @@ function blocQuand(id, val, prec, avecEtat, etat){
   return h;
 }
 
+/* ---------- la synchronisation ---------- */
+/* Rien ne part en clair. Le journal nomme des frères et des sœurs, porte ce
+   qu'Il a dit, et tient désormais le relevé minute par minute d'une vie. Le
+   serveur n'en voit qu'un bloc opaque : la clé ne quitte jamais l'appareil,
+   et Supabase ne peut pas lire ce qu'il garde. Le prix est une phrase de
+   passe à retenir — et si elle se perd, c'est la copie distante qui devient
+   illisible, pas l'archive : le téléphone garde la sienne en clair, et le
+   fichier aussi. */
+const SYK = "ebenezer.sync";
+let SY = {url:"", cle:"", mail:"", uid:"", jwt:"", raf:"", exp:0, phr:"",
+          vu:"", base:0, fait:0, err:"", actif:false};
+function syLoad(){ try{ const r=localStorage.getItem(SYK); if(r) Object.assign(SY, JSON.parse(r)); }catch(e){} }
+function sySave(){ try{ localStorage.setItem(SYK, JSON.stringify(SY)); }catch(e){} }
+function syOublie(){ SY={url:"",cle:"",mail:"",uid:"",jwt:"",raf:"",exp:0,phr:"",vu:"",base:0,fait:0,err:"",actif:false};
+  try{ localStorage.removeItem(SYK); }catch(e){} }
+
+function b64(buf){ let s=""; const a=new Uint8Array(buf);
+  for(let i=0;i<a.length;i++) s+=String.fromCharCode(a[i]); return btoa(s); }
+function deb64(t){ const s=atob(t), a=new Uint8Array(s.length);
+  for(let i=0;i<s.length;i++) a[i]=s.charCodeAt(i); return a; }
+async function syCle(phrase, sel){
+  const brut=await crypto.subtle.importKey("raw", new TextEncoder().encode(phrase), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2", salt:sel, iterations:250000, hash:"SHA-256"},
+    brut, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
+}
+async function chiffre(obj, phrase){
+  const sel=crypto.getRandomValues(new Uint8Array(16)), iv=crypto.getRandomValues(new Uint8Array(12));
+  const k=await syCle(phrase, sel);
+  const c=await crypto.subtle.encrypt({name:"AES-GCM", iv:iv}, k, new TextEncoder().encode(JSON.stringify(obj)));
+  return JSON.stringify({v:1, s:b64(sel), i:b64(iv), c:b64(c)});
+}
+async function dechiffre(txt, phrase){
+  const o=JSON.parse(txt);
+  const k=await syCle(phrase, deb64(o.s));
+  const p=await crypto.subtle.decrypt({name:"AES-GCM", iv:deb64(o.i)}, k, deb64(o.c));
+  return JSON.parse(new TextDecoder().decode(p));
+}
+
+/* On parle à Supabase en HTTP nu, sans bibliothèque : l'application reste sans
+   dépendance, sans étape de compilation, et entièrement hors ligne. */
+function syUrl(){ return String(SY.url||"").replace(/\/+$/,""); }
+async function syFetch(chemin, opt){
+  opt=opt||{};
+  const h=Object.assign({"apikey":SY.cle, "Content-Type":"application/json"}, opt.headers||{});
+  if(opt.jeton!==false && SY.jwt) h["Authorization"]="Bearer "+SY.jwt;
+  const r=await fetch(syUrl()+chemin, {method:opt.method||"GET", headers:h,
+    body:opt.body?JSON.stringify(opt.body):undefined, cache:"no-store"});
+  let j=null; const t=await r.text();
+  if(t){ try{ j=JSON.parse(t); }catch(e){ j=null; } }
+  if(!r.ok){ const e=new Error((j&&(j.msg||j.message||j.error_description||j.error))||("HTTP "+r.status)); e.code=r.status; e.corps=j; throw e; }
+  return j;
+}
+async function syCode(mail){ await syFetch("/auth/v1/otp", {method:"POST", jeton:false, body:{email:mail, create_user:true}}); }
+async function syValide(mail, code){
+  const j=await syFetch("/auth/v1/verify", {method:"POST", jeton:false, body:{email:mail, token:code, type:"email"}});
+  SY.jwt=j.access_token; SY.raf=j.refresh_token; SY.exp=Date.now()+((j.expires_in||3600)*1000);
+  SY.uid=(j.user&&j.user.id)||""; SY.mail=mail; sySave();
+}
+async function syJeton(){
+  if(SY.jwt && SY.exp>Date.now()+90000) return true;
+  if(!SY.raf) return false;
+  const j=await syFetch("/auth/v1/token?grant_type=refresh_token", {method:"POST", jeton:false, body:{refresh_token:SY.raf}});
+  SY.jwt=j.access_token; SY.raf=j.refresh_token; SY.exp=Date.now()+((j.expires_in||3600)*1000); sySave();
+  return true;
+}
+
+/* Un jalon est une chaîne, jamais une heure : comparer les horloges de deux
+   appareils, c'est se tromper le jour où l'une retarde. On ne teste que
+   l'égalité — « est-ce bien la version que j'ai vue la dernière fois ? ». */
+function jalonNeuf(){ return Date.now().toString(36)+"-"+DEV+"-"+Math.random().toString(36).slice(2,7); }
+
+async function syLit(entier){
+  const champs = entier ? "jalon,doc" : "jalon";
+  const a=await syFetch("/rest/v1/etat?uid=eq."+encodeURIComponent(SY.uid)+"&select="+champs);
+  return (a && a.length) ? a[0] : null;
+}
+async function syEcrit(doc){
+  const j=jalonNeuf();
+  const corps=await chiffre(doc, SY.phr);
+  await syFetch("/rest/v1/etat", {method:"POST",
+    headers:{"Prefer":"resolution=merge-duplicates,return=minimal"},
+    body:{uid:SY.uid, doc:corps, jalon:j}});
+  return j;
+}
+
+let sySuite=null, syEnCours=false;
+function syPlusTard(){
+  if(!SY.actif) return;
+  clearTimeout(sySuite);
+  sySuite=setTimeout(function(){ syMaintenant(); }, 15000);
+}
+/* Le cœur. Quatre cas, et un seul qui demande du travail : les deux côtés ont
+   bougé — alors on réunit, on garde le résultat ici, et on le repose là-bas.
+   Jamais d'écrasement : un appareil vidé par le téléphone n'a plus de pierres
+   tombales, donc la fusion lui rend tout. */
+async function syMaintenant(manuel){
+  if(!SY.actif || syEnCours) return false;
+  if(!navigator.onLine){ if(manuel) toast("Pas de réseau"); return false; }
+  syEnCours=true; SY.err="";
+  try{
+    await syJeton();
+    const r=await syLit(false);
+    const distantBouge = !r || r.jalon!==SY.vu;
+    const localBouge   = (db.maj||0) > (SY.base||0);
+    if(!r){
+      SY.vu=await syEcrit(db); SY.base=db.maj||0;
+    } else if(!distantBouge && !localBouge){
+      /* rien à faire */
+    } else if(!distantBouge){
+      SY.vu=await syEcrit(db); SY.base=db.maj||0;
+    } else {
+      const plein=await syLit(true);
+      const autre=sane(await dechiffre(plein.doc, SY.phr));
+      if(!localBouge){
+        db=autre; save(true); SY.vu=plein.jalon; SY.base=db.maj||0;
+      } else {
+        db=fusionne(db, autre);
+        save(true);
+        SY.vu=await syEcrit(db); SY.base=db.maj||0;
+      }
+      render();
+    }
+    SY.fait=Date.now(); sySave();
+    if(manuel) toast("À jour.");
+    return true;
+  }catch(e){
+    SY.err=String(e&&e.message||e); sySave();
+    if(manuel) toast(syDit(e));
+    return false;
+  }finally{ syEnCours=false; }
+}
+function syDit(e){
+  const m=String(e&&e.message||e);
+  if(/OperationError|operation-specific/i.test(m)) return "La phrase de passe ne correspond pas";
+  if(/relation .* does not exist|42P01/i.test(m)) return "La table « etat » manque encore";
+  if(/JWT|token|401/i.test(m)) return "Connexion expirée — refais le code";
+  if(/Failed to fetch|NetworkError/i.test(m)) return "Serveur injoignable";
+  return m.slice(0,70);
+}
+
+/* ---------- fusionner deux appareils ---------- */
+/* Le téléphone et la tablette tiennent chacun l'archive entière. À la
+   rencontre, on ne choisit pas un gagnant — on réunit. Chaque fiche porte son
+   identifiant et l'heure de sa dernière écriture : présente d'un seul côté
+   elle est reprise, présente des deux c'est la plus récemment écrite qui
+   reste, et ce qui a été supprimé le demeure grâce aux pierres tombales.
+   L'opération donne le même résultat des deux côtés : les deux appareils
+   convergent sans se parler davantage. */
+function recent(a,b){ return ((a&&a.maj)||0) >= ((b&&b.maj)||0) ? a : b; }
+function fusionListe(A, B, morts){
+  const m={};
+  (A||[]).forEach(function(x){ if(x&&x.id) m[x.id]=x; });
+  (B||[]).forEach(function(x){ if(!x||!x.id) return; m[x.id] = m[x.id] ? recent(m[x.id],x) : x; });
+  return Object.keys(m).filter(function(id){
+    const t=morts[id];
+    return !(t && t >= (m[id].maj||0));
+  }).map(function(id){ return m[id]; });
+}
+
+const SANSFIN = 8640000000000;
+function finDe(b){ return (typeof b.fin==="number") ? b.fin : SANSFIN; }
+/* Deux appareils qui comptaient chacun de leur côté se chevauchent forcément :
+   le téléphone croit que je travaille encore pendant que la tablette compte
+   une lecture. Compter les deux doublerait l'heure et fausserait toutes les
+   parts. On rejoue donc les blocs dans l'ordre où ils ont été déclarés, et le
+   plus récemment dit découpe ce qui était là avant — la dernière parole sur un
+   instant est celle qui vaut. Le même découpage sert quand on corrige les
+   heures à la main. */
+function fusionTemps(liste){
+  const dits=(liste||[]).slice().sort(function(a,b){ return ((a.maj||0)-(b.maj||0)) || (a.deb-b.deb); });
+  let ligne=[];
+  dits.forEach(function(b){
+    const d=b.deb, f=finDe(b);
+    if(!(f>d)) return;
+    const suite=[];
+    ligne.forEach(function(x){
+      const xd=x.deb, xf=finDe(x);
+      if(xf<=d || xd>=f){ suite.push(x); return; }
+      if(xd<d) suite.push(Object.assign({}, x, {fin:d}));
+      /* La queue d'un bloc coupé en deux doit porter un identifiant que les
+         deux appareils calculent pareil, sinon ils divergeraient à la
+         fusion suivante. On le dérive de la coupure elle-même. */
+      if(xf>f) suite.push(Object.assign({}, x, {deb:f, id:x.id+"@"+f}));
+    });
+    suite.push(Object.assign({}, b));
+    ligne=suite;
+  });
+  ligne.sort(function(a,b){ return a.deb-b.deb; });
+  const out=[];
+  ligne.forEach(function(b){
+    if(!(finDe(b)>b.deb)) return;
+    const p=out[out.length-1];
+    /* Recollé : deux morceaux voisins de la même activité redeviennent un
+       seul bloc, sinon la journée se lirait en confettis. */
+    if(p && p.t===b.t && finDe(p)===b.deb){ p.fin=b.fin; p.maj=Math.max(p.maj||0,b.maj||0); return; }
+    out.push(b);
+  });
+  out.forEach(function(b){ if(b.fin===SANSFIN) delete b.fin; });
+  return out;
+}
+
+function fusionne(A, B){
+  const morts={};
+  [A.morts||{}, B.morts||{}].forEach(function(m){
+    Object.keys(m).forEach(function(k){ morts[k]=Math.max(morts[k]||0, m[k]||0); });
+  });
+  const d={
+    nodes: fusionListe(A.nodes,  B.nodes,  morts),
+    gens:  fusionListe(A.gens,   B.gens,   morts),
+    noms:  fusionListe(A.noms,   B.noms,   morts),
+    mans:  fusionListe(A.mans,   B.mans,   morts),
+    cats:  fusionListe(A.cats,   B.cats,   morts),
+    taches:fusionListe(A.taches, B.taches, morts),
+    temps: fusionTemps(fusionListe(A.temps, B.temps, morts)),
+    morts: morts,
+    exp: Math.max(A.exp||0, B.exp||0),
+    seq: Math.max(A.seq||1, B.seq||1),
+    maj: Math.max(A.maj||0, B.maj||0)
+  };
+  /* Un lien vers un acte supprimé ailleurs ne mène nulle part ; un bloc dont
+     l'activité a disparu n'a plus de part où se ranger. */
+  const vivants={}; d.nodes.forEach(function(n){ vivants[n.id]=1; });
+  d.nodes.forEach(function(n){ if(n.par) n.par=n.par.filter(function(p){ return vivants[p]; }); });
+  d.noms.forEach(function(nm){ if(nm.nodes) nm.nodes=nm.nodes.filter(function(p){ return vivants[p]; }); });
+  const ta={}; d.taches.forEach(function(t){ ta[t.id]=1; });
+  d.temps=d.temps.filter(function(b){ return ta[b.t]; });
+  /* Une pierre tombale ne sert que le temps que les deux appareils se
+     rencontrent. Passé six mois, ils se sont parlé — ou l'autre n'existe plus. */
+  const vieux=Date.now()-180*86400000;
+  Object.keys(d.morts).forEach(function(k){ if(d.morts[k]<vieux) delete d.morts[k]; });
+  return sane(d);
+}
+
 /* ---------- pointer : à quoi je suis ---------- */
 /* Un seul écran pour deux usages, parce que c'est la même question : à quoi
    suis-je maintenant, et à quoi étais-je tout à l'heure. */
@@ -1694,6 +1962,125 @@ function vMonTemps(){
   Z.html=h;
 }
 
+/* ---------- corriger un bloc de temps ---------- */
+/* On pointe toujours en retard : on prie vingt minutes avant d'y penser, on
+   referme l'ordinateur sans le dire. Les deux bornes doivent donc s'écrire à
+   la main. Déplacer une borne déplace celle du voisin collé à elle : la
+   journée reste sans trou, et c'est tout l'intérêt d'un compte permanent. */
+function dtl(ms){
+  const d=new Date(ms), p=function(n){ return String(n).padStart(2,"0"); };
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes());
+}
+function valHeure(id){
+  const e=document.getElementById(id);
+  if(!e || !e.value) return null;
+  const t=new Date(e.value).getTime();
+  return isNaN(t) ? null : t;
+}
+function voisins(b){
+  const arr=(db.temps||[]).slice().sort(function(x,y){ return x.deb-y.deb; });
+  const i=arr.findIndex(function(x){ return x.id===b.id; });
+  return {avant:arr[i-1]||null, apres:arr[i+1]||null};
+}
+function vBloc(){
+  const b=blocT(S.blocId);
+  if(!b){ depile("temps"); return render(); }
+  const v=voisins(b), court=!b.fin;
+  Z.titre="Corriger les heures"; Z.retour=true;
+  let h=titreBloc("L'activité");
+  h+=liste(ligne({titre:esc(tacheNom(b.t)), sous:esc(catNom(tacheCat(b.t))),
+      attr:'data-act="corrBloc"'}), "lien");
+  h+=titreBloc("Le début","ecart");
+  h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
+      <input type="datetime-local" id="bDeb" value="${dtl(b.deb)}"></div></div></li>`);
+  if(v.avant && finDe(v.avant)===b.deb)
+    h+=`<div class="block amorce">Juste avant : <b>${esc(tacheNom(v.avant.t))}</b>. Reculer ce début le prolonge d'autant ; l'avancer le raccourcit.</div>`;
+  h+=titreBloc("La fin","ecart");
+  h+=liste(ligne({titre:"C'est toujours en cours",
+      apres: court ? `<span class="coche">✓</span>` : "", attr:'data-act="bCours"'}));
+  if(!court){
+    h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
+        <input type="datetime-local" id="bFin" value="${dtl(b.fin)}"></div></div></li>`);
+    if(v.apres && finDe(b)===v.apres.deb)
+      h+=`<div class="block amorce">Juste après : <b>${esc(tacheNom(v.apres.t))}</b>, qui commencera à l'heure que tu poses ici.</div>`;
+  } else {
+    h+=`<div class="block amorce">Le compte court encore. Pose une heure de fin pour l'arrêter à ce moment-là, même s'il est passé.</div>`;
+  }
+  h+=liste(ligne({titre:`<span class="rouge">Effacer ce bloc</span>`, attr:'data-act="delBlocIci"'}));
+  Z.html=h;
+  Z.action=bouton("Garder", 'data-act="majBloc"');
+}
+
+/* ---------- régler la synchronisation ---------- */
+const SQL = `create table if not exists etat (
+  uid   uuid primary key references auth.users on delete cascade,
+  doc   text not null,
+  jalon text not null,
+  maj   timestamptz not null default now()
+);
+alter table etat enable row level security;
+create policy "le mien" on etat for all
+  using (auth.uid() = uid) with check (auth.uid() = uid);`;
+function val(id){ const e=document.getElementById(id); return e ? e.value : ""; }
+function syEtat(){
+  if(!SY.actif) return "Non réglée";
+  if(SY.err) return "Arrêtée — "+syDit({message:SY.err});
+  if(!SY.fait) return "Jamais synchronisé";
+  const d=Date.now()-SY.fait;
+  if(d<90000) return "À jour";
+  if(d<3600000) return "À jour il y a "+Math.round(d/60000)+" min";
+  if(d<86400000) return "Dernière fois à "+hmin(new Date(SY.fait));
+  return "Dernière fois le "+new Date(SY.fait).toLocaleDateString("fr-FR");
+}
+function vSync(){
+  Z.titre="Synchronisation"; Z.retour=true;
+  const e=SY.actif ? 9 : (S.syEtape||0);
+  let h="";
+  if(e===9){
+    h+=`<div class="block amorce" style="margin-top:18px">Cet appareil est relié. Tout ce que tu notes ici arrive sur l'autre, et l'inverse — même si les deux ont travaillé hors ligne chacun de leur côté.</div>`;
+    h+=liste(ligne({titre:"État", apres:esc(syEtat())})+
+             ligne({titre:"Compte", apres:esc(SY.mail)})+
+             ligne({titre:"Cet appareil", apres:esc(DEV)}));
+    h+=liste(ligne({titre:"Synchroniser maintenant", attr:'data-act="syManuel"'}), "lien");
+    h+=titreBloc("Au cas où","ecart");
+    h+=`<div class="block amorce">Détacher laisse l'archive intacte sur ce téléphone et le laisse simplement de côté. Tu pourras le rattacher avec la même phrase de passe.</div>`;
+    h+=liste(ligne({titre:`<span class="rouge">Détacher cet appareil</span>`, attr:'data-act="syDetache"'}));
+    Z.html=h; return;
+  }
+  Z.avance=(e+1)/4;
+  if(e===0){
+    h+=`<div class="block amorce" style="margin-top:18px">Sur <b>supabase.com</b> : crée un compte, puis un projet. Dans <b>SQL Editor</b>, colle le texte ci-dessous et exécute-le. Puis, dans <b>Project Settings → API</b>, recopie ici l'URL et la clé <b>anon</b>.</div>`;
+    h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
+        <textarea id="sql" readonly style="min-height:150px;font-size:11.5px">${esc(SQL)}</textarea></div></div></li>`);
+    h+=liste(ligne({titre:"Copier ce texte", attr:'data-act="copieSql"'}), "lien");
+    h+=titreBloc("Les deux valeurs","ecart");
+    h+=champ("syUrl","https://xxxx.supabase.co","url",esc(SY.url||""));
+    h+=champ("syCle","Clé anon (un long jeton)","text",esc(SY.cle||""));
+    h+=`<div class="block amorce">La clé <b>anon</b> est faite pour être publique : seule la règle posée plus haut décide qui lit quoi. Ne colle jamais la clé <b>service_role</b>.</div>`;
+    Z.action=bouton("Continuer", 'data-act="syProjet"');
+  } else if(e===1){
+    h+=`<div class="block amorce" style="margin-top:18px">Ton adresse. Supabase t'enverra un code à six chiffres — pas un lien : un lien s'ouvrirait dans Safari au lieu de ton application.</div>`;
+    h+=champ("syMail","toi@exemple.com","email",esc(SY.mail||""));
+    Z.action=bouton("Recevoir un code", 'data-act="syEnvoieCode"');
+  } else if(e===2){
+    h+=`<div class="block amorce" style="margin-top:18px">Le code envoyé à <b>${esc(SY.mail)}</b>.</div>`;
+    h+=champ("syCode","123456","text","");
+    h+=liste(ligne({titre:"Renvoyer un code", attr:'data-act="syEnvoieCode"'}), "lien");
+    Z.action=bouton("Valider", 'data-act="syVerifie"');
+  } else {
+    h+=`<div class="block amorce" style="margin-top:18px">${S.syExiste
+      ? "Une archive est déjà déposée. Donne la phrase de passe que tu as choisie sur l'autre appareil."
+      : "Choisis une phrase de passe. Elle ne part jamais d'ici : c'est elle qui chiffre l'archive avant l'envoi, et sans elle le serveur ne garde qu'un bloc illisible."}</div>`;
+    h+=champ("syPhr","Ta phrase de passe","password","");
+    if(!S.syExiste){
+      h+=champ("syPhr2","Encore une fois","password","");
+      h+=`<div class="block amorce"><b>Retiens-la.</b> Perdue, c'est la copie distante qui devient illisible — pas tes données : ce téléphone garde la sienne en clair, et le fichier de sauvegarde aussi.</div>`;
+    }
+    Z.action=bouton(S.syExiste?"Rejoindre":"Activer", 'data-act="syActive"');
+  }
+  Z.html=h;
+}
+
 /* ---------- mes données ---------- */
 /* Rien ne part d'ici tout seul : il n'y a pas de serveur, et un journal où
    des gens sont nommés ne se dépose pas sur le premier entrepôt venu sans
@@ -1710,6 +2097,8 @@ function vData(){
     ${liste(ligne({titre:"Sortir un fichier", sous:"À envoyer dans iCloud, ou à toi-même", attr:'data-act="fichier"'})+
             ligne({titre:"Reprendre un fichier", sous:"Remplace tout par celui que tu choisis", attr:'data-act="ouvreFichier"'}), "lien")}
     <input type="file" id="fin" accept=".json,application/json,text/plain" hidden>
+    ${titreBloc("Sur mes deux appareils","ecart")}
+    ${liste(ligne({titre:"Synchronisation", sous:esc(syEtat()), attr:'data-go="sync"'}), "lien")}
     ${titreBloc("À la main","ecart")}
     ${liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
       <textarea id="dump" style="min-height:120px;font-size:12px">${esc(JSON.stringify(db))}</textarea></div></div></li>`)}
@@ -1722,7 +2111,7 @@ function vData(){
 function vListe(f){ return function(){ f(); if(!Z.action) gesteNoter(); }; }
 const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), actes:vListe(vActes), chemin:vChemin, faits:vFaits,
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData,
-              pointer:vPointer, temps:vMonTemps};
+              pointer:vPointer, temps:vMonTemps, bloc:vBloc, sync:vSync};
 
 /* ---------- dictée ---------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1870,7 +2259,8 @@ document.addEventListener("click", ev=>{
   if(g.bloc){
     S.blocId=g.bloc; const b=blocT(g.bloc); if(!b) return;
     ouvreMenu([[{label:tacheNom(b.t)+" · "+hmin(new Date(b.deb))+" → "+(b.fin?hmin(new Date(b.fin)):"maintenant")}],
-      [{txt:"C'était autre chose", attr:'data-act="corrBloc"'}]
+      [{txt:"C'était autre chose", attr:'data-act="corrBloc"'},
+       {txt:"Corriger les heures", attr:'data-act="heuresBloc"'}]
         .concat(b.fin ? [] : [{txt:"Arrêter de compter", attr:'data-act="stopBloc"'}])
         .concat([{txt:"Effacer ce bloc", rouge:true, attr:'data-act="delBloc"'}]),
       [{txt:"Annuler", attr:'data-act="fermeMenu"'}]]);
@@ -1894,7 +2284,7 @@ document.addEventListener("click", ev=>{
   if(g.eman){ S.eMan=(S.eMan===g.eman?"":g.eman); return render(); }
   if(g.etat){ if(S.view==="edit") S.eEtat=g.etat; else if(S.draft) S.draft.etat=g.etat; return render(); }
   if(g.netat){ const n=node(S.nodeId);
-    if(n && (n.etat||"fait")!==g.netat){ n.etat=g.netat; save(); toast(cap(ETAT[g.netat])+"."); }
+    if(n && (n.etat||"fait")!==g.netat){ n.etat=g.netat; touche(n); save(); toast(cap(ETAT[g.netat])+"."); }
     return render(); }
   if(g.prec){
     const el=document.getElementById(g.prec), v=el&&el.value;
@@ -1904,12 +2294,12 @@ document.addEventListener("click", ev=>{
   }
   if(g.par){
     if(S.view==="lier"){ const n=node(S.nodeId); if(!n) return; n.par=n.par||[];
-      const i=n.par.indexOf(g.par); i===-1?n.par.push(g.par):n.par.splice(i,1); save(); }
+      const i=n.par.indexOf(g.par); i===-1?n.par.push(g.par):n.par.splice(i,1); touche(n); save(); }
     else if(S.draft){ const i=S.draft.par.indexOf(g.par); i===-1?S.draft.par.push(g.par):S.draft.par.splice(i,1); }
     return render();
   }
-  if(g.fait){ fermeMenu(); const n=node(g.fait); if(n){ n.etat="fait"; n.prevuLe=n.date; n.date=today(); n.prec="j"; save(); toast("Fait."); } return render(); }
-  if(g.abandon){ fermeMenu(); const n=node(g.abandon); if(n){ n.etat="abandon"; save(); toast("Noté."); } return render(); }
+  if(g.fait){ fermeMenu(); const n=node(g.fait); if(n){ n.etat="fait"; n.prevuLe=n.date; n.date=today(); n.prec="j"; touche(n); save(); toast("Fait."); } return render(); }
+  if(g.abandon){ fermeMenu(); const n=node(g.abandon); if(n){ n.etat="abandon"; touche(n); save(); toast("Noté."); } return render(); }
   if(g.act) return actions[g.act] && actions[g.act](t);
 });
 
@@ -1919,7 +2309,7 @@ function poseTache(id){
   if(!id) return;
   if(S.blocId){
     const b=blocT(S.blocId);
-    if(b){ b.t=id; save(); toast("Corrigé."); }
+    if(b){ b.t=id; touche(b); save(); toast("Corrigé."); }
     S.blocId=null; depile("temps"); return render();
   }
   const chg=pointe(id);
@@ -1966,11 +2356,53 @@ const actions={
     poseTache(tacheId(v, S.tCat));
   },
   corrBloc(){ fermeMenu(); empile(); S.view="pointer"; render(); },
+  heuresBloc(){ fermeMenu(); empile(); S.view="bloc"; render(); },
+  bCours(){
+    const b=blocT(S.blocId); if(!b) return;
+    /* Le début déjà tapé ne doit pas se perdre en basculant la fin. */
+    const d=valHeure("bDeb");
+    if(d!==null && d<=Date.now()) b.deb=d;
+    if(b.fin){
+      const v=voisins(b);
+      if(v.apres) return toast("Un autre bloc a commencé après celui-ci");
+      delete b.fin;
+    } else {
+      b.fin=Math.max(Date.now(), b.deb+60000);
+    }
+    touche(b); save(); render();
+  },
+  delBlocIci(){
+    const id=S.blocId;
+    db.temps=(db.temps||[]).filter(function(x){ return x.id!==id; });
+    tue(id); S.blocId=null; save(); toast("Effacé.");
+    depile("temps"); render();
+  },
+  majBloc(){
+    const b=blocT(S.blocId); if(!b) return;
+    const d=valHeure("bDeb"), f=b.fin ? valHeure("bFin") : null;
+    if(d===null) return toast("Pose une heure de début");
+    if(b.fin && f===null) return toast("Pose une heure de fin");
+    if(f!==null && f<=d) return toast("La fin doit venir après le début");
+    if(d>Date.now()) return toast("Ce début n'est pas encore arrivé");
+    const v=voisins(b);
+    /* Seul un voisin collé suit le mouvement : s'il y avait déjà un trou,
+       c'est qu'il était voulu, et on ne le rebouche pas à sa place. */
+    if(v.avant && finDe(v.avant)===b.deb && d>v.avant.deb){ v.avant.fin=d; touche(v.avant); }
+    if(f!==null && v.apres && finDe(b)===v.apres.deb && f<finDe(v.apres)){ v.apres.deb=f; touche(v.apres); }
+    b.deb=d; if(f===null) delete b.fin; else b.fin=f;
+    touche(b);
+    const avant=(db.temps||[]).map(function(x){ return x.id; });
+    db.temps=fusionTemps(db.temps);
+    const reste={}; db.temps.forEach(function(x){ reste[x.id]=1; });
+    avant.forEach(function(id){ if(!reste[id]) tue(id); });
+    save(); toast("Heures corrigées.");
+    depile("temps"); render();
+  },
   stopBloc(){ fermeMenu(); arrete(); S.blocId=null; toast("Arrêté."); render(); },
   delBloc(){
     fermeMenu();
     db.temps=(db.temps||[]).filter(b=>b.id!==S.blocId);
-    S.blocId=null; save(); toast("Effacé."); render();
+    tue(S.blocId); S.blocId=null; save(); toast("Effacé."); render();
   },
   ouvreDesc(){ saveTxt(); S.descOuvert=true; render(); },
   refDesc(){
@@ -1990,7 +2422,7 @@ const actions={
     if(S.view==="edit") S.eMan=id; else if(S.draft) S.draft.man=id;
     save(); render();
   },
-  addNom(){ const v=((document.getElementById("newNom")||{}).value||"").trim(); if(!v) return toast("Écris le nom"); db.noms.push({id:"p"+(db.seq++),txt:v,nodes:[]}); save(); render(); },
+  addNom(){ const v=((document.getElementById("newNom")||{}).value||"").trim(); if(!v) return toast("Écris le nom"); db.noms.push({id:uid("p"),txt:v,nodes:[],maj:Date.now()}); save(); render(); },
   /* La cause n'était pas encore gardée : on la garde ici, et on la lie.
      Elle hérite de la date de l'acte qu'elle précède — à corriger d'un geste
      en l'ouvrant, c'est toujours plus juste qu'aujourd'hui. */
@@ -2007,9 +2439,9 @@ const actions={
       man:(quoi==="rhema"?"parle":""),
       kind:(quoi==="ecriture"?"ecriture":(quoi==="rhema"?"rhema":"acte")), ref:"",
       date:(cible&&cible.date)||today(), prec:(cible&&cible.prec)||"j",
-      etat:"fait", par:[], ts:ts()};
+      etat:"fait", par:[], ts:ts(), maj:Date.now()};
     db.nodes.push(n);
-    if(S.view==="lier"){ const c=node(S.nodeId); if(c){ c.par=c.par||[]; c.par.push(n.id); } }
+    if(S.view==="lier"){ const c=node(S.nodeId); if(c){ c.par=c.par||[]; c.par.push(n.id); touche(c); } }
     else if(S.draft){ S.draft.par.push(n.id); }
     save(); S.cNeuf=false; S.cTxt=""; S.cType="";
     toast("Ajouté et lié"); render();
@@ -2018,7 +2450,7 @@ const actions={
     const d=S.draft;
     const n={id:nid(),act:d.act,gid:d.gid,dest:d.act==="moi"?d.dest:null,dgid:d.dgid,txt:d.txt.trim(),desc:(d.desc||"").trim(),man:d.man,
       kind:(d.act==="dieu"&&d.man==="parle")?"rhema":"acte",
-      date:valDate("nDate", d.date),prec:d.prec||"j",etat:d.act==="moi"?(d.etat||"fait"):"fait",par:d.par.slice(),ts:ts()};
+      date:valDate("nDate", d.date),prec:d.prec||"j",etat:d.act==="moi"?(d.etat||"fait"):"fait",par:d.par.slice(),ts:ts(),maj:Date.now()};
     db.nodes.push(n); save();
     /* On repart là où l'acte est désormais rangé : le disciple le voit,
        et l'écran a ses onglets — il n'est jamais enfermé. */
@@ -2039,7 +2471,7 @@ const actions={
       n.date=valDate("eDate"); n.prec=S.ePrec||"j";
       if(n.act!=="moi"){ n.man=S.eMan; if(n.kind!=="ecriture") n.kind=(n.act==="dieu"&&n.man==="parle")?"rhema":"acte"; }
       else { n.etat=S.eEtat||"fait"; }
-      save(); toast("Corrigé.");
+      touche(n); save(); toast("Corrigé.");
     }
     depile("node"); render();
   },
@@ -2053,9 +2485,9 @@ const actions={
     fermeMenu();
     const id=S.nodeId;
     db.nodes=db.nodes.filter(n=>n.id!==id);
-    db.nodes.forEach(n=>{ if(n.par) n.par=n.par.filter(p=>p!==id); });
-    db.noms.forEach(nm=>{ if(nm.nodes) nm.nodes=nm.nodes.filter(p=>p!==id); });
-    save(); depile("today"); toast("Supprimé."); render();
+    db.nodes.forEach(n=>{ if(n.par && n.par.indexOf(id)!==-1){ n.par=n.par.filter(p=>p!==id); touche(n); } });
+    db.noms.forEach(nm=>{ if(nm.nodes && nm.nodes.indexOf(id)!==-1){ nm.nodes=nm.nodes.filter(p=>p!==id); touche(nm); } });
+    tue(id); save(); depile("today"); toast("Supprimé."); render();
   },
   copy(){ const e=document.getElementById("dump"); e.select(); try{ navigator.clipboard.writeText(e.value).then(()=>toast("Copié"),()=>toast("Sélectionne et copie")); }catch(x){ toast("Sélectionne et copie"); } },
   fichier(){
@@ -2077,13 +2509,69 @@ const actions={
     }catch(e){ toast("Copie le texte, plus bas"); }
   },
   ouvreFichier(){ const i=document.getElementById("fin"); if(i) i.click(); },
+  copieSql(){ const e=document.getElementById("sql"); if(!e) return; e.select();
+    try{ navigator.clipboard.writeText(e.value).then(()=>toast("Copié"),()=>toast("Sélectionne et copie")); }
+    catch(x){ toast("Sélectionne et copie"); } },
+  syProjet(){
+    const u=val("syUrl").trim().replace(/\/+$/,""), c=val("syCle").trim();
+    if(!/^https:\/\/[^\s]+$/.test(u)) return toast("Colle l'URL du projet");
+    if(c.length<20) return toast("Colle la clé anon");
+    if(/service_role/.test(c)) return toast("Pas celle-là : la clé anon");
+    SY.url=u; SY.cle=c; sySave(); S.syEtape=1; render();
+  },
+  async syEnvoieCode(){
+    const m=(val("syMail")||SY.mail||"").trim();
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)) return toast("Écris ton adresse");
+    SY.mail=m; sySave();
+    toast("Envoi…");
+    try{ await syCode(m); S.syEtape=2; render(); toast("Code envoyé"); }
+    catch(e){ toast(syDit(e)); }
+  },
+  async syVerifie(){
+    const c=val("syCode").trim();
+    if(c.length<6) return toast("Le code fait six chiffres");
+    try{
+      await syValide(SY.mail, c);
+      const r=await syLit(false);
+      S.syExiste=!!r; S.syEtape=3; render();
+    }catch(e){ toast(syDit(e)); }
+  },
+  async syActive(){
+    const p=val("syPhr");
+    if(p.length<8) return toast("Au moins huit caractères");
+    if(!S.syExiste && p!==val("syPhr2")) return toast("Les deux phrases diffèrent");
+    SY.phr=p;
+    try{
+      if(S.syExiste){
+        /* Rejoindre : on vérifie la phrase en ouvrant vraiment l'archive
+           distante, et on fusionne avec ce que cet appareil tient déjà. */
+        const plein=await syLit(true);
+        const autre=sane(await dechiffre(plein.doc, p));
+        db=(db.nodes.length||(db.temps||[]).length) ? fusionne(db, autre) : autre;
+        save(true);
+        SY.actif=true; SY.vu=await syEcrit(db); SY.base=db.maj||0; SY.fait=Date.now(); sySave();
+      } else {
+        SY.actif=true; SY.vu=await syEcrit(db); SY.base=db.maj||0; SY.fait=Date.now(); sySave();
+      }
+      S.syEtape=0; S.pile=[]; S.view="data"; toast("Synchronisation en route."); render();
+    }catch(e){ SY.phr=""; SY.actif=false; sySave(); toast(syDit(e)); }
+  },
+  syManuel(){ toast("…"); syMaintenant(true).then(function(){ render(); }); },
+  syDetache(){
+    ouvreMenu([[{label:"L'archive reste entière sur cet appareil. Il cessera seulement de parler à l'autre."},
+                {txt:"Détacher", rouge:true, attr:'data-act="syDetacheOk"'}],
+               [{txt:"Annuler", attr:'data-act="fermeMenu"'}]]);
+  },
+  syDetacheOk(){ fermeMenu(); syOublie(); S.syEtape=0; toast("Détaché."); render(); },
   restore(){ try{ const v=JSON.parse(document.getElementById("dump").value); if(!v||!Array.isArray(v.nodes)) throw 0; db=sane(v); save(); toast("Remplacé"); S.view="today"; render(); }catch(e){ toast("Ce texte n'est pas une sauvegarde"); } },
   askWipe(){
     ouvreMenu([[{label:"Tous tes mémoriaux seront effacés. Copie d'abord ta sauvegarde."},
                 {txt:"Tout effacer", rouge:true, attr:'data-act="wipe"'}],
                [{txt:"Annuler", attr:'data-act="fermeMenu"'}]]);
   },
-  wipe(){ fermeMenu(); db=sane({}); save(); S.view="today"; toast("Effacé"); render(); }
+  /* Un effacement volontaire ne doit pas voyager : on détache d'abord, sinon
+     le vide partirait écraser l'autre appareil. */
+  wipe(){ fermeMenu(); syOublie(); db=sane({}); save(true); S.view="today"; toast("Effacé"); render(); }
 };
 
 /* ---------- exemple ---------- */
@@ -2111,7 +2599,16 @@ function theme(){
 }
 theme();
 if(window.matchMedia){ try{ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", theme); }catch(e){} }
-load(); render();
+syLoad(); load(); render();
+if(SY.actif) setTimeout(function(){ syMaintenant(); }, 1200);
+/* On se resynchronise en revenant à l'écran, pas plus d'une fois par minute :
+   c'est le moment où l'autre appareil a pu parler. */
+document.addEventListener("visibilitychange", function(){
+  if(document.hidden || !SY.actif) return;
+  if(Date.now()-(SY.fait||0) < 60000) return;
+  syMaintenant();
+});
+addEventListener("online", function(){ if(SY.actif) syMaintenant(); });
 /* iOS peut vider le stockage d'un site qu'il juge inactif. On demande une
    fois à ce que celui-ci soit tenu pour durable — c'est tout ce qu'un site
    peut demander, et ça ne remplace pas un fichier gardé ailleurs. */

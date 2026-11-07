@@ -272,6 +272,13 @@ body.avecRail .entete .rouage{top:calc(var(--rail,0px) + 5px)}
    Il se lit donc en gris et en italique — présent dans la liste, jamais
    confondu avec ce qu'on a vraiment compté. */
 .item-title .creux{color:var(--muted);font-style:italic;font-weight:500}
+/* Quand on a désigné soi-même le porteur, le bloc le dit : sans cela, on
+   relit « La part de chacun » sans comprendre pourquoi l'heure est allée
+   là plutôt qu'ailleurs. */
+.item-title .pte{display:inline-block;margin-left:7px;font-family:var(--sans);
+  font-size:10.5px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;
+  color:var(--muted);border:1px solid var(--filet);border-radius:999px;padding:1px 6px;
+  vertical-align:1px}
 /* Enregistrer demande de savoir que ça tourne : le point bat, et les
    secondes défilent. Sans compteur, on parle en se demandant si on parle. */
 .enr{position:fixed;z-index:13500;left:50%;transform:translateX(-50%);
@@ -543,6 +550,12 @@ body.avecRail .entete .rouage{top:calc(var(--rail,0px) + 5px)}
 .tic .dur{flex:0 0 auto;font-family:var(--sans);font-size:13.5px;font-weight:700;
   font-variant-numeric:tabular-nums;
   letter-spacing:.01em;font-variant-numeric:tabular-nums;color:var(--f7-theme-color)}
+/* Combien d'autres tournent en même temps. Replié, le chiffre disparaît
+   avec le reste : il ne reste que le trait. */
+.tic .pl{flex:0 0 auto;font-family:var(--sans);font-size:11px;font-weight:700;
+  color:var(--muted);border:1px solid var(--filet);border-radius:999px;
+  padding:1px 6px;letter-spacing:.01em}
+#rail.plie .tic .pl{display:none}
 .tic.vieux .dur,.tic.rien .dur{color:var(--muted)}
 .tic.rien .quoi{font-weight:500;font-style:italic;color:var(--muted)}
 .tic .dur i{font-style:normal;font-size:.76em;font-weight:600;opacity:.5;
@@ -683,7 +696,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v46";
+const VERSION = "v47";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -728,7 +741,7 @@ let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], exp
 let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an", rev:"noms", pile:[], nodeId:null,
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
-         per:"jour", tQ:"", tCat:"", blocId:null, medId:null, trou:null};
+         per:"jour", tQ:"", tCat:"", blocId:null, medId:null, trou:null, enPlus:false};
 
 /* Un seul « écran précédent » ne suffisait pas : en ouvrant un retour depuis
    un acte, il finissait par désigner l'acte lui-même, et le bouton Retour ne
@@ -866,30 +879,56 @@ function tacheId(nom, cat){
   const id=uid("a"); db.taches.push({id:id, nom:cap(v), cat:cat||"reste", maj:Date.now()}); return id;
 }
 function blocT(id){ return (db.temps||[]).filter(b=>b.id===id)[0]; }
+/* Un bloc qui en recouvre un autre, même partiellement : c'est le seul cas
+   où la question « lequel porte l'heure ? » se pose. Ailleurs, l'offrir
+   serait proposer un choix qui n'existe pas. */
+function chevauche(b){
+  const f=finDe(b);
+  return (db.temps||[]).some(function(x){ return x!==b && x.deb<f && finDe(x)>b.deb; });
+}
 
 /* Permanent, mais pas en marche : une page web s'arrête dès qu'on la quitte,
    et aucun chronomètre ne survit à l'app fermée. On ne garde que l'heure de
-   départ — la soustraction reste juste après trois jours de silence. Un seul
-   bloc est ouvert à la fois : c'est là tout le « permanent ». */
-function ouvert(){ const a=db.temps||[]; const b=a[a.length-1]; return (b && !b.fin) ? b : null; }
+   départ — la soustraction reste juste après trois jours de silence.
+   Plusieurs blocs peuvent tourner ensemble (13.by) : deux missions que l'IA
+   fait avancer en parallèle ne se disputent pas la journée, elles la
+   couvrent toutes les deux. Ce qui ne se duplique jamais, c'est la journée
+   elle-même — et c'est le calcul qui s'en charge, pas le pointage. */
+function ouverts(){ return (db.temps||[]).filter(function(b){ return !b.fin; }); }
+/* Quand plusieurs tournent, un seul porte l'heure pour « La part de chacun »
+   — celui qui le réclame, sinon celui qui tournait déjà. « ouvert() » rend
+   ce porteur : c'est lui que le rail nomme, et lui que le reste du code
+   attend là où il n'en espérait qu'un. */
+function chef(arr){
+  let c=null;
+  for(let i=0;i<arr.length;i++){
+    const b=arr[i];
+    if(!c) { c=b; continue; }
+    if(!!b.porte > !!c.porte) c=b;
+    else if(!c.porte && b.deb<c.deb) c=b;
+  }
+  return c;
+}
+function ouvert(){ return chef(ouverts()); }
 /* Vingt secondes, c'est un doigt qui s'est trompé, pas du temps vécu : on ne
    garde pas la trace d'une erreur de pouce. */
-function pointe(tid){
-  const n=Date.now(), o=ouvert();
-  if(o){
-    if(o.t===tid) return false;
-    o.fin=n; touche(o);
-    if(o.fin-o.deb<20000){ db.temps.pop(); tue(o.id); }
-  }
+function fermeBloc(b){
+  if(!b || b.fin) return;
+  b.fin=Date.now(); touche(b);
+  if(b.fin-b.deb<20000){ db.temps=(db.temps||[]).filter(function(x){ return x!==b; }); tue(b.id); }
+}
+function pointe(tid, enPlus){
+  const n=Date.now(), ouv=ouverts();
+  if(ouv.some(function(b){ return b.t===tid; })) return false;
+  if(!enPlus) ouv.forEach(fermeBloc);
   db.temps.push({id:uid("b"), t:tid, deb:n, maj:n});
   save(); return true;
 }
 function arrete(){
-  const o=ouvert(); if(!o) return;
-  o.fin=Date.now(); touche(o);
-  if(o.fin-o.deb<20000){ db.temps.pop(); tue(o.id); }
-  save();
+  const ouv=ouverts(); if(!ouv.length) return;
+  ouv.forEach(fermeBloc); save();
 }
+function arreteUn(b){ if(!b || b.fin) return; fermeBloc(b); save(); }
 
 function hm(ms){
   const m=Math.max(0, Math.floor(ms/60000));
@@ -911,13 +950,57 @@ function minuit(dec){ const d=new Date(); d.setHours(0,0,0,0); if(dec) d.setDate
    en mémoire — on le coupe à la lecture, en ne comptant que ce qui tombe dans
    la fenêtre. Le sommeil rend ainsi à chaque jour sa part, sans qu'on ait
    touché à quoi que ce soit à minuit. */
+/* Trois nombres, et il ne faut jamais les confondre (13.by).
+   « par »   — ce que chaque activité a duré, pour elle-même. Deux missions
+               menées ensemble durent chacune tout leur temps : on les
+               additionne et la somme peut dépasser la journée, c'est juste.
+   « tot »   — la journée vécue : l'UNION des périodes, jamais leur somme.
+               Dix heures à seize heures occupées par deux missions font six
+               heures de vie, pas douze. C'est le seul nombre qui ait le
+               droit d'être comparé au temps écoulé.
+   « parCat »— la part de chaque catégorie dans cette union. Sur chaque
+               tranche, un seul bloc porte : celui qui le réclame, sinon
+               celui qui tournait déjà. C'est ce qui fait qu'un repas pris
+               en codant ne retire rien à l'œuvre.
+   On balaie les bornes dans l'ordre en tenant à jour la liste de ce qui est
+   ouvert : comparer chaque tranche à tous les blocs serait quadratique, et
+   la fenêtre « Tout » en contient des milliers. */
 function cumul(t0, t1){
-  const par={}; let tot=0; const n=Date.now();
+  const n=Date.now(), par={}, parCat={}, bs=[];
   (db.temps||[]).forEach(function(b){
     const a=Math.max(b.deb, t0), z=Math.min(b.fin||n, t1);
-    if(z>a){ par[b.t]=(par[b.t]||0)+(z-a); tot+=z-a; }
+    if(z>a){ par[b.t]=(par[b.t]||0)+(z-a); bs.push({a:a, z:z, b:b}); }
   });
-  return {par:par, tot:tot};
+  let porte=0;
+  Object.keys(par).forEach(function(k){ porte+=par[k]; });
+  if(!bs.length) return {par:par, parCat:parCat, tot:0, porte:0};
+
+  const cat={};
+  function catDe(tid){ if(cat[tid]===undefined) cat[tid]=tacheCat(tid); return cat[tid]; }
+
+  const marques={};
+  bs.forEach(function(x){ marques[x.a]=1; marques[x.z]=1; });
+  const ts=Object.keys(marques).map(Number).sort(function(p,q){ return p-q; });
+  bs.sort(function(p,q){ return p.a-q.a; });
+
+  let tot=0, k=0; const actifs=[];
+  for(let i=0;i<ts.length-1;i++){
+    const x=ts[i], y=ts[i+1];
+    while(k<bs.length && bs[k].a<=x){ actifs.push(bs[k]); k++; }
+    for(let j=actifs.length-1;j>=0;j--) if(actifs[j].z<=x) actifs.splice(j,1);
+    if(!actifs.length) continue;
+    let c=null;
+    for(let j=0;j<actifs.length;j++){
+      const o=actifs[j].b;
+      if(!c){ c=o; continue; }
+      if(!!o.porte > !!c.porte) c=o;
+      else if(!c.porte && o.deb<c.deb) c=o;
+    }
+    tot+=y-x;
+    const k2=catDe(c.t);
+    parCat[k2]=(parCat[k2]||0)+(y-x);
+  }
+  return {par:par, parCat:parCat, tot:tot, porte:porte};
 }
 const PERIODES = [["jour","Aujourd'hui"],["sem","7 jours"],["mois","30 jours"],["tout","Tout"]];
 function fenetre(){
@@ -1376,7 +1459,9 @@ function render(){
   const surCause = S.view==="lier" ||
     (S.view==="note" && S.draft && etapes(S.draft)[S.step]==="par");
   if(!surCause){ S.cNeuf=false; S.cTxt=""; S.cType=""; S.cQ=""; }
-  if(S.view!=="pointer"){ S.tQ=""; S.tCat=""; }
+  /* L'interrupteur ne se garde pas : « en plus » oublié d'hier ferait
+     démarrer une activité par-dessus une autre sans qu'on l'ait voulu. */
+  if(S.view!=="pointer"){ S.tQ=""; S.tCat=""; S.enPlus=false; }
   if(S.view!=="pointer" && S.view!=="temps" && S.view!=="bloc"){ S.blocId=null; S.trou=null; }
   (VUES[S.view]||vToday)();
   const onglet = ONGLETS.some(o=>o[0]===S.view);
@@ -1579,17 +1664,23 @@ function majChrono(){
   }
   const ec = Date.now()-o.deb;
   const vieux = ec>=10*3600000;
+  /* Le rail nomme ce qui porte l'heure, et dit d'un chiffre combien
+     d'autres tournent à côté. Les empiler ferait grandir le mobilier à
+     chaque mission : un rail qui pousse n'est plus un rail. */
+  const autres = ouverts().length-1;
   /* Un pointage qui commence rouvre le rail : c'est le reçu du geste qu'on
      vient de faire. Un compteur qui atteint dix heures le rouvre aussi, une
      fois — l'app prévient, puis se tait ; elle ne retient pas la main de
      celui qui le replie à nouveau. */
   railNote(o.id);
   if(vieux && !railPrevenu){ railPrevenu=true; plieRail(false); }
-  const etat = o.id+"|"+tacheNom(o.t)+"|"+(vieux?"v":"");
+  const etat = o.id+"|"+tacheNom(o.t)+"|"+(vieux?"v":"")+"|"+autres;
   if(etat!==chronoEtat || !rail.firstElementChild){
     chronoEtat=etat;
     rail.innerHTML = `<a class="tic${vieux?" vieux":""}" data-go="pointer"><i class="pt"></i>`
-      + `<span class="quoi">${esc(tacheNom(o.t))}</span><span class="dur"></span></a>`;
+      + `<span class="quoi">${esc(tacheNom(o.t))}</span>`
+      + (autres>0 ? `<span class="pl">+${autres}</span>` : "")
+      + `<span class="dur"></span></a>`;
   }
   /* Le rail qui apparaît ou disparaît décale toute la page : on remesure,
      mais seulement à ce moment-là, jamais à chaque seconde. */
@@ -2736,12 +2827,15 @@ function vPointer(){
   const trou = (!corr && S.trou) ? S.trou : null;
   Z.titre = (corr||trou) ? "C'était quoi ?" : "À quoi maintenant ?";
   Z.retour = true;
-  const o = ouvert(), q = (S.tQ||"").trim(), cats = CATS();
+  const o = ouvert(), ouv = ouverts(), q = (S.tQ||"").trim(), cats = CATS();
+  const enCours = {};
+  ouv.forEach(function(b){ enCours[b.t]=1; });
   let h = "";
   if(corr) h += `<div class="block amorce" style="margin-top:16px"><b>${esc(tacheNom(corr.t))}</b>, de ${hmin(new Date(corr.deb))} à ${corr.fin?hmin(new Date(corr.fin)):"maintenant"}.</div>`;
   else if(trou && trou.vif) h += `<div class="block amorce" style="margin-top:16px">Depuis ${hmin(new Date(trou.deb))}, rien n'est compté — ${hm(Date.now()-trou.deb)}. Dis à quoi tout ce temps est allé : le compte reprendra là, sans trou.</div>`;
   else if(trou) h += `<div class="block amorce" style="margin-top:16px">De ${hmin(new Date(trou.deb))} à ${hmin(new Date(trou.fin))} — ${hm(trou.fin-trou.deb)} — rien n'a été compté. Dis à quoi c'est allé.</div>`;
-  else if(o) h += `<div class="block amorce" style="margin-top:16px">Depuis ${hmin(new Date(o.deb))}, le temps va à <b>${esc(tacheNom(o.t))}</b> — ${hm(Date.now()-o.deb)}.</div>`;
+  else if(o) h += `<div class="block amorce" style="margin-top:16px">Depuis ${hmin(new Date(o.deb))}, le temps va à <b>${esc(tacheNom(o.t))}</b> — ${hm(Date.now()-o.deb)}.${
+      ouv.length>1 ? " En même temps : "+ouv.filter(function(b){ return b!==o; }).map(function(b){ return "<b>"+esc(tacheNom(b.t))+"</b>"; }).join(", ")+"." : ""}</div>`;
   else h += `<div class="block amorce" style="margin-top:16px">Rien n'est compté. À partir de ce que tu touches ici, le temps aura un destinataire.</div>`;
   /* S'arrêter n'était possible qu'au fond d'un menu, sur un bloc, depuis
      « Mon temps » : trois gestes pour dire qu'on ne fait plus rien. Or on
@@ -2750,9 +2844,21 @@ function vPointer(){
      temps écoulé reste à l'activité qu'il a servie, et ce qui suit n'est
      compté à personne — parce qu'il n'a servi personne. */
   if(o && !corr && !trou)
-    h += liste(ligne({titre:"Arrêter de compter",
-      sous:"Le temps déjà passé reste à « "+esc(tacheNom(o.t))+" »",
+    h += liste(ligne({titre:ouv.length>1 ? "Tout arrêter" : "Arrêter de compter",
+      sous:"Le temps déjà passé reste à "+(ouv.length>1 ? "ce qui l'a reçu" : "« "+esc(tacheNom(o.t))+" »"),
       attr:'data-act="arretNet"'}), "lien");
+  /* Un seul geste nouveau pour tout le parallèle : un interrupteur à deux
+     positions, qui dit ce que la prochaine tape veut dire. « À la place »
+     par défaut — l'app se comporte comme avant tant qu'on n'y touche pas.
+     Il n'apparaît que si quelque chose tourne : sans cela, « en plus » de
+     rien ne veut rien dire. */
+  if(o && !corr && !trou)
+    h += `<div class="puces" style="padding-top:2px">`
+      + `<button class="puce" data-plus="0" aria-pressed="${!S.enPlus}">À la place</button>`
+      + `<button class="puce" data-plus="1" aria-pressed="${!!S.enPlus}">En plus</button></div>`
+      + `<div class="block amorce">${S.enPlus
+          ? "La prochaine activité démarrera sans arrêter les autres."
+          : "La prochaine activité arrêtera ce qui tourne."}</div>`;
 
   h += liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
       <input type="text" id="tQ" placeholder="Chercher, ou nommer autre chose" value="${esc(S.tQ||"")}" autocomplete="off" autocapitalize="sentences"></div></div></li>`);
@@ -2783,7 +2889,7 @@ function vPointer(){
         .sort((a,b)=>(freq[b.id]||0)-(freq[a.id]||0) || a.nom.localeCompare(b.nom,"fr"));
       if(!arr.length) return;
       h += `<div class="tgrp">${titreBloc(esc(c.nom))}${liste(arr.map(t=>ligne({titre:esc(t.nom),
-        apres:(o && o.t===t.id && !corr) ? `<span class="coche">✓</span>` : (freq[t.id] ? esc(hm(freq[t.id])) : ""),
+        apres:(enCours[t.id] && !corr && !trou) ? `<span class="coche">✓</span>` : (freq[t.id] ? esc(hm(freq[t.id])) : ""),
         attr:'data-tache="'+t.id+'" data-nom="'+esc(t.nom.toLowerCase())+'"'})).join(""))}</div>`;
     });
   }
@@ -2811,10 +2917,14 @@ function vMonTemps(){
   }
   const ecoule=Math.max(c.tot, f.t1-f.t0);
   const creux=Math.max(0, ecoule-c.tot);
-  h += `<div class="block amorce"><b>${esc(hm(c.tot))}</b> comptés sur <b>${esc(hm(ecoule))}</b> ${f.nom}. Les parts se lisent sur le temps entier : ce qu'on n'a pas compté, on le tient pour n'ayant pas été pour Lui.</div>`;
+  /* Deux nombres, et c'est le second qui demande une phrase : la somme des
+     activités peut dépasser la journée dès que plusieurs tournent ensemble,
+     et sans explication ce serait lu comme une faute de calcul. */
+  const porte=c.porte>c.tot ? c.porte : 0;
+  h += `<div class="block amorce"><b>${esc(hm(c.tot))}</b> comptés sur <b>${esc(hm(ecoule))}</b> ${f.nom}. Les parts se lisent sur le temps entier : ce qu'on n'a pas compté, on le tient pour n'ayant pas été pour Lui.${
+    porte ? ` Et ces ${esc(hm(c.tot))} ont porté <b>${esc(hm(porte))}</b> d'activités menées de front — <b>×${String(Math.round(porte*10/c.tot)/10).replace(".", ",")}</b>.` : ""}</div>`;
 
-  const parCat={};
-  Object.keys(c.par).forEach(function(tid){ const k=tacheCat(tid); parCat[k]=(parCat[k]||0)+c.par[tid]; });
+  const parCat=c.parCat;
   const vus=CATS().filter(x=>parCat[x.id]).sort((a,b)=>parCat[b.id]-parCat[a.id]);
   h += titreBloc("La part de chacun");
   h += `<div class="tps">`+vus.map(function(x){
@@ -2830,10 +2940,16 @@ function vMonTemps(){
       <span class="tj"><i style="width:${ecoule?creux*100/ecoule:0}%"></i></span></div>` : "")
    + `</div>`;
 
+  /* Ici, chaque activité compte tout son temps, et les pourcentages n'ont
+     plus leur place : ils ne se rapporteraient à aucun total commun. Les
+     parts vivent au-dessus, dans « La part de chacun », et nulle part
+     ailleurs — c'est ce qui évite d'avoir deux chiffres qui se contredisent
+     sur le même écran. */
   const tids=Object.keys(c.par).sort((a,b)=>c.par[b]-c.par[a]);
   h += titreBloc("Activité par activité","ecart");
+  if(porte) h += `<div class="block amorce">Chacune compte tout son temps. Quand plusieurs sont menées de front, leur somme dépasse la journée — c'est voulu : la journée, elle, est au-dessus.</div>`;
   h += liste(tids.map(tid=>ligne({titre:esc(tacheNom(tid)), sous:esc(catNom(tacheCat(tid))),
-      apres:esc(hm(c.par[tid]))+" · "+partPc(c.par[tid], ecoule)+" %"})).join(""));
+      apres:esc(hm(c.par[tid]))})).join(""));
 
   /* Les blocs ne se lisaient qu'aujourd'hui, tant qu'ils ne portaient qu'une
      heure : une heure passée ne se relit pas. Depuis qu'ils portent ce qu'on
@@ -2856,16 +2972,39 @@ function vMonTemps(){
      entre le geste et la pensée. Et pas de creux de tête : avant le premier
      bloc d'une fenêtre il y a surtout la nuit, qu'on n'a pas à justifier. */
   const SEUIL=10*60000;
-  /* Toute fenêtre finit à l'instant présent : le dernier creux est donc
-     celui qui sépare le dernier bloc de maintenant, et c'est justement
-     celui qu'on vient d'ouvrir en s'arrêtant. */
-  let hautDuCreux = n2;
-  h += liste(lus.map(function(b){
-    const a=Math.max(b.deb, f.t0), z=Math.min(b.fin||n2, f.t1);
-    let sortie="";
-    if(hautDuCreux-z >= SEUIL) sortie += ligneCreux(z, hautDuCreux);
-    hautDuCreux = a;
-    return sortie + ligne({titre:esc(tacheNom(b.t)),
+  /* Un creux, c'est un moment où RIEN ne tournait — donc il se lit sur
+     l'union des périodes, jamais sur la suite des blocs. Tant qu'un seul
+     bloc courait à la fois, les deux revenaient au même ; depuis qu'on peut
+     en mener plusieurs de front (13.by), comparer un bloc au précédent
+     invente des trous là où une autre mission tournait encore.
+     On fusionne donc les périodes, et ce qui reste entre elles est vide.
+     Toute fenêtre finit à l'instant présent : le dernier creux est celui
+     qu'on vient d'ouvrir en s'arrêtant. */
+  const fus=[];
+  bs.map(function(b){ return [Math.max(b.deb,f.t0), Math.min(b.fin||n2,f.t1)]; })
+    .sort(function(p,q){ return p[0]-q[0]; })
+    .forEach(function(sp){
+      const d=fus[fus.length-1];
+      if(d && sp[0]<=d[1]){ if(sp[1]>d[1]) d[1]=sp[1]; }
+      else fus.push([sp[0], sp[1]]);
+    });
+  const vides=[];
+  for(let i=0;i<fus.length-1;i++)
+    if(fus[i+1][0]-fus[i][1] >= SEUIL) vides.push([fus[i][1], fus[i+1][0]]);
+  const der=fus.length ? fus[fus.length-1][1] : 0;
+  if(der && n2-der >= SEUIL) vides.push([der, n2]);
+
+  /* Blocs et creux se mêlent par l'heure, pas par le rang : un creux peut
+     tomber entre deux blocs qui ne se suivent pas dans la liste. */
+  const plusVieux = lus.length ? Math.max(lus[lus.length-1].deb, f.t0) : f.t0;
+  const items=lus.map(function(b){ return {d:Math.max(b.deb, f.t0), b:b}; })
+    .concat(vides.filter(function(v){ return v[0]>=plusVieux; })
+                 .map(function(v){ return {d:v[0], v:v}; }))
+    .sort(function(p,q){ return q.d-p.d; });
+  h += liste(items.map(function(it){
+    if(it.v) return ligneCreux(it.v[0], it.v[1]);
+    const b=it.b, a=it.d;
+    return ligne({titre:esc(tacheNom(b.t))+(b.porte?` <span class="pte">porte l'heure</span>`:""),
       sous:jourBref(a)+hmin(new Date(a))+" → "+(b.fin?hmin(new Date(b.fin)):"maintenant")
         +(b.note?`<span class="medNote">${esc(b.note)}</span>`:""),
       apres:esc(hm((b.fin||n2)-a)), attr:'data-bloc="'+b.id+'"'});
@@ -3245,7 +3384,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -3277,6 +3416,7 @@ document.addEventListener("click", ev=>{
     S.step=0; empile(); S.view="note"; return render();
   }
   if(g.per){ S.per=g.per; return render(); }
+  if(g.plus!==undefined){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.enPlus=(g.plus==="1"); return render(); }
   if(g.tcat){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.tCat=g.tcat; return render(); }
   if(g.creux){
     const p=g.creux.split("|");
@@ -3290,7 +3430,10 @@ document.addEventListener("click", ev=>{
     ouvreMenu([[{label:tacheNom(b.t)+" · "+hmin(new Date(b.deb))+" → "+(b.fin?hmin(new Date(b.fin)):"maintenant")}],
       [{txt:"C'était autre chose", attr:'data-act="corrBloc"'},
        {txt:"Corriger les heures", attr:'data-act="heuresBloc"'}]
-        .concat(b.fin ? [] : [{txt:"Arrêter de compter", attr:'data-act="stopBloc"'}])
+        .concat(chevauche(b) ? [{txt: b.porte ? "Rendre l'heure à ce qui tournait déjà"
+                                               : "C'est ça qui portait l'heure",
+                                  attr:'data-act="porteBloc"'}] : [])
+        .concat(b.fin ? [] : [{txt:"Arrêter ça seulement", attr:'data-act="stopBloc"'}])
         .concat([{txt:"Effacer ce bloc", rouge:true, attr:'data-act="delBloc"'}]),
       [{txt:"Annuler", attr:'data-act="fermeMenu"'}]]);
     return;
@@ -3355,9 +3498,18 @@ function poseTache(id){
     if(b){ b.t=id; touche(b); save(); toast("Corrigé."); }
     S.blocId=null; depile("temps"); return render();
   }
-  const chg=pointe(id);
+  /* Toucher une activité qui tourne déjà, c'est l'arrêter — elle seule.
+     C'est la seule lecture possible d'une tape sur une ligne cochée, et
+     c'est ce qui permet de fermer une mission sans fermer l'autre. */
+  const dejaLa=ouverts().filter(function(b){ return b.t===id; })[0];
+  if(dejaLa){
+    arreteUn(dejaLa); S.pile=[]; S.view="today";
+    toast("Arrêté : "+tacheNom(id)); return render();
+  }
+  const enPlus=!!S.enPlus;
+  const chg=pointe(id, enPlus);
   save(); S.pile=[]; S.view="today";
-  toast(chg ? "On compte : "+tacheNom(id) : "C'était déjà ça.");
+  toast(chg ? (enPlus ? "En plus : "+tacheNom(id) : "On compte : "+tacheNom(id)) : "C'était déjà ça.");
   render();
 }
 function valDate(id, repli){ const e=document.getElementById(id); return (e&&e.value)?e.value:(repli||today()); }
@@ -3443,7 +3595,24 @@ const actions={
     save(); toast("Gardé.");
     depile("temps"); render();
   },
-  stopBloc(){ fermeMenu(); arrete(); S.blocId=null; toast("Arrêté."); render(); },
+  stopBloc(){ fermeMenu(); const b=blocT(S.blocId); arreteUn(b); S.blocId=null; toast("Arrêté."); render(); },
+  /* L'app choisit par défaut celui qui tournait déjà. Elle ne sait pas
+     laquelle des deux choses était vraiment l'œuvre : lui, il le sait. */
+  porteBloc(){
+    fermeMenu();
+    const b=blocT(S.blocId); if(!b) return;
+    const f=finDe(b), veut=!b.porte;
+    if(veut){
+      (db.temps||[]).forEach(function(x){
+        if(x!==b && x.porte && x.deb<f && finDe(x)>b.deb){ delete x.porte; touche(x); }
+      });
+      b.porte=1;
+    } else delete b.porte;
+    touche(b); save(); S.blocId=null;
+    toast(veut ? "C'est « "+tacheNom(b.t)+" » qui porte l'heure."
+               : "L'heure revient à ce qui tournait déjà.");
+    render();
+  },
   /* Le creux vif ne se comble pas comme un creux d'archive : celui-ci
      touche l'instant présent. Le bloc qu'on en tire reste donc ouvert — on
      a dit à quoi allait tout ce temps, et il y va encore. La chaîne du

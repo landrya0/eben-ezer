@@ -154,17 +154,38 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
    qui n'est pas toujours au même endroit se cherche. Il est donc posé sur
    l'écran, pas sur la page — même coin, les quatre onglets, qu'on ait fait
    défiler ou non. Et comme du texte peut passer dessous, il porte son propre
-   disque de verre : sans lui, on lisait une date à travers la roue. */
+   disque de verre : sans lui, on lisait une date à travers la roue.
+   Mais un cercle cerné d'un filet, c'est un bouton — et un bouton réclame
+   l'œil autant que ce qu'on vient lire. Le filet tombe, le verre s'éclaircit
+   jusqu'à n'être qu'une respiration, et le trait s'affine. Il reste juste
+   assez de matière pour qu'une date ne traverse jamais la roue ; au doigt,
+   elle reprend sa pleine voix. Discret ne veut pas dire effacé : il est
+   toujours là, au même coin, et on le trouve sans avoir à le chercher.
+   Les deux opacités ne sont pas la même parce que les deux fonds ne le sont
+   pas : chacune est posée au seuil où le trait garde trois pour un contre
+   son fond, ce qu'il faut pour qu'un dessin reste lisible. Un cran plus bas,
+   on ne le verrait plus ; un cran plus haut, on ne verrait que lui.
+   Sa place suit le rail : quand le compteur tourne, il descend dessous —
+   sans quoi il passe derrière, et c'est comme s'il n'existait plus. Mais
+   seulement quand il est dans la page : l'en-tête fixe porte un flou, et un
+   flou fait de l'élément le repère des positions fixes qu'il contient. La
+   roue qui y est logée descend donc déjà avec elle ; lui ajouter la hauteur
+   du rail la ferait descendre deux fois. */
 #haut.libre .rouage, .entete .rouage{position:fixed;z-index:25;
   right:max(5px,env(safe-area-inset-right,0px));
   top:calc(5px + env(safe-area-inset-top,0px));
   width:40px;min-width:40px;height:40px;min-height:40px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
-  padding:0;margin:0;border:1px solid var(--filet);color:var(--muted);
-  background:var(--verre);-webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou);
+  padding:0;margin:0;border:0;color:var(--muted);opacity:.8;
+  background:rgba(255,252,249,.34);
+  -webkit-backdrop-filter:blur(13px) saturate(150%);backdrop-filter:blur(13px) saturate(150%);
+  transition:opacity .2s ease, transform .2s ease;
   -webkit-appearance:none;-webkit-tap-highlight-color:transparent}
-#haut.libre .rouage svg, .entete .rouage svg{width:20px;height:20px}
-#haut.libre .rouage:active, .entete .rouage:active{color:var(--f7-theme-color)}
+.dark #haut.libre .rouage, .dark .entete .rouage{background:rgba(32,36,31,.36);opacity:.64}
+#haut.libre .rouage svg, .entete .rouage svg{width:20px;height:20px;stroke-width:1.4}
+#haut.libre .rouage:active, .entete .rouage:active{opacity:1;transform:scale(.92);
+  color:var(--f7-theme-color)}
+body.avecRail .entete .rouage{top:calc(var(--rail,0px) + 5px)}
 .oeilleton{position:relative}
 .oeilleton input{padding-right:42px}
 .oeil{position:absolute;right:0;top:50%;transform:translateY(-50%);
@@ -634,7 +655,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v40";
+const VERSION = "v41";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -1471,6 +1492,10 @@ function fermeMenu(sec){
    à flouter. Leurs hauteurs changent d'un écran à l'autre : on les mesure. */
 function place(){
   const rH = rail.hidden ? 0 : rail.offsetHeight;
+  /* Le rouage est posé sur l'écran, pas sur la page : il ne sait pas qu'une
+     barre vient d'apparaître au-dessus de lui. On la lui dit. */
+  document.documentElement.style.setProperty("--rail", rH+"px");
+  document.body.classList.toggle("avecRail", rH>0);
   const hH = haut.hidden ? 0 : haut.offsetHeight;
   const aH = avance.hidden ? 0 : 2;
   const basH = bas.offsetHeight;

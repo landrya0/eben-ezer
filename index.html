@@ -643,6 +643,22 @@ body.avecRail .entete .rouage{top:calc(var(--rail,0px) + 5px)}
 .puce[aria-pressed="true"]{background:var(--f7-theme-color);color:#FBFAF8;
   border-color:var(--f7-theme-color)}
 .dark .puce[aria-pressed="true"]{color:#13100E}
+/* Cinq grains au lieu de quatre : on resserre plutôt que de laisser « Tout »
+   dépasser du bord, où il passerait pour inexistant. */
+.puces.fines .puce{padding:0 11px}
+
+/* Le navigateur de fenêtre : deux chevrons et le nom de la fenêtre au
+   milieu. Le nom se touche pour revenir au présent — il ne prend la
+   couleur du thème que lorsqu'il mène quelque part, c'est-à-dire
+   lorsqu'on s'est éloigné. */
+.fnav{display:flex;align-items:center;gap:4px;padding:4px 10px 0}
+.fnav .fnp{flex:0 0 auto;width:38px;min-height:38px;border:0;border-radius:19px;
+  background:transparent;color:var(--muted);font-size:21px;line-height:1;cursor:pointer}
+.fnav .fnp:disabled{opacity:.22;cursor:default}
+.fnav .fnt{flex:1;min-height:38px;border:0;background:transparent;cursor:pointer;
+  font-family:var(--sans);font-size:15px;font-weight:600;letter-spacing:.01em;
+  color:var(--f7-theme-color)}
+.fnav .fnt:disabled{color:var(--f7-text-color);cursor:default}
 
 /* ---------- saisie ---------- */
 textarea.dicte{width:100%;min-height:120px;border:0;background:transparent;resize:none;
@@ -752,7 +768,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v57";
+const VERSION = "v58";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -797,7 +813,7 @@ let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], liv
 let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an", rev:"noms", pile:[], nodeId:null,
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
-         per:"jour", tQ:"", tCat:"", blocId:null, medId:null, trou:null, quand:null,
+         per:"jour", anc:null, tQ:"", tCat:"", blocId:null, medId:null, trou:null, quand:null,
          noteFocus:false, frisZ:null, enPlus:false, tchId:null,
          lu:null, luA:null, luZ:null, luPlein:false, tSp:null,
          pgL:null, pgA:null, pgZ:null, lvId:null};
@@ -1090,14 +1106,101 @@ function cumul(t0, t1){
   }
   return {par:par, parCat:parCat, tot:tot, porte:porte};
 }
-const PERIODES = [["jour","Aujourd'hui"],["sem","7 jours"],["mois","30 jours"],["tout","Tout"]];
+/* Les fenêtres étaient glissantes — « les sept derniers jours », « les
+   trente derniers » — et une fenêtre glissante ne se remonte pas : il n'y a
+   pas de jour d'avant les sept derniers jours. Elles sont devenues des
+   fenêtres du calendrier, qui se parcourent : le jour, la semaine, le mois,
+   l'année. Les pastilles ne disent plus que le grain ; c'est la barre en
+   dessous qui dit laquelle on regarde. */
+const PERIODES = [["jour","Jour"],["sem","Semaine"],["mois","Mois"],["an","Année"],["tout","Tout"]];
+/* Les bornes se calculent toujours sur un objet Date, jamais en ajoutant des
+   millisecondes : l'heure d'hiver fait des journées de vingt-cinq heures, et
+   un mois n'a pas de durée. */
+function bornes(per, t){
+  const d=new Date(t); d.setHours(0,0,0,0);
+  if(per==="jour"){ const f=new Date(d); f.setDate(f.getDate()+1); return [d.getTime(), f.getTime()]; }
+  if(per==="sem"){ d.setDate(d.getDate()-((d.getDay()+6)%7));
+                   const f=new Date(d); f.setDate(f.getDate()+7); return [d.getTime(), f.getTime()]; }
+  if(per==="mois"){ d.setDate(1); const f=new Date(d); f.setMonth(f.getMonth()+1); return [d.getTime(), f.getTime()]; }
+  d.setMonth(0,1); const f=new Date(d); f.setFullYear(f.getFullYear()+1); return [d.getTime(), f.getTime()];
+}
+/* On ne décale jamais qu'un début de période — le 1er du mois, un lundi,
+   minuit — ce qui évite le piège du 31 janvier qu'on avance d'un mois. */
+function decale(per, t0, sens){
+  const d=new Date(t0);
+  if(per==="jour") d.setDate(d.getDate()+sens);
+  else if(per==="sem") d.setDate(d.getDate()+7*sens);
+  else if(per==="mois") d.setMonth(d.getMonth()+sens);
+  else d.setFullYear(d.getFullYear()+sens);
+  return bornes(per, d.getTime())[0];
+}
+function memeAn(t){ return new Date(t).getFullYear()===new Date().getFullYear(); }
+/* Deux noms pour la même fenêtre : celui qui entre dans une phrase — « rien
+   de compté le mardi 4 novembre » — et celui qui tient dans la barre. */
+function nomFen(per, t0){
+  const n=Date.now(), ici=bornes(per,n)[0], av=decale(per,ici,-1), d=new Date(t0);
+  if(per==="jour"){
+    if(t0===ici) return "aujourd'hui";
+    if(t0===av) return "hier";
+    return "le "+d.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})
+      +(memeAn(t0) ? "" : " "+d.getFullYear());
+  }
+  if(per==="sem"){
+    if(t0===ici) return "cette semaine";
+    if(t0===av) return "la semaine dernière";
+    return "la semaine du "+d.toLocaleDateString("fr-FR",{day:"numeric",month:"long"})
+      +(memeAn(t0) ? "" : " "+d.getFullYear());
+  }
+  if(per==="mois"){
+    if(t0===ici) return "ce mois-ci";
+    if(t0===av) return "le mois dernier";
+    return "en "+d.toLocaleDateString("fr-FR",{month:"long"})+(memeAn(t0) ? "" : " "+d.getFullYear());
+  }
+  if(t0===ici) return "cette année";
+  if(t0===av) return "l'an dernier";
+  return "en "+d.getFullYear();
+}
+function courtFen(per, t0){
+  const n=Date.now(), ici=bornes(per,n)[0], d=new Date(t0);
+  if(per==="jour"){
+    if(t0===ici) return "Aujourd'hui";
+    if(t0===decale(per,ici,-1)) return "Hier";
+    return cap(d.toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"}))
+      +(memeAn(t0) ? "" : " "+d.getFullYear());
+  }
+  if(per==="sem") return (t0===ici ? "Cette semaine"
+    : "Semaine du "+d.toLocaleDateString("fr-FR",{day:"numeric",month:"short"})
+      +(memeAn(t0) ? "" : " "+d.getFullYear()));
+  if(per==="mois") return cap(d.toLocaleDateString("fr-FR",{month:"long"}))
+    +(memeAn(t0) ? "" : " "+d.getFullYear());
+  return String(d.getFullYear());
+}
 function fenetre(){
   const n=Date.now();
-  if(S.per==="jour") return {t0:minuit(0), t1:n, nom:"aujourd'hui"};
-  if(S.per==="sem")  return {t0:minuit(6), t1:n, nom:"sur sept jours"};
-  if(S.per==="mois") return {t0:minuit(29), t1:n, nom:"sur trente jours"};
-  const d=(db.temps||[])[0];
-  return {t0:d?d.deb:n, t1:n, nom:"depuis le début"};
+  if(S.per==="tout"){
+    const d=(db.temps||[])[0];
+    return {t0:d?d.deb:n, t1:n, nom:"depuis le début", court:"Tout",
+            ici:true, avant:false, apres:false};
+  }
+  const b=bornes(S.per, S.anc===null ? n : S.anc), ici=(b[0]===bornes(S.per,n)[0]);
+  const prem=(db.temps||[])[0];
+  /* Une fenêtre passée s'arrête à sa propre fin ; celle d'aujourd'hui
+     s'arrête maintenant. C'est ce qui fait qu'hier se lit sur vingt-quatre
+     heures et aujourd'hui sur ce qui s'est écoulé. */
+  return {t0:b[0], t1:Math.min(b[1], n), nom:nomFen(S.per,b[0]), court:courtFen(S.per,b[0]),
+          ici:ici,
+          /* On ne remonte pas avant le premier bloc de l'archive, et on ne
+             descend pas dans un jour qui n'a pas eu lieu. */
+          avant: !!prem && prem.deb < b[0],
+          apres: !ici};
+}
+function barreFen(f){
+  if(S.per==="tout") return "";
+  return `<div class="fnav">
+    <button class="fnp" data-fdec="-1" aria-label="Avant"${f.avant?"":" disabled"}>&lsaquo;</button>
+    <button class="fnt"${f.ici?" disabled":' data-act="fenIci"'}>${esc(f.court)}</button>
+    <button class="fnp" data-fdec="1" aria-label="Après"${f.apres?"":" disabled"}>&rsaquo;</button>
+  </div>`;
 }
 function pcent(x, tot){ return tot ? Math.round(x*100/tot) : 0; }
 /* Sur trente jours, une heure de prière pèse deux dixièmes de pour cent.
@@ -1555,6 +1658,9 @@ function render(){
   if(S.view!=="lecture"){ S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false; }
   if(S.view!=="pages" && S.view!=="livre"){ S.pgL=null; S.pgA=null; S.pgZ=null; }
   if(S.view!=="pointer") S.tSp=null;
+  /* On ne rouvre jamais l'application sur une fenêtre passée : revenir à un
+     onglet ramène au présent, comme on ouvre toujours sur Aujourd'hui. */
+  if(ONGLETS.some(function(o){ return o[0]===S.view; })) S.anc=null;
   (VUES[S.view]||vToday)();
   const onglet = ONGLETS.some(o=>o[0]===S.view);
   const colle = Z.haut && !Z.file;
@@ -3127,7 +3233,7 @@ const PASX = [0.7, 1.6, 3.2];
    pixels, et une frise qu'on ne peut pas embrasser n'est plus une frise. */
 function vFrise(){
   const n=Date.now(), f=fenetre(), t1=Math.min(n, f.t1);
-  Z.titre="La journée"; Z.retour=true;
+  Z.titre=f.ici ? "La journée" : cap(f.court); Z.retour=true;
   const bs=(db.temps||[]).filter(function(b){ return (b.fin||n)>f.t0 && b.deb<t1; })
     .slice().sort(function(a,b){ return a.deb-b.deb; });
   if(!bs.length){ Z.html=`<p class="vide">Rien de compté ${f.nom}.</p>`; return; }
@@ -3254,7 +3360,8 @@ function vFrise(){
 function vMonTemps(){
   Z.titre="Mon temps"; Z.retour=true;
   const f=fenetre(), c=cumul(f.t0, f.t1);
-  let h = `<div class="puces" style="padding-top:15px">${PERIODES.map(p=>`<button class="puce" data-per="${p[0]}" aria-pressed="${S.per===p[0]}">${p[1]}</button>`).join("")}</div>`;
+  let h = `<div class="puces fines" style="padding-top:15px">${PERIODES.map(p=>`<button class="puce" data-per="${p[0]}" aria-pressed="${S.per===p[0]}">${p[1]}</button>`).join("")}</div>`;
+  h += barreFen(f);
   if(!c.tot){
     h += `<p class="vide">Rien de compté ${f.nom}. Touche le compteur, en bas, et dis à quoi tu es.</p>`;
     Z.html=h; return;
@@ -3395,7 +3502,7 @@ function vMonTemps(){
     if(it.v) return ligneCreux(it.v[0], it.v[1]);
     const b=it.b, a=it.d;
     return ligne({titre:esc(tacheNom(b.t))+(b.porte?` <span class="pte">porte l'heure</span>`:""),
-      sous:jourBref(a)+hmin(new Date(a))+" → "+(b.fin?hmin(new Date(b.fin)):"maintenant")
+      sous:(S.per==="jour"?"":jourBref(a))+hmin(new Date(a))+" → "+(b.fin?hmin(new Date(b.fin)):"maintenant")
         +((b.lu&&b.lu.length)?`<span class="lus">${esc(passagesTxt(b))}</span>`:"")
         +((b.pg&&b.pg.length)?`<span class="lus">${esc(passagesPgTxt(b))}</span>`:"")
         +(b.note?`<span class="medNote">${esc(b.note)}</span>`:""),
@@ -3407,7 +3514,7 @@ function vMonTemps(){
 
 function ligneCreux(d, f){
   return ligne({titre:`<span class="creux">Rien de compté</span>`,
-    sous:jourBref(d)+hmin(new Date(d))+" → "+hmin(new Date(f))+" — dire ce que c'était",
+    sous:(S.per==="jour"?"":jourBref(d))+hmin(new Date(d))+" → "+hmin(new Date(f))+" — dire ce que c'était",
     apres:esc(hm(f-d)), attr:'data-creux="'+d+"|"+f+'"'});
 }
 
@@ -4319,7 +4426,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup],[data-tch],[data-sp],[data-lusup],[data-tsp],[data-pgl],[data-pgsup],[data-lv]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup],[data-tch],[data-sp],[data-lusup],[data-tsp],[data-pgl],[data-pgsup],[data-lv],[data-fdec]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -4351,7 +4458,17 @@ document.addEventListener("click", ev=>{
     S.draft=neuf("moi"); S.draft.fige=true; S.draft.par=[g.attach];
     S.step=0; empile(); S.view="note"; return render();
   }
-  if(g.per){ S.per=g.per; return render(); }
+  if(g.per){
+    /* Changer de grain garde la date qu'on regardait — passer de « octobre »
+       à « Semaine » reste en octobre — sauf si le nouveau grain contient
+       déjà le présent. */
+    S.per=g.per;
+    if(S.anc!==null && (g.per==="tout" || bornes(g.per,S.anc)[0]===bornes(g.per,Date.now())[0])) S.anc=null;
+    return render(); }
+  if(g.fdec){
+    const fd=fenetre(), t=decale(S.per, fd.t0, +g.fdec);
+    S.anc = (t===bornes(S.per, Date.now())[0]) ? null : t;
+    return render(); }
   if(g.tsp!==undefined){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.tSp=g.tsp; return render(); }
   if(g.plus!==undefined){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.enPlus=(g.plus==="1"); return render(); }
   if(g.tcat){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.tCat=g.tcat; return render(); }
@@ -4670,10 +4787,14 @@ const actions={
   /* Les deux heures sont proposées, pas devinées : s'il y a un vide entre le
      début de la fenêtre et le premier bloc, c'est très probablement celui-là
      qu'on vient combler — la nuit qu'on a passée debout. */
+  fenIci(){ S.anc=null; render(); },
   ajoutTemps(){
     const f=fenetre(), n=Date.now();
     const bs=(db.temps||[]).filter(function(b){ return (b.fin||n)>f.t0 && b.deb<f.t1; });
+    /* Une heure proposée dans la fenêtre qu'on regarde : sur une journée
+       passée, « il y a une heure » ne tombe pas dedans. */
     let deb=n-3600000, fin=n;
+    if(f.t1<n){ deb=f.t0; fin=Math.min(f.t0+3600000, f.t1); }
     if(bs.length){
       const prem=Math.min.apply(null, bs.map(function(b){ return b.deb; }));
       if(prem-f.t0 >= 600000){ deb=f.t0; fin=prem; }

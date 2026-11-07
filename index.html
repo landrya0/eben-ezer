@@ -279,7 +279,7 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
    posé au pouce droit, et le bas de l'écran redevient calme. La phrase
    revient là où l'archive est vide — c'est le seul moment où il faut encore
    dire quoi faire. */
-#acte.geste{display:flex;justify-content:flex-end;padding:8px 16px 12px;
+#acte.geste{display:flex;justify-content:flex-end;align-items:center;gap:10px;padding:8px 16px 12px;
   background:none;border-top:0;-webkit-backdrop-filter:none;backdrop-filter:none}
 #acte.geste.surNav{padding-bottom:12px}
 /* La pastille : le geste discret, mais il garde son mot.
@@ -340,6 +340,42 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 .points{display:flex;justify-content:center;gap:6px;padding:2px 0 4px}
 .points i{width:6px;height:6px;border-radius:50%;background:var(--filet);transition:background .2s}
 .points i.on{background:var(--f7-theme-color)}
+
+/* ---------- le compteur : toujours là, toujours vrai ---------- */
+/* Il ne dit qu'une chose — à quoi va le temps en ce moment — et il la dit
+   sans qu'on ait rien à ouvrir. Le point bat tant que le compte est vivant ;
+   il se creuse quand le bloc dure depuis trop longtemps pour être honnête,
+   et le chiffre pâlit avec lui. Aucun mot de reproche : un signe suffit. */
+#chrono{flex:1 1 auto;min-width:0;display:block}
+.tic{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 15px;
+  border-radius:26px;background:var(--verre);
+  -webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou);
+  box-shadow:var(--ombre);color:inherit;text-decoration:none}
+.tic:active{transform:scale(.985)}
+.tic .pt{flex:0 0 auto;width:9px;height:9px;border-radius:50%;
+  background:var(--f7-theme-color);animation:pouls 2.8s ease-in-out infinite}
+.tic .pt.creux,.tic.vieux .pt{background:transparent;border:1.5px solid var(--muted);
+  animation:none;box-shadow:none}
+.tic .quoi{flex:1 1 auto;min-width:0;font-family:var(--sans);font-size:14.5px;font-weight:600;
+  letter-spacing:.004em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tic .dur{flex:0 0 auto;font-family:var(--sans);font-size:13.5px;font-weight:700;
+  letter-spacing:.01em;font-variant-numeric:tabular-nums;color:var(--f7-theme-color)}
+.tic.vieux .dur{color:var(--muted)}
+@keyframes pouls{0%,100%{box-shadow:0 0 0 0 var(--lueur)}50%{box-shadow:0 0 0 6px transparent}}
+.dark .tic{background:#20241F;border:1px solid rgba(157,183,164,.26)}
+
+/* ---------- la part de chacun ---------- */
+/* Des heures d'abord, la part ensuite, et une barre pour que l'œil saisisse
+   d'un coup ce que le chiffre met une seconde à dire. */
+.tps{margin:2px 16px 0}
+.tl{padding:12px 0 13px;border-bottom:1px solid var(--filet)}
+.tl:last-child{border-bottom:0}
+.tn{display:block;font-family:var(--sans);font-size:15.5px;font-weight:600;letter-spacing:.004em}
+.tv{display:flex;align-items:baseline;gap:9px;margin-top:3px;
+  font-family:var(--sans);font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tv b{font-size:14px;font-weight:700;color:var(--f7-theme-color);letter-spacing:.01em}
+.tj{display:block;height:5px;margin-top:8px;border-radius:3px;background:var(--filet);overflow:hidden}
+.tj i{display:block;height:100%;min-width:3px;border-radius:3px;background:var(--f7-theme-color)}
 
 /* ---------- puces de filtre ---------- */
 .puces{display:flex;gap:8px;overflow-x:auto;padding:12px 16px;scrollbar-width:none}
@@ -458,10 +494,27 @@ const MOIS = ["janvier","février","mars","avril","mai","juin","juillet","août"
 const ETAT = {fait:"fait", encours:"en cours", prevu:"prévu", abandon:"abandonné"};
 const ETATS = [["fait","C'est fait"],["encours","Ça dure encore"],["prevu","C'est prévu"]];
 
-let db = {nodes:[], gens:[], noms:[], mans:[], seq:1};
+/* Les quatre destinataires d'une journée, et ce qui n'en est aucun. « Le
+   reste » n'est pas un reproche : c'est l'attente, le trajet, le flottement.
+   Il doit porter un nom, sinon la journée mentirait de ce qu'elle ne compte
+   pas, et les parts seraient fausses. */
+const CAT_SOCLE = [["dieu","Pour Dieu"],["famille","Ma famille"],["travail","Mon travail"],["moi","Moi"],["reste","Le reste"]];
+/* Une liste vide au premier geste, c'est un écran qui demande du travail
+   avant de rendre service. On propose ; rien n'entre en mémoire avant d'être
+   touché. */
+const TACHES_SOCLE = [
+  ["Prière","dieu"],["Lecture de la Parole","dieu"],["Culte","dieu"],["Service dans l'assemblée","dieu"],
+  ["Temps en famille","famille"],["Repas en famille","famille"],["Prière en famille","famille"],
+  ["Travail","travail"],["Réunion","travail"],["Trajet","travail"],
+  ["Sommeil","moi"],["Repas","moi"],["Sport","moi"],["Lecture","moi"],
+  ["Attente","reste"],["Écrans","reste"]
+];
+
+let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], exp:0, seq:1};
 let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an", rev:"noms", pile:[], nodeId:null,
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
-         descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:""};
+         descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
+         per:"jour", tQ:"", tCat:"", blocId:null};
 
 /* Un seul « écran précédent » ne suffisait pas : en ouvrant un retour depuis
    un acte, il finissait par désigner l'acte lui-même, et le bouton Retour ne
@@ -488,7 +541,16 @@ function sane(v){
   const o = (v && typeof v==="object") ? v : {};
   const d = {nodes:Array.isArray(o.nodes)?o.nodes:[], gens:Array.isArray(o.gens)?o.gens:[],
           noms:Array.isArray(o.noms)?o.noms:[], mans:Array.isArray(o.mans)?o.mans:[],
+          cats:Array.isArray(o.cats)?o.cats:[], taches:Array.isArray(o.taches)?o.taches:[],
+          temps:Array.isArray(o.temps)?o.temps:[], exp:(typeof o.exp==="number")?o.exp:0,
           seq:(typeof o.seq==="number"&&o.seq>0)?o.seq:1};
+  /* Un bloc sans départ ou sans activité ne dit rien ; deux blocs mal rangés
+     font un « maintenant » qui n'est pas le dernier. On nettoie et on range
+     une fois pour toutes, au chargement. */
+  d.temps = d.temps.filter(b=>b && typeof b.deb==="number" && b.t)
+                   .sort((a,b)=>a.deb-b.deb);
+  d.temps.forEach((b,i)=>{ if(!b.id) b.id="b"+(d.seq++);
+    if(i<d.temps.length-1 && !b.fin) b.fin=d.temps[i+1].deb; });
   /* La date d'un acte dit quand il est arrivé ; elle ne dit pas dans quel
      ordre on l'a gardé. Deux actes du même jour se présentaient donc dans
      l'ordre où ils dormaient en mémoire — c'est-à-dire le plus ancien
@@ -531,6 +593,86 @@ function tranche(n, grain){
 }
 function ansDepuis(n){ const p=parse(n.date); if(!p) return 0; return new Date().getFullYear()-p.y; }
 function manCourt(m){ const t=manTxt(m); return t ? t.replace(/^Il (a |m'a |l'a )?/,"") : ""; }
+
+/* ---------- le temps ---------- */
+/* Le temps donné n'est pas un acte : il ne se garde pas dans le mémorial, il
+   se pèse à côté. Quarante blocs par jour noieraient l'archive, et l'archive
+   existe pour être relue. Deux registres, donc : les actes, et les heures. */
+function CATS(){
+  return CAT_SOCLE.map(function(c){ return {id:c[0], nom:c[1]}; })
+    .concat((db.cats||[]).map(function(c){ return {id:c.id, nom:c.nom}; }));
+}
+function catNom(id){ const c=CATS().filter(x=>x.id===id)[0]; return c ? c.nom : "Le reste"; }
+function catId(nom){
+  const v=String(nom||"").trim(); if(!v) return "";
+  const t=CATS().filter(c=>c.nom.toLowerCase()===v.toLowerCase())[0];
+  if(t) return t.id;
+  const id="k"+(db.seq++); db.cats.push({id:id, nom:cap(v)}); return id;
+}
+function tache(id){ return (db.taches||[]).filter(t=>t.id===id)[0]; }
+function tacheNom(id){ const t=tache(id); return t ? t.nom : "—"; }
+function tacheCat(id){ const t=tache(id); return t ? (t.cat||"reste") : "reste"; }
+function tacheId(nom, cat){
+  const v=String(nom||"").trim(); if(!v) return "";
+  const t=(db.taches||[]).filter(x=>x.nom.toLowerCase()===v.toLowerCase())[0];
+  if(t){ if(cat) t.cat=cat; return t.id; }
+  const id="a"+(db.seq++); db.taches.push({id:id, nom:cap(v), cat:cat||"reste"}); return id;
+}
+function blocT(id){ return (db.temps||[]).filter(b=>b.id===id)[0]; }
+
+/* Permanent, mais pas en marche : une page web s'arrête dès qu'on la quitte,
+   et aucun chronomètre ne survit à l'app fermée. On ne garde que l'heure de
+   départ — la soustraction reste juste après trois jours de silence. Un seul
+   bloc est ouvert à la fois : c'est là tout le « permanent ». */
+function ouvert(){ const a=db.temps||[]; const b=a[a.length-1]; return (b && !b.fin) ? b : null; }
+/* Vingt secondes, c'est un doigt qui s'est trompé, pas du temps vécu : on ne
+   garde pas la trace d'une erreur de pouce. */
+function pointe(tid){
+  const n=Date.now(), o=ouvert();
+  if(o){
+    if(o.t===tid) return false;
+    o.fin=n; if(o.fin-o.deb<20000) db.temps.pop();
+  }
+  db.temps.push({id:"b"+(db.seq++), t:tid, deb:n});
+  save(); return true;
+}
+function arrete(){
+  const o=ouvert(); if(!o) return;
+  o.fin=Date.now(); if(o.fin-o.deb<20000) db.temps.pop();
+  save();
+}
+
+function hm(ms){
+  const m=Math.max(0, Math.floor(ms/60000));
+  const h=Math.floor(m/60), r=m%60;
+  if(!h) return m+" min";
+  return r ? h+" h "+String(r).padStart(2,"0") : h+" h";
+}
+function hmin(d){ return d.getHours()+" h "+String(d.getMinutes()).padStart(2,"0"); }
+function minuit(dec){ const d=new Date(); d.setHours(0,0,0,0); if(dec) d.setDate(d.getDate()-dec); return d.getTime(); }
+
+/* Un bloc qui traverse la nuit appartient aux deux jours. On ne le coupe pas
+   en mémoire — on le coupe à la lecture, en ne comptant que ce qui tombe dans
+   la fenêtre. Le sommeil rend ainsi à chaque jour sa part, sans qu'on ait
+   touché à quoi que ce soit à minuit. */
+function cumul(t0, t1){
+  const par={}; let tot=0; const n=Date.now();
+  (db.temps||[]).forEach(function(b){
+    const a=Math.max(b.deb, t0), z=Math.min(b.fin||n, t1);
+    if(z>a){ par[b.t]=(par[b.t]||0)+(z-a); tot+=z-a; }
+  });
+  return {par:par, tot:tot};
+}
+const PERIODES = [["jour","Aujourd'hui"],["sem","7 jours"],["mois","30 jours"],["tout","Tout"]];
+function fenetre(){
+  const n=Date.now();
+  if(S.per==="jour") return {t0:minuit(0), t1:n, nom:"aujourd'hui"};
+  if(S.per==="sem")  return {t0:minuit(6), t1:n, nom:"sur sept jours"};
+  if(S.per==="mois") return {t0:minuit(29), t1:n, nom:"sur trente jours"};
+  const d=(db.temps||[])[0];
+  return {t0:d?d.deb:n, t1:n, nom:"depuis le début"};
+}
+function pcent(x, tot){ return tot ? Math.round(x*100/tot) : 0; }
 
 /* ---------- accès ---------- */
 function node(id){ return db.nodes.find(n=>n.id===id); }
@@ -716,6 +858,8 @@ function render(){
   const surCause = S.view==="lier" ||
     (S.view==="note" && S.draft && etapes(S.draft)[S.step]==="par");
   if(!surCause){ S.cNeuf=false; S.cTxt=""; S.cType=""; S.cQ=""; }
+  if(S.view!=="pointer"){ S.tQ=""; S.tCat=""; }
+  if(S.view!=="pointer" && S.view!=="temps") S.blocId=null;
   (VUES[S.view]||vToday)();
   const onglet = ONGLETS.some(o=>o[0]===S.view);
   const colle = Z.haut && !Z.file;
@@ -736,13 +880,15 @@ function render(){
   main.innerHTML = (Z.haut && Z.file ? `<header class="entete">${Z.haut}</header>` : "") + Z.html;
   barre.hidden = !Z.action;
   barre.className = (onglet?"surNav":"") + (Z.geste?" geste":"");
-  if(Z.action) barre.innerHTML = Z.action;
+  if(Z.action){ barre.innerHTML = Z.action; majChrono(); }
   nav.hidden = !onglet;
   if(onglet) nav.innerHTML = ONGLETS.map(([k,l])=>`<button data-go="${k}"${S.view===k?' aria-current="page"':""}>${ICONES[k]||""}<span>${l}</span></button>`).join("");
   main.scrollTop=0;
   place(); requestAnimationFrame(place);
   const f=document.getElementById("cFiltre");
   if(f){ f.value=S.cQ||""; f.dispatchEvent(new Event("input",{bubbles:true})); }
+  const tf=document.getElementById("tQ");
+  if(tf){ tf.value=S.tQ||""; tf.dispatchEvent(new Event("input",{bubbles:true})); }
   const carr=document.getElementById("carr"), pts=document.getElementById("points");
   if(carr && pts) carr.addEventListener("scroll", ()=>{
     const i=Math.round(carr.scrollLeft/(carr.scrollWidth/pts.children.length));
@@ -783,11 +929,29 @@ function bouton(txt, attr){ return `<a class="button button-large button-fill bu
 const PLUS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><path d="M12 5.4v13.2M5.4 12h13.2"/></svg>`;
 /* Tant qu'il n'y a rien à lire, le geste se dit en toutes lettres. Dès qu'il
    y a une archive, il se montre. */
+/* Le compteur partage la rangée avec la pastille au lieu de prendre une
+   bande à lui : trois étages de mobilier en bas d'un téléphone, et l'écran
+   n'a plus de place pour ce qu'on vient y lire. */
 function gesteNoter(){
-  if(!db.nodes.length){ Z.action = bouton("Noter quelque chose", 'data-go="note"'); return; }
-  Z.action = `<a class="pastille" data-go="note">${PLUS}<span>Noter</span></a>`;
+  if(!db.nodes.length && !(db.temps||[]).length){ Z.action = bouton("Noter quelque chose", 'data-go="note"'); return; }
+  Z.action = `<span id="chrono"></span><a class="pastille" data-go="note">${PLUS}<span>Noter</span></a>`;
   Z.geste = true;
 }
+/* Le compteur se réécrit tout seul, sans redessiner l'écran : redessiner
+   ferait sauter la lecture en cours toutes les vingt secondes. */
+function majChrono(){
+  const c=document.getElementById("chrono"); if(!c) return;
+  const o=ouvert();
+  if(!o){
+    c.innerHTML = `<a class="tic" data-go="pointer"><i class="pt creux"></i><span class="quoi">Rien n'est compté</span><span class="dur">Compter</span></a>`;
+    return;
+  }
+  const ec=Date.now()-o.deb, vieux=ec>=10*3600000;
+  c.innerHTML = `<a class="tic${vieux?" vieux":""}" data-go="pointer"><i class="pt"></i>
+    <span class="quoi">${esc(tacheNom(o.t))}</span><span class="dur">${hm(ec)}</span></a>`;
+}
+setInterval(function(){ if(!document.hidden) majChrono(); }, 20000);
+document.addEventListener("visibilitychange", function(){ if(!document.hidden) majChrono(); });
 function titreBloc(t, cls){ return `<div class="block-title ${cls||""}">${t}</div>`; }
 
 /* ---------- menu ••• ---------- */
@@ -858,7 +1022,8 @@ function vToday(){
     Z.file = true;
     Z.haut = RAMEAU("marque") + `<p class="titre-page">Rien encore.</p><p class="ssTitre">${d}</p>`;
     Z.html = `<div class="block amorce" style="margin-top:20px">Note la première chose : ce qu'Il a fait, ce que tu as fait, ou ce que quelqu'un a fait.</div>
-      ${liste(ligne({titre:"Voir un exemple", attr:'data-act="demo"'}))}`;
+      ${liste(ligne({titre:"Commencer à compter mon temps", attr:'data-go="pointer"'})+
+              ligne({titre:"Voir un exemple", attr:'data-act="demo"'}))}`;
     return;
   }
   const cartes=remontees();
@@ -1119,7 +1284,11 @@ function vActes(){
   const faits=mien.filter(n=>n.etat==="fait").sort(parDate);
   Z.file = true;
   Z.haut = `<p class="titre-page">Mes actes</p>`;
-  Z.html = bloc("En cours", mien.filter(n=>n.etat==="encours").sort(parDate), 0,
+  const cj=cumul(minuit(0), Date.now());
+  Z.html = liste(ligne({titre:"Mon temps",
+      sous: cj.tot ? esc(hm(cj.tot))+" compté aujourd'hui" : "Rien de compté aujourd'hui",
+      attr:'data-go="temps"'}), "lien")
+    + bloc("En cours", mien.filter(n=>n.etat==="encours").sort(parDate), 0,
       "Rien ne dure en ce moment. Ouvre un de tes actes et dis où il en est : il passera ici.")
     + bloc("Planifié", mien.filter(n=>n.etat==="prevu").sort(parDateAsc), 0,
       "Rien de prévu. « Je vais faire… », au moment de noter.")
@@ -1430,12 +1599,120 @@ function blocQuand(id, val, prec, avecEtat, etat){
   return h;
 }
 
+/* ---------- pointer : à quoi je suis ---------- */
+/* Un seul écran pour deux usages, parce que c'est la même question : à quoi
+   suis-je maintenant, et à quoi étais-je tout à l'heure. */
+function vPointer(){
+  const corr = S.blocId ? blocT(S.blocId) : null;
+  Z.titre = corr ? "C'était quoi ?" : "À quoi maintenant ?";
+  Z.retour = true;
+  const o = ouvert(), q = (S.tQ||"").trim(), cats = CATS();
+  let h = "";
+  if(corr) h += `<div class="block amorce" style="margin-top:16px"><b>${esc(tacheNom(corr.t))}</b>, de ${hmin(new Date(corr.deb))} à ${corr.fin?hmin(new Date(corr.fin)):"maintenant"}.</div>`;
+  else if(o) h += `<div class="block amorce" style="margin-top:16px">Depuis ${hmin(new Date(o.deb))}, le temps va à <b>${esc(tacheNom(o.t))}</b> — ${hm(Date.now()-o.deb)}.</div>`;
+  else h += `<div class="block amorce" style="margin-top:16px">Rien n'est compté. À partir de ce que tu touches ici, le temps aura un destinataire.</div>`;
+
+  h += liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
+      <input type="text" id="tQ" placeholder="Chercher, ou nommer autre chose" value="${esc(S.tQ||"")}" autocomplete="off" autocapitalize="sentences"></div></div></li>`);
+
+  const dejaLa = (db.taches||[]).some(t=>t.nom.toLowerCase()===q.toLowerCase());
+  h += `<div id="tNeuf"${(!q || dejaLa)?" hidden":""}>
+      ${titreBloc("Nouvelle activité")}
+      <div class="block amorce">Dans quoi la ranger ? C'est ce rangement, et lui seul, qui fera les parts.</div>
+      <div class="puces">${cats.map(c=>`<button class="puce" data-tcat="${c.id}" aria-pressed="${S.tCat===c.id}">${esc(c.nom)}</button>`).join("")}</div>
+      ${liste(ligne({titre:`<span class="qn">Compter « ${esc(cap(q))} »</span>`, attr:'data-act="neufTache"'}), "lien")}
+    </div>`;
+
+  if(!(db.taches||[]).length){
+    h += titreBloc("Pour commencer");
+    h += `<div class="block amorce">Touche-en une : elle est créée, rangée, et comptée dès cet instant. Tu en ajouteras autant que tu veux, et tu pourras les ranger autrement.</div>`;
+    cats.forEach(function(c){
+      const arr = TACHES_SOCLE.filter(x=>x[1]===c.id);
+      if(!arr.length) return;
+      h += `<div class="tgrp">${titreBloc(esc(c.nom))}${liste(arr.map(x=>ligne({titre:esc(x[0]),
+        attr:'data-sugg="'+esc(x[0])+'" data-cat="'+c.id+'" data-nom="'+esc(x[0].toLowerCase())+'"'})).join(""))}</div>`;
+    });
+  } else {
+    /* Ce qu'on fait souvent remonte de soi-même : la liste s'ordonne sur la
+       vie, pas sur l'alphabet. */
+    const freq = cumul(minuit(29), Date.now()).par;
+    cats.forEach(function(c){
+      const arr = (db.taches||[]).filter(t=>(t.cat||"reste")===c.id)
+        .sort((a,b)=>(freq[b.id]||0)-(freq[a.id]||0) || a.nom.localeCompare(b.nom,"fr"));
+      if(!arr.length) return;
+      h += `<div class="tgrp">${titreBloc(esc(c.nom))}${liste(arr.map(t=>ligne({titre:esc(t.nom),
+        apres:(o && o.t===t.id && !corr) ? `<span class="coche">✓</span>` : (freq[t.id] ? esc(hm(freq[t.id])) : ""),
+        attr:'data-tache="'+t.id+'" data-nom="'+esc(t.nom.toLowerCase())+'"'})).join(""))}</div>`;
+    });
+  }
+  if(!corr) h += liste(ligne({titre:"Mon temps", attr:'data-go="temps"'}), "lien");
+  Z.html = h;
+}
+
+/* ---------- mon temps ---------- */
+/* Des heures et des parts. Le dénominateur n'est pas la journée entière mais
+   ce qui a été compté : une part sur du temps qu'on n'a jamais réclamé serait
+   un chiffre inventé. L'écran dit donc toujours sur quoi il compte. */
+function vMonTemps(){
+  Z.titre="Mon temps"; Z.retour=true;
+  const f=fenetre(), c=cumul(f.t0, f.t1);
+  let h = `<div class="puces" style="padding-top:15px">${PERIODES.map(p=>`<button class="puce" data-per="${p[0]}" aria-pressed="${S.per===p[0]}">${p[1]}</button>`).join("")}</div>`;
+  if(!c.tot){
+    h += `<p class="vide">Rien de compté ${f.nom}. Touche le compteur, en bas, et dis à quoi tu es.</p>`;
+    Z.html=h; return;
+  }
+  h += `<div class="block amorce"><b>${esc(hm(c.tot))}</b> comptés ${f.nom}. Les parts se lisent sur ce total.</div>`;
+
+  const parCat={};
+  Object.keys(c.par).forEach(function(tid){ const k=tacheCat(tid); parCat[k]=(parCat[k]||0)+c.par[tid]; });
+  const vus=CATS().filter(x=>parCat[x.id]).sort((a,b)=>parCat[b.id]-parCat[a.id]);
+  h += titreBloc("La part de chacun");
+  h += `<div class="tps">`+vus.map(function(x){
+    const p=pcent(parCat[x.id], c.tot);
+    return `<div class="tl"><span class="tn">${esc(x.nom)}</span>
+      <span class="tv"><b>${p} %</b>${esc(hm(parCat[x.id]))}</span>
+      <span class="tj"><i style="width:${p}%"></i></span></div>`;
+  }).join("")+`</div>`;
+
+  const tids=Object.keys(c.par).sort((a,b)=>c.par[b]-c.par[a]);
+  h += titreBloc("Activité par activité","ecart");
+  h += liste(tids.map(tid=>ligne({titre:esc(tacheNom(tid)), sous:esc(catNom(tacheCat(tid))),
+      apres:esc(hm(c.par[tid]))+" · "+pcent(c.par[tid], c.tot)+" %"})).join(""));
+
+  if(S.per==="jour"){
+    const m0=minuit(0), n=Date.now();
+    const bs=(db.temps||[]).filter(b=>(b.fin||n)>m0).slice().reverse();
+    h += titreBloc("La journée, bloc par bloc","ecart");
+    h += `<div class="block amorce">Touche un bloc pour le corriger : on oublie de changer, et le compte le dit sans discuter.</div>`;
+    h += liste(bs.map(function(b){
+      const a=Math.max(b.deb, m0);
+      return ligne({titre:esc(tacheNom(b.t)),
+        sous:hmin(new Date(a))+" → "+(b.fin?hmin(new Date(b.fin)):"maintenant"),
+        apres:esc(hm((b.fin||n)-a)), attr:'data-bloc="'+b.id+'"'});
+    }).join(""));
+  }
+  Z.html=h;
+}
+
 /* ---------- mes données ---------- */
+/* Rien ne part d'ici tout seul : il n'y a pas de serveur, et un journal où
+   des gens sont nommés ne se dépose pas sur le premier entrepôt venu sans
+   qu'on l'ait décidé. Alors un fichier, qu'on sort et qu'on range où l'on
+   veut — iCloud, un courriel à soi-même. L'app dit la date de la dernière
+   fois ; c'est elle qui prévient, c'est le disciple qui sauvegarde. */
 function vData(){
   Z.titre="Mes données"; Z.retour=true;
-  Z.html = `<div class="block amorce" style="margin-top:18px">Tout est gardé sur ce téléphone, et nulle part ailleurs. Copie ce texte de temps en temps et garde-le quelque part : c'est ta sauvegarde.</div>
+  const q = db.exp
+    ? "Dernière sauvegarde : le "+new Date(db.exp).toLocaleDateString("fr-FR")+"."
+    : "Tu n'as encore jamais sauvegardé.";
+  const vieux = !db.exp || (Date.now()-db.exp) > 14*86400000;
+  Z.html = `<div class="block amorce" style="margin-top:18px">Tout est gardé sur ce téléphone, et nulle part ailleurs. ${vieux?`<b>${q}</b>`:q} Sors un fichier de temps en temps et garde-le ailleurs : c'est ta seule assurance.</div>
+    ${liste(ligne({titre:"Sortir un fichier", sous:"À envoyer dans iCloud, ou à toi-même", attr:'data-act="fichier"'})+
+            ligne({titre:"Reprendre un fichier", sous:"Remplace tout par celui que tu choisis", attr:'data-act="ouvreFichier"'}), "lien")}
+    <input type="file" id="fin" accept=".json,application/json,text/plain" hidden>
+    ${titreBloc("À la main","ecart")}
     ${liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
-      <textarea id="dump" style="min-height:150px;font-size:12px">${esc(JSON.stringify(db))}</textarea></div></div></li>`)}
+      <textarea id="dump" style="min-height:120px;font-size:12px">${esc(JSON.stringify(db))}</textarea></div></div></li>`)}
     ${liste(ligne({titre:"Remplacer par ce texte", attr:'data-act="restore"'})+
             ligne({titre:`<span class="rouge">Tout effacer</span>`, attr:'data-act="askWipe"'}))}`;
   Z.action = bouton("Copier", 'data-act="copy"');
@@ -1444,7 +1721,8 @@ function vData(){
 /* Depuis n'importe quel onglet, le geste reste à portée. */
 function vListe(f){ return function(){ f(); if(!Z.action) gesteNoter(); }; }
 const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), actes:vListe(vActes), chemin:vChemin, faits:vFaits,
-              note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData};
+              note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData,
+              pointer:vPointer, temps:vMonTemps};
 
 /* ---------- dictée ---------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1513,15 +1791,54 @@ document.addEventListener("input", ev=>{
     if(att)  att.hidden  = !!q || !!vus;
     return;
   }
+  /* Redessiner à chaque lettre ferait sauter le curseur : on cache et on
+     montre, et le clavier reste où il est. */
+  if(id==="tQ"){
+    const q=ev.target.value.trim().toLowerCase();
+    S.tQ=ev.target.value;
+    let exact=false;
+    [].forEach.call(document.querySelectorAll("[data-nom]"), el=>{
+      const li=el.closest("li")||el, nom=el.getAttribute("data-nom")||"";
+      const ok = !q || nom.indexOf(q)!==-1;
+      li.hidden=!ok; if(nom===q) exact=true;
+    });
+    [].forEach.call(document.querySelectorAll(".tgrp"), g=>{
+      g.hidden = !g.querySelectorAll("li:not([hidden])").length;
+    });
+    const nf=document.getElementById("tNeuf");
+    if(nf){
+      nf.hidden = !q || exact;
+      const b=nf.querySelector(".qn");
+      if(b) b.textContent="Compter « "+cap(ev.target.value.trim())+" »";
+    }
+    return;
+  }
   if(id==="nTxt" && S.draft){ S.draft.txt=ev.target.value; majRef(); }
   if(id==="nDesc" && S.draft) S.draft.desc=ev.target.value;
   if(id==="nDate" && S.draft) S.draft.date=ev.target.value;
 });
 
 /* ---------- gestes ---------- */
+document.addEventListener("change", function(ev){
+  if(ev.target.id!=="fin") return;
+  const f=ev.target.files && ev.target.files[0];
+  ev.target.value="";
+  if(!f) return;
+  const r=new FileReader();
+  r.onload=function(){
+    try{
+      const v=JSON.parse(String(r.result));
+      if(!v || !Array.isArray(v.nodes)) throw 0;
+      db=sane(v); save(); S.pile=[]; S.view="today";
+      toast("Repris"); render();
+    }catch(e){ toast("Ce fichier n'est pas une sauvegarde"); }
+  };
+  r.onerror=function(){ toast("Fichier illisible"); };
+  r.readAsText(f);
+});
 fond.addEventListener("click", ()=>fermeMenu());
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back]");
+  const t=ev.target.closest("[data-go],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -1545,6 +1862,19 @@ document.addEventListener("click", ev=>{
     fermeMenu(); S.nodeId=g.attach;
     S.draft=neuf("moi"); S.draft.fige=true; S.draft.par=[g.attach];
     S.step=0; empile(); S.view="note"; return render();
+  }
+  if(g.per){ S.per=g.per; return render(); }
+  if(g.tcat){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.tCat=g.tcat; return render(); }
+  if(g.tache) return poseTache(g.tache);
+  if(g.sugg){ return poseTache(tacheId(g.sugg, g.cat)); }
+  if(g.bloc){
+    S.blocId=g.bloc; const b=blocT(g.bloc); if(!b) return;
+    ouvreMenu([[{label:tacheNom(b.t)+" · "+hmin(new Date(b.deb))+" → "+(b.fin?hmin(new Date(b.fin)):"maintenant")}],
+      [{txt:"C'était autre chose", attr:'data-act="corrBloc"'}]
+        .concat(b.fin ? [] : [{txt:"Arrêter de compter", attr:'data-act="stopBloc"'}])
+        .concat([{txt:"Effacer ce bloc", rouge:true, attr:'data-act="delBloc"'}]),
+      [{txt:"Annuler", attr:'data-act="fermeMenu"'}]]);
+    return;
   }
   if(g.filtre){ S.filtre=g.filtre; return render(); }
   if(g.fret){ S.ret=g.fret; return render(); }
@@ -1583,6 +1913,20 @@ document.addEventListener("click", ev=>{
   if(g.act) return actions[g.act] && actions[g.act](t);
 });
 
+/* Choisir une activité, c'est soit dire à quoi je suis maintenant, soit
+   rendre à un bloc passé son vrai nom. Le même geste, deux destinations. */
+function poseTache(id){
+  if(!id) return;
+  if(S.blocId){
+    const b=blocT(S.blocId);
+    if(b){ b.t=id; save(); toast("Corrigé."); }
+    S.blocId=null; depile("temps"); return render();
+  }
+  const chg=pointe(id);
+  save(); S.pile=[]; S.view="today";
+  toast(chg ? "On compte : "+tacheNom(id) : "C'était déjà ça.");
+  render();
+}
 function valDate(id, repli){ const e=document.getElementById(id); return (e&&e.value)?e.value:(repli||today()); }
 /* La proposition se met à jour pendant la frappe, sans redessiner l'écran :
    un curseur qui saute au milieu d'une phrase est pire que pas de proposition. */
@@ -1614,6 +1958,20 @@ const actions={
     S.draft[ch]=id; save(); S.step++; render();
   },
   plier(){ S.plie=!S.plie; render(); },
+  neufTache(){
+    const e=document.getElementById("tQ");
+    const v=((e&&e.value)||S.tQ||"").trim();
+    if(!v) return toast("Écris le nom de l'activité");
+    if(!S.tCat) return toast("Dis dans quoi la ranger");
+    poseTache(tacheId(v, S.tCat));
+  },
+  corrBloc(){ fermeMenu(); empile(); S.view="pointer"; render(); },
+  stopBloc(){ fermeMenu(); arrete(); S.blocId=null; toast("Arrêté."); render(); },
+  delBloc(){
+    fermeMenu();
+    db.temps=(db.temps||[]).filter(b=>b.id!==S.blocId);
+    S.blocId=null; save(); toast("Effacé."); render();
+  },
   ouvreDesc(){ saveTxt(); S.descOuvert=true; render(); },
   refDesc(){
     saveTxt();
@@ -1700,13 +2058,32 @@ const actions={
     save(); depile("today"); toast("Supprimé."); render();
   },
   copy(){ const e=document.getElementById("dump"); e.select(); try{ navigator.clipboard.writeText(e.value).then(()=>toast("Copié"),()=>toast("Sélectionne et copie")); }catch(x){ toast("Sélectionne et copie"); } },
+  fichier(){
+    const txt=JSON.stringify(db), nom="eben-ezer-"+today()+".json";
+    const fait=()=>{ db.exp=Date.now(); save(); };
+    try{
+      const f=new File([txt], nom, {type:"application/json"});
+      if(navigator.share && navigator.canShare && navigator.canShare({files:[f]})){
+        navigator.share({files:[f], title:nom}).then(()=>{ fait(); render(); }, ()=>{});
+        return;
+      }
+    }catch(e){}
+    try{
+      const u=URL.createObjectURL(new Blob([txt],{type:"application/json"}));
+      const a=document.createElement("a");
+      a.href=u; a.download=nom; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(u), 5000);
+      fait(); toast("Fichier sorti"); render();
+    }catch(e){ toast("Copie le texte, plus bas"); }
+  },
+  ouvreFichier(){ const i=document.getElementById("fin"); if(i) i.click(); },
   restore(){ try{ const v=JSON.parse(document.getElementById("dump").value); if(!v||!Array.isArray(v.nodes)) throw 0; db=sane(v); save(); toast("Remplacé"); S.view="today"; render(); }catch(e){ toast("Ce texte n'est pas une sauvegarde"); } },
   askWipe(){
     ouvreMenu([[{label:"Tous tes mémoriaux seront effacés. Copie d'abord ta sauvegarde."},
                 {txt:"Tout effacer", rouge:true, attr:'data-act="wipe"'}],
                [{txt:"Annuler", attr:'data-act="fermeMenu"'}]]);
   },
-  wipe(){ fermeMenu(); db={nodes:[],gens:[],noms:[],seq:1}; save(); S.view="today"; toast("Effacé"); render(); }
+  wipe(){ fermeMenu(); db=sane({}); save(); S.view="today"; toast("Effacé"); render(); }
 };
 
 /* ---------- exemple ---------- */
@@ -1735,6 +2112,10 @@ function theme(){
 theme();
 if(window.matchMedia){ try{ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", theme); }catch(e){} }
 load(); render();
+/* iOS peut vider le stockage d'un site qu'il juge inactif. On demande une
+   fois à ce que celui-ci soit tenu pour durable — c'est tout ce qu'un site
+   peut demander, et ça ne remplace pas un fichier gardé ailleurs. */
+try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
 /* La mise à jour doit arriver sans qu'on ait à supprimer l'app.
    « updateViaCache: none » empêche le téléphone de servir un vieux sw.js ;
    on redemande une vérification à chaque fois que l'app revient à l'écran ;

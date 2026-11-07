@@ -268,9 +268,14 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
    Repliés, ils tiennent sur une ligne qui dit ce qui est filtré. */
 .plier{display:flex;align-items:center;gap:10px;width:calc(100% - 32px);
   margin:14px 16px 0;padding:10px 14px;border:0;border-radius:15px;
-  background:var(--verre);-webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou);
+  background:var(--barre);-webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou);
   box-shadow:var(--ombre);font-family:var(--sans);font-size:13px;line-height:1.35;
   color:var(--muted);text-align:left;cursor:pointer}
+/* Replié, le bandeau suit le pouce : dans une archive qui défile longtemps,
+   un filtre qu'il faut remonter chercher n'est pas un filtre. Déplié, il
+   reste à sa place — trois rangs de pastilles épinglés mangeraient l'écran
+   qu'on venait justement de libérer. */
+.plier.colle{position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
 .plier b{font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:10.5px;
   color:var(--f7-theme-color);flex:0 0 auto}
 .plier .q{flex:1 1 auto;min-width:0}
@@ -721,7 +726,7 @@ function vOeuvres(){
     (fg.filter(x=>x[0]===S.grain)[0]||fg[0])[1].toLowerCase()
   ].join(" · ");
   let h=`<p class="titre-page">Ses œuvres</p><p class="ssTitre">${list.length} fois, par Lui-même ou par une main.</p>
-    <button class="plier" data-act="plier" aria-expanded="${!S.plie}">
+    <button class="plier${S.plie?" colle":""}" data-act="plier" aria-expanded="${!S.plie}">
       <b>Filtres</b><span class="q">${esc(resume)}</span>${BAS}</button>`;
   if(!S.plie) h+=`<div class="ptitre">Sa manière</div>
     <div class="puces">${fl.map(f=>`<button class="puce" data-filtre="${f}" aria-pressed="${S.filtre===f}">${f==="tout"?"Tout":manTxt(f)}</button>`).join("")}</div>

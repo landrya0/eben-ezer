@@ -227,7 +227,7 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 /* Deux emplacements seulement : le filigrane d'un écran, la marque de l'accueil. */
 .rameau{display:block;pointer-events:none}
 .filigrane{position:absolute;top:-10px;right:-22px;width:118px;opacity:.3;z-index:0}
-.marque{width:84px;margin:6px 0 2px 13px;opacity:1}
+.marque{width:60px;margin:6px 0 2px 13px;opacity:1}
 
 /* ---------- charpente : les barres passent par-dessus le contenu ---------- */
 #main{position:absolute;inset:0;z-index:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -242,9 +242,14 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
    La liste glisse dessous, derrière le verre dépoli. */
 #haut.libre{display:block;min-height:0;
   padding:calc(12px + env(safe-area-inset-top,0px)) 0 12px}
-#haut.libre .titre-page{margin:0 16px 2px}
-#haut.libre .marque{margin:0 0 4px 13px}
-#haut.libre .ssTitre{margin:0 16px 0}
+/* Une en-tête ne se fige que si elle commande la liste : des filtres, des
+   onglets, un compte qui suit le filtre. Celle d'Aujourd'hui ne commande rien
+   — elle ne faisait que retenir un quart de l'écran pendant qu'on fait
+   défiler. Elle défile donc avec le reste, et l'écran revient au contenu. */
+.entete{display:block;padding:0 0 10px}
+#haut.libre .titre-page, .entete .titre-page{margin:0 16px 2px}
+#haut.libre .marque, .entete .marque{margin:0 0 4px 13px}
+#haut.libre .ssTitre, .entete .ssTitre{margin:0 16px 0}
 #haut.libre .ptitre{margin:12px 16px -2px}
 #haut.libre .puces{padding:10px 16px 0}
 #haut.libre .puces.suite{padding-top:0}
@@ -452,13 +457,23 @@ function depile(repli){
 /* ---------- stockage ---------- */
 function sane(v){
   const o = (v && typeof v==="object") ? v : {};
-  return {nodes:Array.isArray(o.nodes)?o.nodes:[], gens:Array.isArray(o.gens)?o.gens:[],
+  const d = {nodes:Array.isArray(o.nodes)?o.nodes:[], gens:Array.isArray(o.gens)?o.gens:[],
           noms:Array.isArray(o.noms)?o.noms:[], mans:Array.isArray(o.mans)?o.mans:[],
           seq:(typeof o.seq==="number"&&o.seq>0)?o.seq:1};
+  /* La date d'un acte dit quand il est arrivé ; elle ne dit pas dans quel
+     ordre on l'a gardé. Deux actes du même jour se présentaient donc dans
+     l'ordre où ils dormaient en mémoire — c'est-à-dire le plus ancien
+     d'abord, juste quand on vient d'en écrire un. On garde l'heure.
+     Les actes d'avant n'en ont pas : ils reçoivent leur rang, qui met le
+     dernier gardé au-dessus et laisse toujours passer un acte neuf. */
+  d.nodes.forEach((n,i)=>{ if(typeof n.ts!=="number") n.ts=i+1; });
+  return d;
 }
 function load(){ try{ const r=localStorage.getItem(KEY); if(r) db=sane(JSON.parse(r)); }catch(e){} }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){ toast("Enregistrement impossible"); } }
 function nid(){ return "n"+(db.seq++); }
+function ts(){ return Date.now(); }
+function cap(t){ t=String(t||""); return t.charAt(0).toUpperCase()+t.slice(1); }
 function toast(t){ const d=document.createElement("div"); d.className="toast"; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2200); }
 
 /* ---------- dates ---------- */
@@ -519,10 +534,10 @@ function chemins(){
   db.nodes.forEach(n=>{ const r=racine(n.id); (paquets[r]=paquets[r]||[]).push(n); });
   return Object.keys(paquets).map(k=>paquets[k])
     .filter(a=>a.length>1)
-    .map(a=>a.slice().sort((x,y)=>(x.date||"").localeCompare(y.date||"")))
+    .map(a=>a.slice().sort(parDateAsc))
     /* Le chemin qui a bougé le plus récemment se lit d'abord — la longueur
        n'est pas ce qu'on cherche en ouvrant la liste. */
-    .sort((a,b)=>(b[b.length-1].date||"").localeCompare(a[a.length-1].date||"") || b.length-a.length);
+    .sort((a,b)=>parDate(a[a.length-1],b[b.length-1]) || b.length-a.length);
 }
 function cheminDe(id){ if(!id) return null; return chemins().filter(a=>a.some(n=>n.id===id))[0]||null; }
 /* La romaine est réservée à ce qui est CITÉ, jamais à ce qui est raconté au
@@ -566,7 +581,12 @@ function acteurTxt(n){
   return "moi → "+d;
 }
 function dieuNodes(){ return db.nodes.filter(n=>n.kind!=="ecriture" && (n.act==="dieu" || (n.act==="gens" && n.man))); }
-function parDate(a,b){ return (b.date||"").localeCompare(a.date||""); }
+function parDate(a,b){ return (b.date||"").localeCompare(a.date||"") || ((b.ts||0)-(a.ts||0)); }
+/* Les deux lectures qui remontent le temps — un chemin, ce qui est prévu —
+   prennent le même départage, retourné : à date égale, le premier gardé
+   ouvre la marche. Sans quoi deux actes du même jour se croisent au hasard
+   de la mémoire, et une chaîne qui se croise ne se lit plus. */
+function parDateAsc(a,b){ return (a.date||"").localeCompare(b.date||"") || ((a.ts||0)-(b.ts||0)); }
 
 /* ---------- ce qui revient ----------
    Pas un seul souvenir : tout ce qui revient aujourd'hui, à faire défiler.
@@ -606,7 +626,7 @@ function remontees(){
   const prends=c=>{ if(c && !vus[c.n.id]){ vus[c.n.id]=1; cartes.push(c); } };
 
   db.nodes.filter(n=>n.etat==="prevu" && n.date && n.date<=today())
-    .sort((a,b)=>(a.date||"").localeCompare(b.date||""))
+    .sort(parDateAsc)
     .slice(0,2)
     .forEach(n=>prends({n:n, type:"prevu", quand:"Tu avais prévu"}));
 
@@ -614,7 +634,7 @@ function remontees(){
     .sort((a,b)=>a.rang-b.rang).forEach(prends);
 
   dieuNodes().filter(n=>!enfants(n.id).some(e=>e.act==="moi"))
-    .sort((a,b)=>(a.date||"").localeCompare(b.date||""))
+    .sort(parDateAsc)
     .slice(0,2)
     .forEach(n=>prends({n:n, type:"dette", quand:"Sans réponse de toi"}));
 
@@ -657,7 +677,7 @@ const ONGLETS = [["today","Aujourd'hui"],["oeuvres","Ses œuvres"],["revel","Ré
 
 /* Chaque vue remplit ces zones. Une seule action principale par écran. */
 let Z = {};
-function zero(){ Z = {titre:"", retour:false, fermer:false, plus:false, action:"", avance:0, haut:"", html:""}; }
+function zero(){ Z = {titre:"", retour:false, fermer:false, plus:false, action:"", avance:0, haut:"", file:false, html:""}; }
 
 function render(){
   if(rec) micArret();
@@ -669,9 +689,10 @@ function render(){
   if(!surCause){ S.cNeuf=false; S.cTxt=""; S.cType=""; S.cQ=""; }
   (VUES[S.view]||vToday)();
   const onglet = ONGLETS.some(o=>o[0]===S.view);
-  haut.hidden = !Z.titre && !Z.retour && !Z.fermer && !Z.haut;
-  haut.className = Z.haut ? "libre" : "";
-  if(!haut.hidden && Z.haut){ haut.innerHTML = Z.haut; }
+  const colle = Z.haut && !Z.file;
+  haut.hidden = !Z.titre && !Z.retour && !Z.fermer && !colle;
+  haut.className = colle ? "libre" : "";
+  if(!haut.hidden && colle){ haut.innerHTML = Z.haut; }
   else if(!haut.hidden){
     haut.innerHTML =
       (Z.retour ? `<button data-back="1" aria-label="Revenir">${CHEV}<span>Retour</span></button>`
@@ -683,7 +704,7 @@ function render(){
   avance.hidden = !Z.avance;
   if(Z.avance) avance.firstElementChild.style.width = Math.round(Z.avance*100)+"%";
   main.className = haut.hidden ? "plat" : "";
-  main.innerHTML = Z.html;
+  main.innerHTML = (Z.haut && Z.file ? `<header class="entete">${Z.haut}</header>` : "") + Z.html;
   barre.hidden = !Z.action;
   barre.className = onglet ? "surNav" : "";
   if(Z.action) barre.innerHTML = Z.action;
@@ -797,6 +818,7 @@ function vToday(){
   const d = now.getDate()+" "+MOIS[now.getMonth()];
   Z.action = bouton("Noter quelque chose", 'data-go="note"');
   if(!db.nodes.length){
+    Z.file = true;
     Z.haut = RAMEAU("marque") + `<p class="titre-page">Rien encore.</p><p class="ssTitre">${d}</p>`;
     Z.html = `<div class="block amorce" style="margin-top:20px">Note la première chose : ce qu'Il a fait, ce que tu as fait, ou ce que quelqu'un a fait.</div>
       ${liste(ligne({titre:"Voir un exemple", attr:'data-act="demo"'}))}`;
@@ -804,11 +826,13 @@ function vToday(){
   }
   const cartes=remontees();
   if(!cartes.length){
+    Z.file = true;
     Z.haut = RAMEAU("marque") + `<p class="titre-page">Rien ne revient aujourd'hui.</p><p class="ssTitre">${d}</p>`;
     Z.html = `<div class="block amorce" style="margin-top:20px">Tout ce qu'Il a fait a reçu quelque chose de toi. Note la suite quand elle vient.</div>`;
     return;
   }
   const recents=db.nodes.slice().sort(parDate).slice(0,4);
+  Z.file = true;
   Z.haut = RAMEAU("marque") + `<p class="titre-page">Ce qui revient</p><p class="ssTitre">${d}</p>`;
   Z.html = `<div class="carr" id="carr" style="margin-top:16px">${cartes.map(carte).join("")}</div>
     ${cartes.length>1 ? `<div class="points" id="points">${cartes.map((c,i)=>`<i${i?"":' class="on"'}></i>`).join("")}</div>` : ""}
@@ -827,12 +851,15 @@ function vOeuvres(){
   const fg=[["an","Par année"],["mois","Par mois"],["semaine","Par semaine"]];
   /* Replié, le bandeau dit lui-même ce qu'il cache : sans cela, on filtre
      sans le savoir et on croit l'archive vide. */
-  /* Le bandeau ne dit que ce qui retranche : « répondu ou non » n'apprend
-     rien et pousse la ligne sur deux rangs pour rien. */
+  /* Le bandeau ne dit que ce qui s'écarte de l'ordinaire. « Toutes Ses
+     manières · par année » décrivait l'état normal de l'écran en six mots :
+     un bandeau qui parle quand il n'a rien à dire, on cesse de le lire, et le
+     jour où il a quelque chose à dire on ne le lit plus non plus. Rien de
+     réglé : « Filtres », et c'est tout. */
   const resume=[
-    S.filtre==="tout" ? "toutes Ses manières" : manTxt(S.filtre).toLowerCase(),
-    S.ret==="oui" ? "là où j'ai répondu" : (S.ret==="non" ? "là où je n'ai rien rendu" : ""),
-    (fg.filter(x=>x[0]===S.grain)[0]||fg[0])[1].toLowerCase()
+    S.filtre==="tout" ? "" : manCourt(S.filtre),
+    S.ret==="oui" ? "j'ai répondu" : (S.ret==="non" ? "rien rendu" : ""),
+    S.grain==="an" ? "" : (S.grain==="mois" ? "par mois" : "par semaine")
   ].filter(Boolean).join(" · ");
   /* Un compte qui ne bouge pas quand le filtre retranche fait croire que
      l'archive est plus vide qu'elle n'est — ou plus pleine. */
@@ -845,7 +872,7 @@ function vOeuvres(){
     : `${vus.length} sur ${list.length}, sous ce filtre.`;
   Z.haut=`<p class="titre-page">Ses œuvres</p><p class="ssTitre">${compte}</p>
     <button class="plier" data-act="plier" aria-expanded="${!S.plie}">
-      <b>Filtres</b><span class="q">${esc(resume)}</span>${BAS}</button>`;
+      <b>Filtres</b>${resume?`<span class="q">${esc(resume)}</span>`:""}${BAS}</button>`;
   if(!S.plie) Z.haut+=`<div class="ptitre">Sa manière</div>
     <div class="puces">${fl.map(f=>`<button class="puce" data-filtre="${f}" aria-pressed="${S.filtre===f}">${f==="tout"?"Tout":manTxt(f)}</button>`).join("")}</div>
     <div class="ptitre">Mon retour</div>
@@ -1042,17 +1069,23 @@ function vFaits(){
 /* ---------- Mes actes ---------- */
 function vActes(){
   const mien=db.nodes.filter(n=>n.act==="moi");
-  const bloc=(t,arr,reste)=>{
+  /* « Rien. » sous « En cours » ne disait pas si l'écran était vide ou si le
+     disciple n'avait pas trouvé le geste. Un bloc vide dit comment il se
+     remplit. */
+  const bloc=(t,arr,reste,vide)=>{
     let h=titreBloc(t);
-    if(!arr.length) return h+`<p class="vide">Rien.</p>`;
+    if(!arr.length) return h+`<p class="vide">${vide||"Rien."}</p>`;
     h+=liste(arr.map(n=>ligneActe(n,{attr:'data-node="'+n.id+'"'})).join(""));
     if(reste>0) h+=`<div class="block amorce">…et ${reste} autre${reste>1?"s":""}.</div>`;
     return h;
   };
   const faits=mien.filter(n=>n.etat==="fait").sort(parDate);
+  Z.file = true;
   Z.haut = `<p class="titre-page">Mes actes</p>`;
-  Z.html = bloc("En cours", mien.filter(n=>n.etat==="encours").sort(parDate))
-    + bloc("Planifié", mien.filter(n=>n.etat==="prevu").sort((a,b)=>(a.date||"").localeCompare(b.date||"")))
+  Z.html = bloc("En cours", mien.filter(n=>n.etat==="encours").sort(parDate), 0,
+      "Rien ne dure en ce moment. Ouvre un de tes actes et dis où il en est : il passera ici.")
+    + bloc("Planifié", mien.filter(n=>n.etat==="prevu").sort(parDateAsc), 0,
+      "Rien de prévu. « Je vais faire… », au moment de noter.")
     + bloc("Fait", faits.slice(0,12), faits.length-12);
 }
 
@@ -1114,7 +1147,17 @@ function vNode(){
       <p class="meta">${esc(acteurTxt(n))}${(n.man&&n.kind!=="rhema")?" · "+esc(manCourt(n.man)):""}${dte?" · "+dte:""}${n.etat&&n.etat!=="fait"?" · "+ETAT[n.etat]:""}</p>
       ${n.desc?`<p class="desc">${esc(n.desc)}</p>`:""}
     </div>`;
-  h+=titreBloc("En réponse à");
+  /* Un acte à moi change d'état tout seul avec le temps : ce qui était prévu
+     commence, ce qui a commencé s'achève. Si ça ne se dit qu'au moment de la
+     capture, l'écran « Mes actes » ment au bout d'une semaine. Ici, un doigt
+     suffit, et c'est le disciple qui le pose (P9). */
+  if(n.act==="moi"){
+    h+=titreBloc("Où ça en est");
+    h+=liste(ETATS.map(([k,l])=>ligne({titre:l,
+      apres:(n.etat||"fait")===k?`<span class="coche">✓</span>`:"",
+      attr:'data-netat="'+k+'"'})).join(""));
+  }
+  h+=titreBloc("En réponse à", n.act==="moi"?"ecart":"");
   h+=liste(
     (par.length ? par.map(p=>ligneActe(p,{attr:'data-node="'+p.id+'"'})).join("")
       : ligne({titre:`<span class="rien">Rien, pour l'instant</span>`}))
@@ -1126,7 +1169,7 @@ function vNode(){
     ? liste(enf.map(e=>ligneActe(e,{attr:'data-node="'+e.id+'"'})).join(""))
     : `<p class="vide">Rien n'a suivi, pour l'instant.</p>`;
   Z.html=h;
-  Z.action = (n.etat==="prevu")
+  Z.action = (n.etat==="prevu" || n.etat==="encours")
     ? bouton("C'est fait", 'data-fait="'+n.id+'"')
     : bouton("Dire ce qui a suivi", 'data-attach="'+n.id+'"');
 }
@@ -1333,15 +1376,20 @@ function rappel(p){
 }
 /* La date est toujours visible. L'état est une question séparée. */
 function blocQuand(id, val, prec, avecEtat, etat){
-  let h=titreBloc(etat==="prevu" ? "Pour quand ?" : "Quand ?")+
-    liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
-      <input type="date" id="${id}" value="${val||today()}"></div></div></li>`+
-      ligne({titre:(prec==="m"?`<span class="coche">Je ne me souviens que du mois</span>`:"Je ne me souviens que du mois"),
-             apres:prec==="m"?`<span class="coche">✓</span>`:"", attr:'data-prec="'+id+'"'}));
+  /* L'état passe avant la date : c'est lui qui décide si la question est
+     « quand ? » ou « pour quand ? ». Dessous, sous un calendrier et déjà
+     coché sur « c'est fait », personne ne le voyait — et « en cours » n'était
+     atteignable nulle part dans l'application. */
+  let h="";
   if(avecEtat){
     h+=titreBloc("Où ça en est ?")+liste(ETATS.map(([k,l])=>ligne({titre:l,
       apres:etat===k?`<span class="coche">✓</span>`:"", attr:'data-etat="'+k+'"'})).join(""));
   }
+  h+=titreBloc(etat==="prevu" ? "Pour quand ?" : "Quand ?", avecEtat?"ecart":"")+
+    liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
+      <input type="date" id="${id}" value="${val||today()}"></div></div></li>`+
+      ligne({titre:(prec==="m"?`<span class="coche">Je ne me souviens que du mois</span>`:"Je ne me souviens que du mois"),
+             apres:prec==="m"?`<span class="coche">✓</span>`:"", attr:'data-prec="'+id+'"'}));
   return h;
 }
 
@@ -1436,7 +1484,7 @@ document.addEventListener("input", ev=>{
 /* ---------- gestes ---------- */
 fond.addEventListener("click", ()=>fermeMenu());
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back]");
+  const t=ev.target.closest("[data-go],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -1478,6 +1526,9 @@ document.addEventListener("click", ev=>{
   if(g.man){ S.draft.man=(S.draft.man===g.man?"":g.man); return render(); }
   if(g.eman){ S.eMan=(S.eMan===g.eman?"":g.eman); return render(); }
   if(g.etat){ if(S.view==="edit") S.eEtat=g.etat; else if(S.draft) S.draft.etat=g.etat; return render(); }
+  if(g.netat){ const n=node(S.nodeId);
+    if(n && (n.etat||"fait")!==g.netat){ n.etat=g.netat; save(); toast(cap(ETAT[g.netat])+"."); }
+    return render(); }
   if(g.prec){
     const el=document.getElementById(g.prec), v=el&&el.value;
     if(S.view==="edit"){ S.ePrec=(S.ePrec==="m")?"j":"m"; if(v){ const n=node(S.nodeId); if(n) n.date=v; } }
@@ -1561,7 +1612,7 @@ const actions={
       man:(quoi==="rhema"?"parle":""),
       kind:(quoi==="ecriture"?"ecriture":(quoi==="rhema"?"rhema":"acte")), ref:"",
       date:(cible&&cible.date)||today(), prec:(cible&&cible.prec)||"j",
-      etat:"fait", par:[]};
+      etat:"fait", par:[], ts:ts()};
     db.nodes.push(n);
     if(S.view==="lier"){ const c=node(S.nodeId); if(c){ c.par=c.par||[]; c.par.push(n.id); } }
     else if(S.draft){ S.draft.par.push(n.id); }
@@ -1572,7 +1623,7 @@ const actions={
     const d=S.draft;
     const n={id:nid(),act:d.act,gid:d.gid,dest:d.act==="moi"?d.dest:null,dgid:d.dgid,txt:d.txt.trim(),desc:(d.desc||"").trim(),man:d.man,
       kind:(d.act==="dieu"&&d.man==="parle")?"rhema":"acte",
-      date:valDate("nDate", d.date),prec:d.prec||"j",etat:d.act==="moi"?(d.etat||"fait"):"fait",par:d.par.slice()};
+      date:valDate("nDate", d.date),prec:d.prec||"j",etat:d.act==="moi"?(d.etat||"fait"):"fait",par:d.par.slice(),ts:ts()};
     db.nodes.push(n); save();
     /* On repart là où l'acte est désormais rangé : le disciple le voit,
        et l'écran a ses onglets — il n'est jamais enfermé. */
@@ -1635,6 +1686,7 @@ function seed(){
   const h={id:nid(),act:"moi",dest:"dieu",txt:"Jeûner un jour",man:"",kind:"acte",date:y+"-12-15",prec:"j",etat:"prevu",par:[b.id]};
   const i={id:nid(),act:"moi",dest:"gens",dgid:g2,txt:"Dire à Estelle ce qu'Il a fait",man:"",kind:"acte",date:y+"-11-20",prec:"j",etat:"prevu",par:[e.id]};
   db.nodes.push(a,b,c,d,e,f,h,i);
+  db=sane(db);
   db.noms.push({id:"p"+(db.seq++),txt:"« Celui qui pourvoit au dernier moment »",nodes:[d.id,e.id]});
 }
 

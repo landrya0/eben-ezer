@@ -125,6 +125,9 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
   -webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou)}
 
 /* ---------- hiérarchie des textes ---------- */
+/* Une tranche de temps ne se sépare pas de la suivante comme deux actes se
+   séparent l'un de l'autre : c'est elle qui découpe la lecture. */
+.block-title.ecart{margin-top:42px}
 .block-title{font-family:var(--sans);font-weight:700;letter-spacing:.12em;
   text-transform:uppercase;font-size:11px;color:var(--f7-block-title-text-color);
   margin-top:28px;margin-bottom:9px}
@@ -542,6 +545,19 @@ function cite(n){
   }
   return out + esc(t.slice(i));
 }
+/* « … » suivi d'autre chose : ce qui suit la citation est sa référence, pas
+   la parole. On ne devine que dans ce cas précis — le texte COMMENCE par une
+   citation — parce qu'ailleurs la suite est une phrase, pas une source.
+   Et l'on ne déplace rien : on propose, le disciple touche (P9). */
+function reference(txt){
+  const t=String(txt||"").trim();
+  if(!/^[«“"]/.test(t)) return "";
+  GUIL.lastIndex=0;
+  const m=GUIL.exec(t);
+  if(!m || m.index!==0) return "";
+  const q=t.slice(m[0].length).replace(/^[\s,.;:–—-]+/,"").trim();
+  return (q.length>=2 && q.length<=90) ? q : "";
+}
 function estParole(n){ return n.kind==="rhema" || n.kind==="ecriture" || (n.act==="dieu" && n.man==="parle"); }
 function acteurTxt(n){
   if(n.act==="dieu") return n.kind==="ecriture" ? "Écriture" : (n.kind==="rhema" ? "Dieu · rhema" : "Dieu");
@@ -714,7 +730,7 @@ function champ(id, ph, type, val){
     <input type="${type||"text"}" id="${id}" placeholder="${ph||""}" value="${val||""}"></div></div></li>`);
 }
 function bouton(txt, attr){ return `<a class="button button-large button-fill button-round" ${attr}>${txt}</a>`; }
-function titreBloc(t){ return `<div class="block-title">${t}</div>`; }
+function titreBloc(t, cls){ return `<div class="block-title ${cls||""}">${t}</div>`; }
 
 /* ---------- menu ••• ---------- */
 function ouvreMenu(groupes){
@@ -818,7 +834,16 @@ function vOeuvres(){
     S.ret==="oui" ? "là où j'ai répondu" : (S.ret==="non" ? "là où je n'ai rien rendu" : ""),
     (fg.filter(x=>x[0]===S.grain)[0]||fg[0])[1].toLowerCase()
   ].filter(Boolean).join(" · ");
-  Z.haut=`<p class="titre-page">Ses œuvres</p><p class="ssTitre">${list.length} fois, par Lui-même ou par une main.</p>
+  /* Un compte qui ne bouge pas quand le filtre retranche fait croire que
+     l'archive est plus vide qu'elle n'est — ou plus pleine. */
+  const rendu=n=>enfants(n.id).some(e=>e.act==="moi");
+  const vus=list
+    .filter(n=>S.filtre==="tout" || n.man===S.filtre)
+    .filter(n=>S.ret==="tout" || rendu(n)===(S.ret==="oui"));
+  const compte = (S.filtre==="tout" && S.ret==="tout")
+    ? `${list.length} fois, par Lui-même ou par une main.`
+    : `${vus.length} sur ${list.length}, sous ce filtre.`;
+  Z.haut=`<p class="titre-page">Ses œuvres</p><p class="ssTitre">${compte}</p>
     <button class="plier" data-act="plier" aria-expanded="${!S.plie}">
       <b>Filtres</b><span class="q">${esc(resume)}</span>${BAS}</button>`;
   if(!S.plie) Z.haut+=`<div class="ptitre">Sa manière</div>
@@ -828,15 +853,11 @@ function vOeuvres(){
     <div class="ptitre">Ranger</div>
     <div class="puces suite">${fg.map(([k,l])=>`<button class="puce" data-grain="${k}" aria-pressed="${S.grain===k}">${l}</button>`).join("")}</div>`;
   let h="";
-  const rendu=n=>enfants(n.id).some(e=>e.act==="moi");
-  const vus=list
-    .filter(n=>S.filtre==="tout" || n.man===S.filtre)
-    .filter(n=>S.ret==="tout" || rendu(n)===(S.ret==="oui"));
   if(!vus.length) h+=`<p class="vide">Rien sous ce filtre.</p>`;
   let an=null, buf="";
   vus.forEach(n=>{
     const y=tranche(n, S.grain);
-    if(y!==an){ if(buf){ h+=liste(buf); buf=""; } an=y; h+=titreBloc(esc(y)); }
+    if(y!==an){ if(buf){ h+=liste(buf); buf=""; } h+=titreBloc(esc(y), an===null?"":"ecart"); an=y; }
     buf += ligneActe(n, {attr:'data-node="'+n.id+'"'});
   });
   if(buf) h+=liste(buf);
@@ -1149,6 +1170,10 @@ function vNote(){
                              : "Qu'a fait "+(gensNom(d.gid)||"cette personne")+" ?");
     let h = parent?rappel(parent):"";
     h+=`<div class="block"><textarea class="dicte" id="nTxt" placeholder="${ph}">${esc(d.txt)}</textarea>${micBloc("nTxt")}</div>`;
+    const ref=reference(d.txt);
+    h+=`<div id="ref"${ref?"":" hidden"}>`+liste(ligne({
+        titre:`<span class="coche">Mettre la référence dans la description</span>`,
+        sous:`<span class="q">${esc(ref)}</span>`, attr:'data-act="refDesc"'}))+`</div>`;
     h+=blocDesc("nDesc", d.desc, S.descOuvert);
     if(d.act==="moi"){
       const sug = (parent && parent.act==="gens")
@@ -1292,7 +1317,7 @@ document.addEventListener("input", ev=>{
     if(att)  att.hidden  = !!q || !!vus;
     return;
   }
-  if(id==="nTxt" && S.draft) S.draft.txt=ev.target.value;
+  if(id==="nTxt" && S.draft){ S.draft.txt=ev.target.value; majRef(); }
   if(id==="nDesc" && S.draft) S.draft.desc=ev.target.value;
   if(id==="nDate" && S.draft) S.draft.date=ev.target.value;
 });
@@ -1359,6 +1384,14 @@ document.addEventListener("click", ev=>{
 });
 
 function valDate(id, repli){ const e=document.getElementById(id); return (e&&e.value)?e.value:(repli||today()); }
+/* La proposition se met à jour pendant la frappe, sans redessiner l'écran :
+   un curseur qui saute au milieu d'une phrase est pire que pas de proposition. */
+function majRef(){
+  const b=document.getElementById("ref"); if(!b) return;
+  const r=S.draft ? reference(S.draft.txt) : "";
+  b.hidden = !r;
+  const e=b.querySelector(".q"); if(e && r) e.textContent=r;
+}
 function saveTxt(){
   const e=document.getElementById("nTxt"); if(e&&S.draft) S.draft.txt=e.value;
   const d=document.getElementById("nDesc"); if(d&&S.draft) S.draft.desc=d.value;
@@ -1382,6 +1415,16 @@ const actions={
   },
   plier(){ S.plie=!S.plie; render(); },
   ouvreDesc(){ saveTxt(); S.descOuvert=true; render(); },
+  refDesc(){
+    saveTxt();
+    const d=S.draft; if(!d) return;
+    const r=reference(d.txt); if(!r) return toast("Rien à déplacer");
+    const t=d.txt.trim(), i=t.lastIndexOf(r);
+    d.txt = (i>0 ? t.slice(0,i) : t).replace(/[\s,.;:–—-]+$/,"").trim();
+    d.desc = d.desc && d.desc.trim() ? (d.desc.trim()+"\n"+r) : r;
+    S.descOuvert = true;
+    toast("Référence déplacée"); render();
+  },
   addMan(){
     const e=document.getElementById("newMan");
     const id=manId(e&&e.value);

@@ -148,6 +148,14 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 .amorce{font-family:var(--sans);font-size:14.5px;line-height:1.52;color:var(--muted);margin:0}
 /* Le code de récupération : fait pour être recopié à la main, donc grand,
    espacé, et à chasse fixe pour qu'aucun signe n'en imite un autre. */
+.oeilleton{position:relative}
+.oeilleton input{padding-right:42px}
+.oeil{position:absolute;right:0;top:50%;transform:translateY(-50%);
+  width:40px;height:40px;display:flex;align-items:center;justify-content:center;
+  padding:0;margin:0;border:0;background:none;color:var(--muted);
+  -webkit-appearance:none;-webkit-tap-highlight-color:transparent}
+.oeil svg{width:20px;height:20px}
+.oeil:active{color:var(--f7-theme-color)}
 .code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:19px;
   line-height:1.9;letter-spacing:.06em;font-weight:600;text-align:center;
   color:var(--f7-text-color);word-break:break-all;-webkit-user-select:all;user-select:all}
@@ -478,7 +486,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v27";
+const VERSION = "v28";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -965,9 +973,23 @@ function ligneActe(n, o){
         ${o.coche?`<span class="coche">✓</span>`:""}
       </div></a></li>`;
 }
-function champ(id, ph, type, val){
+function champ(id, ph, type, val, extra){
   return liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
-    <input type="${type||"text"}" id="${id}" placeholder="${ph||""}" value="${val||""}"></div></div></li>`);
+    <input type="${type||"text"}" id="${id}" placeholder="${ph||""}" value="${val||""}" ${extra||""}></div></div></li>`);
+}
+const OEIL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.2 12S5.8 5.6 12 5.6 21.8 12 21.8 12 18.2 18.4 12 18.4 2.2 12 2.2 12Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const OEIL_CLOS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.2 12S5.8 5.6 12 5.6c1.6 0 3 .37 4.2.95M19.3 8.5c1.6 1.7 2.5 3.5 2.5 3.5S18.2 18.4 12 18.4c-1.6 0-3-.37-4.2-.95"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M3.6 3.6l16.8 16.8"/></svg>`;
+/* Un mot de passe qu'on ne voit pas se tape mal, et celui-ci n'ouvre pas
+   qu'une porte : il ouvre l'archive. Une faute de frappe non vue coûte un
+   aller-retour entier, et au deuxième essai raté on choisit un mot plus
+   court — c'est-à-dire plus faible. L'œil ne montre que si on le demande,
+   et il ne redessine pas l'écran : ce qui est déjà tapé reste tapé. */
+function champMdp(id, ph, auto){
+  return liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap oeilleton">
+    <input type="password" id="${id}" placeholder="${ph||""}" autocomplete="${auto||"current-password"}"
+      autocapitalize="off" autocorrect="off" spellcheck="false">
+    <button class="oeil" type="button" data-act="oeil" aria-label="Montrer le mot de passe">${OEIL}</button>
+  </div></div></li>`);
 }
 function bouton(txt, attr){ return `<a class="button button-large button-fill button-round" ${attr}>${txt}</a>`; }
 const PLUS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><path d="M12 5.4v13.2M5.4 12h13.2"/></svg>`;
@@ -2141,8 +2163,9 @@ function vSync(){
 
   } else if(e===1){
     h+=`<div class="block amorce" style="margin-top:18px">Ton adresse et un mot de passe. La première fois, le compte se crée tout seul ; ensuite c'est la même chose sur la tablette.</div>`;
-    h+=champ("syMail","toi@exemple.com","email",esc(SY.mail||""));
-    h+=champ("syMdp","Mot de passe","password","");
+    h+=champ("syMail","toi@exemple.com","email",esc(SY.mail||""),
+             'autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false"');
+    h+=champMdp("syMdp","Mot de passe");
     h+=`<div class="block amorce">Ce mot de passe fait deux métiers : il ouvre la porte du serveur, et lui seul ouvre l'archive. Le serveur, lui, ne voit qu'un bloc illisible — <b>personne d'autre que toi ne peut lire ce que tu écris ici</b>, ni moi, ni celui qui héberge.</div>`;
     if(fourni)
       h+=liste(ligne({titre:"Héberger chez moi", texte:"Donner mon propre projet Supabase", attr:'data-act="syPropre"'}), "lien");
@@ -2614,6 +2637,16 @@ const actions={
   /* Une application installée ne se recharge pas d'un geste : sur iPhone, en
      plein écran, il n'y a ni barre d'adresse ni tirer-pour-rafraîchir. Il
      faut donc un bouton, sans quoi la seule issue est de désinstaller. */
+  oeil(t){
+    const w=t.closest(".oeilleton"), i=w&&w.querySelector("input");
+    if(!i) return;
+    const cache = i.type==="password";
+    const v=i.value;
+    i.type = cache ? "text" : "password";
+    t.innerHTML = cache ? OEIL_CLOS : OEIL;
+    t.setAttribute("aria-label", cache ? "Cacher le mot de passe" : "Montrer le mot de passe");
+    try{ i.focus(); i.setSelectionRange(v.length, v.length); }catch(e){}
+  },
   async maj(){
     toast("Je regarde…");
     try{

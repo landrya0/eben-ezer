@@ -329,7 +329,13 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 .carte:active{transform:scale(.985)}
 .carte .quand{font-family:var(--sans);font-size:11px;font-weight:700;letter-spacing:.12em;
   text-transform:uppercase;color:var(--f7-theme-color)}
-.carte .grand{font-size:20px;line-height:1.44;padding-left:13px}
+/* Les cartes se tiennent côte à côte : la plus longue impose sa hauteur à
+   toutes. Une phrase de douze lignes laissait donc sept cartes aux trois
+   quarts vides, et une seule chose visible à l'écran au lieu de trois. On
+   borne ce qui se lit d'un coup d'œil ; la phrase entière est dans l'acte,
+   à un doigt. */
+.carte .grand{font-size:20px;line-height:1.44;padding-left:13px;
+  display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
 .carte .meta{margin:12px 0 0 15px}
 .points{display:flex;justify-content:center;gap:6px;padding:2px 0 4px}
 .points i{width:6px;height:6px;border-radius:50%;background:var(--filet);transition:background .2s}

@@ -294,6 +294,22 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 
 /* ---------- charpente : les barres passent par-dessus le contenu ---------- */
 #main{position:absolute;inset:0;z-index:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+/* Le compteur ne flotte plus au-dessus de la lecture : il tient un rail, en
+   haut, sous la barre d'état. C'est là que l'œil arrive, c'est l'endroit que
+   tout le monde connaît pour « quelque chose tourne en ce moment » — la
+   barre d'appel, la barre d'enregistrement — et le bas reste au pouce.
+   Surtout : c'est du mobilier, donc mesuré, donc il ne couvre jamais rien.
+   Et il n'existe que pendant qu'on compte : une bande permanente qui
+   répéterait « rien n'est compté » prendrait de la place pour ne rien dire. */
+#rail{position:absolute;top:0;left:0;right:0;z-index:22;
+  padding-top:env(safe-area-inset-top,0px);
+  background:var(--barre);border-bottom:1px solid var(--filet);
+  -webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou)}
+#rail[hidden]{display:none}
+/* Quand le rail est là, c'est lui qui porte l'encoche : la barre en dessous
+   ne doit pas la payer une seconde fois. */
+#haut.sousRail{padding-top:6px}
+#haut.libre.sousRail{padding-top:12px}
 #haut{position:absolute;top:0;left:0;right:0;z-index:20;
   display:flex;align-items:center;gap:4px;min-height:52px;
   padding:calc(6px + env(safe-area-inset-top,0px)) 8px 6px;
@@ -337,29 +353,11 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 #acte[hidden]{display:none}
 #acte.surNav{padding-bottom:10px}
 #acte .button{width:100%;font-weight:600;letter-spacing:.005em;box-shadow:var(--ombre)}
-/* La même phrase écrite en travers des quatre onglets finit par n'être plus
-   lue : c'est un bandeau, pas une invitation. Le geste tient dans un rond,
-   posé au pouce droit, et le bas de l'écran redevient calme. La phrase
-   revient là où l'archive est vide — c'est le seul moment où il faut encore
-   dire quoi faire. */
-#acte.geste{display:flex;justify-content:flex-end;align-items:center;gap:10px;padding:8px 16px 12px;
-  background:none;border-top:0;-webkit-backdrop-filter:none;backdrop-filter:none}
-#acte.geste.surNav{padding-bottom:12px}
-/* La pastille : le geste discret, mais il garde son mot.
-   Les autres boutons de l'application sont translucides parce qu'ils ont
-   toujours eu une barre de verre dépoli derrière eux. La pastille flotte
-   seule au-dessus de la liste : translucide, elle laissait passer le texte
-   d'une ligne sous elle, et on lisait « Aller travailler » à travers le mot
-   « Noter ». Un bouton qui flotte est opaque. */
-#acte .pastille{display:inline-flex;align-items:center;gap:8px;
-  height:52px;padding:0 22px 0 18px;border-radius:26px;
-  background:var(--f7-theme-color);color:#fff;
-  font-family:var(--sans);font-size:15.5px;font-weight:600;letter-spacing:.004em;
-  box-shadow:0 12px 28px -12px rgba(26,42,32,.55);cursor:pointer}
-#acte .pastille svg{display:block;width:19px;height:19px;flex:0 0 auto}
-.dark #acte .pastille{background:#2B3129;color:#C8DFCE;
-  border:1px solid rgba(157,183,164,.46);
-  box-shadow:0 1px 0 var(--eclat) inset, 0 14px 30px -12px #000}
+/* La pastille flottante a vécu ici : un rond posé au pouce droit, par-dessus
+   la liste. Elle visait mal — on tape au bord d'un écran sans bien le voir —
+   et elle couvrait ce qu'on lisait. Le geste est descendu dans la barre, au
+   milieu (voir #nav .noter). Il ne reste ici que les boutons d'action des
+   écrans, qui eux tiennent toute la largeur. */
 .dark #acte .button-fill{background:rgba(157,183,164,.17);color:#C4DCCA;
   border:1px solid rgba(157,183,164,.42);box-shadow:0 1px 0 var(--eclat) inset,
   0 10px 26px -14px var(--lueur)}
@@ -379,6 +377,23 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 /* L'onglet où l'on est a le trait un peu plus appuyé : la couleur seule ne
    suffit pas à tous les yeux. */
 #nav button[aria-current="page"] svg{stroke-width:1.8}
+/* Le geste central. Il était posé au-dessus du contenu, au pouce droit : on
+   le visait mal, et il couvrait ce qu'on lisait. Il prend donc sa place dans
+   la barre, au milieu, deux onglets de chaque côté — et il déborde par le
+   haut pour dire qu'il n'est pas un onglet parmi quatre, mais le geste
+   d'où tout part. Le mot reste sous le rond, à la hauteur des autres
+   étiquettes : la barre garde son rythme. */
+#nav .noter{flex:0 0 auto;width:76px;gap:4px}
+#nav .noter i{display:flex;align-items:center;justify-content:center;
+  width:54px;height:54px;border-radius:50%;margin-top:-26px;
+  background:var(--f7-theme-color);color:#fff;
+  box-shadow:0 10px 26px -8px rgba(26,42,32,.55)}
+#nav .noter i svg{width:25px;height:25px;stroke-width:2.2}
+#nav .noter span{color:var(--f7-theme-color);font-weight:700}
+#nav .noter:active i{transform:scale(.94)}
+.dark #nav .noter i{background:#2B3129;color:#C8DFCE;
+  border:1px solid rgba(157,183,164,.46);
+  box-shadow:0 1px 0 var(--eclat) inset, 0 14px 30px -12px #000}
 
 /* ---------- la tablette : une colonne, pas une nappe ---------- */
 /* Déverrouiller le paysage ne suffit pas. Une phrase qui court sur mille
@@ -399,7 +414,7 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
         padding-right:max(8px,calc((100% - var(--colonne))/2))}
   #haut.libre{padding-left:max(0px,calc((100% - var(--colonne))/2));
               padding-right:max(0px,calc((100% - var(--colonne))/2))}
-  #acte, #acte.geste{padding-left:max(16px,calc((100% - var(--colonne))/2));
+  #acte{padding-left:max(16px,calc((100% - var(--colonne))/2));
                      padding-right:max(16px,calc((100% - var(--colonne))/2))}
   #nav{padding-left:max(0px,calc((100% - var(--colonne))/2));
        padding-right:max(0px,calc((100% - var(--colonne))/2))}
@@ -413,8 +428,9 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
   #haut.libre{padding-top:calc(7px + env(safe-area-inset-top,0px));padding-bottom:7px}
   #nav button{min-height:44px;padding:4px 2px 3px}
   #nav button svg{width:20px;height:20px}
-  #acte.geste{padding-top:5px;padding-bottom:7px}
-  #acte .pastille, .tic{height:46px;min-height:46px}
+  #nav .noter i{width:44px;height:44px;margin-top:-20px}
+  #nav .noter i svg{width:21px;height:21px}
+  .tic{min-height:34px;padding:2px 16px 3px}
   .entete{padding-bottom:2px}
   #haut.libre .marque, .entete .marque{width:40px;margin-top:0;margin-bottom:0}
   #haut.libre .titre-page, .entete .titre-page{font-size:23px;margin-top:8px}
@@ -467,15 +483,14 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
    il se creuse quand le bloc dure depuis trop longtemps pour être honnête,
    et le chiffre pâlit avec lui. Aucun mot de reproche : un signe suffit. */
 #chrono{flex:1 1 auto;min-width:0;display:block}
-/* Le compteur flottait en verre translucide, juste à côté d'une pastille
-   opaque : la liste passait au travers, et le chevauchement se lisait comme
-   un défaut d'affichage plutôt que comme un objet posé dessus. Ce qui flotte
-   au-dessus d'une liste est opaque — c'était déjà la règle de la pastille, le
-   compteur la suit, avec l'ombre qui dit de combien il flotte. */
-.tic{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 15px;
-  border-radius:26px;background:#FFFCF9;border:1px solid var(--filet);
-  box-shadow:0 10px 24px -12px rgba(26,42,32,.5);color:inherit;text-decoration:none}
-.tic:active{transform:scale(.985)}
+/* Le compteur a d'abord flotté au-dessus de la liste. Opaque, il ne la
+   laissait plus traverser — mais il la couvrait encore, et on ne pouvait pas
+   lire dessous. Un objet qui dit une chose vraie en permanence n'a rien à
+   faire par-dessus la lecture : il lui faut une place à lui. C'est le rail.
+   Plus de pastille, donc : une ligne, pleine largeur, dans le verre du rail. */
+.tic{display:flex;align-items:center;gap:10px;min-height:40px;padding:3px 16px 4px;
+  color:inherit;text-decoration:none}
+.tic:active{opacity:.6}
 .tic .pt{flex:0 0 auto;width:9px;height:9px;border-radius:50%;
   background:var(--f7-theme-color);animation:pouls 2.8s ease-in-out infinite}
 .tic .pt.creux,.tic.vieux .pt{background:transparent;border:1.5px solid var(--muted);
@@ -489,8 +504,7 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 .tic .dur i{font-style:normal;font-size:.76em;font-weight:600;opacity:.5;
   margin-left:3px;vertical-align:.42em;line-height:1;font-variant-numeric:tabular-nums}
 @keyframes pouls{0%,100%{box-shadow:0 0 0 0 var(--lueur)}50%{box-shadow:0 0 0 6px transparent}}
-.dark .tic{background:#20241F;border:1px solid rgba(157,183,164,.26);
-  box-shadow:0 1px 0 var(--eclat) inset, 0 12px 28px -14px #000}
+
 
 /* ---------- la part de chacun ---------- */
 /* Des heures d'abord, la part ensuite, et une barre pour que l'œil saisisse
@@ -598,6 +612,7 @@ textarea.dicte:focus{outline:0}
     <use href="#fleur" transform="translate(35,54) scale(.66)"/>
   </g>
 </defs></svg>
+<div id="rail" hidden></div>
 <div id="haut" hidden></div>
 <div id="avance" hidden><i></i></div>
 <div id="main"></div>
@@ -619,7 +634,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v39";
+const VERSION = "v40";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -1259,7 +1274,7 @@ const main=document.getElementById("main"), haut=document.getElementById("haut")
       nav=document.getElementById("nav"), barre=document.getElementById("acte"),
       bas=document.getElementById("bas"),
       avance=document.getElementById("avance"), menu=document.getElementById("menu"),
-      fond=document.getElementById("fond");
+      fond=document.getElementById("fond"), rail=document.getElementById("rail");
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 const CHEV = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>`;
 const BAS = `<svg class="ch" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>`;
@@ -1284,7 +1299,7 @@ const ONGLETS = [["today","Aujourd'hui"],["oeuvres","Ses œuvres"],["revel","Ré
 
 /* Chaque vue remplit ces zones. Une seule action principale par écran. */
 let Z = {};
-function zero(){ Z = {titre:"", retour:false, fermer:false, plus:false, action:"", geste:false, avance:0, haut:"", file:false, html:""}; }
+function zero(){ Z = {titre:"", retour:false, fermer:false, plus:false, action:"", avance:0, haut:"", file:false, html:""}; }
 
 function render(){
   if(rec) micArret();
@@ -1307,6 +1322,7 @@ function render(){
   const rouage = onglet ? `<button class="rouage" data-go="reglages" aria-label="Réglages">${ROUAGE}</button>` : "";
   /* Une barre cachée gardait le contenu de l'écran précédent : invisible,
      mais bien là, avec un second rouage et des identifiants en double. */
+  haut.classList.toggle("sousRail", !rail.hidden);
   if(haut.hidden) haut.innerHTML = "";
   if(!haut.hidden && colle){ haut.innerHTML = rouage + Z.haut; }
   else if(!haut.hidden){
@@ -1322,10 +1338,18 @@ function render(){
   main.className = haut.hidden ? "plat" : "";
   main.innerHTML = (Z.haut && Z.file ? `<header class="entete">${rouage}${Z.haut}</header>` : "") + Z.html;
   barre.hidden = !Z.action;
-  barre.className = (onglet?"surNav":"") + (Z.geste?" geste":"");
-  if(Z.action){ barre.innerHTML = Z.action; majChrono(); }
+  barre.className = onglet ? "surNav" : "";
+  if(Z.action) barre.innerHTML = Z.action;
   nav.hidden = !onglet;
-  if(onglet) nav.innerHTML = ONGLETS.map(([k,l])=>`<button data-go="${k}"${S.view===k?' aria-current="page"':""}>${ICONES[k]||""}<span>${l}</span></button>`).join("");
+  if(onglet){
+    /* Deux onglets, le geste, deux onglets. Le milieu d'une barre est la
+       seule place qu'on vise sans regarder. */
+    const t=ONGLETS.map(([k,l])=>`<button data-go="${k}"${S.view===k?' aria-current="page"':""}>${ICONES[k]||""}<span>${l}</span></button>`);
+    nav.innerHTML = t[0]+t[1]
+      + `<button class="noter" data-go="note" aria-label="Noter quelque chose"><i>${PLUS}</i><span>Noter</span></button>`
+      + t[2]+t[3];
+  }
+  majChrono();
   main.scrollTop=0;
   place(); requestAnimationFrame(place);
   const f=document.getElementById("cFiltre");
@@ -1389,16 +1413,9 @@ function champMdp(id, ph, auto){
 }
 function bouton(txt, attr){ return `<a class="button button-large button-fill button-round" ${attr}>${txt}</a>`; }
 const PLUS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><path d="M12 5.4v13.2M5.4 12h13.2"/></svg>`;
-/* Tant qu'il n'y a rien à lire, le geste se dit en toutes lettres. Dès qu'il
-   y a une archive, il se montre. */
-/* Le compteur partage la rangée avec la pastille au lieu de prendre une
-   bande à lui : trois étages de mobilier en bas d'un téléphone, et l'écran
-   n'a plus de place pour ce qu'on vient y lire. */
-function gesteNoter(){
-  if(!db.nodes.length && !(db.temps||[]).length){ Z.action = bouton("Noter quelque chose", 'data-go="note"'); return; }
-  Z.action = `<span id="chrono"></span><a class="pastille" data-go="note">${PLUS}<span>Noter</span></a>`;
-  Z.geste = true;
-}
+/* Le geste de noter n'est plus posé par chaque écran : il est dans la barre,
+   au milieu, sur les quatre onglets. Un geste qui est toujours là n'a pas à
+   être redemandé à chaque vue. */
 /* Le compteur se réécrit tout seul, sans redessiner l'écran : redessiner
    ferait sauter la lecture en cours à chaque seconde.
    Les secondes défilent — « pour voir comment le temps passe ». Sans elles
@@ -1411,20 +1428,25 @@ function gesteNoter(){
 let chronoEtat="";
 function secondes(ms){ return String(Math.floor(Math.max(0,ms)/1000)%60).padStart(2,"0"); }
 function majChrono(){
-  const c=document.getElementById("chrono"); if(!c) return;
   const o=ouvert();
-  const ec = o ? Date.now()-o.deb : 0;
-  const vieux = ec>=10*3600000;
-  const etat = o ? (o.id+"|"+tacheNom(o.t)+"|"+(vieux?"v":"")) : "rien";
-  if(etat!==chronoEtat || !c.firstElementChild){
-    chronoEtat=etat;
-    c.innerHTML = o
-      ? `<a class="tic${vieux?" vieux":""}" data-go="pointer"><i class="pt"></i>
-          <span class="quoi">${esc(tacheNom(o.t))}</span><span class="dur"></span></a>`
-      : `<a class="tic" data-go="pointer"><i class="pt creux"></i><span class="quoi">Rien n'est compté</span><span class="dur">Compter</span></a>`;
+  const etait=rail.hidden;
+  rail.hidden = !o;
+  if(!o){
+    if(!etait){ rail.innerHTML=""; chronoEtat=""; haut.classList.remove("sousRail"); place(); }
+    return;
   }
-  if(!o) return;
-  const d=c.querySelector(".dur");
+  const ec = Date.now()-o.deb;
+  const vieux = ec>=10*3600000;
+  const etat = o.id+"|"+tacheNom(o.t)+"|"+(vieux?"v":"");
+  if(etat!==chronoEtat || !rail.firstElementChild){
+    chronoEtat=etat;
+    rail.innerHTML = `<a class="tic${vieux?" vieux":""}" data-go="pointer"><i class="pt"></i>`
+      + `<span class="quoi">${esc(tacheNom(o.t))}</span><span class="dur"></span></a>`;
+  }
+  /* Le rail qui apparaît ou disparaît décale toute la page : on remesure,
+     mais seulement à ce moment-là, jamais à chaque seconde. */
+  if(etait){ haut.classList.add("sousRail"); place(); }
+  const d=rail.querySelector(".dur");
   if(d) d.innerHTML = esc(hm(ec))+`<i>${secondes(ec)}</i>`;
 }
 setInterval(function(){ if(!document.hidden) majChrono(); }, 1000);
@@ -1448,15 +1470,21 @@ function fermeMenu(sec){
 /* Les barres flottent au-dessus de la liste pour que le verre ait quelque chose
    à flouter. Leurs hauteurs changent d'un écran à l'autre : on les mesure. */
 function place(){
+  const rH = rail.hidden ? 0 : rail.offsetHeight;
   const hH = haut.hidden ? 0 : haut.offsetHeight;
   const aH = avance.hidden ? 0 : 2;
   const basH = bas.offsetHeight;
-  avance.style.top = hH+"px";
+  haut.style.top = rH+"px";
+  avance.style.top = (rH+hH)+"px";
   main.style.paddingTop = hH
-    ? (hH+aH)+"px"
-    : "calc(env(safe-area-inset-top,0px) + "+(aH+10)+"px)";
+    ? (rH+hH+aH)+"px"
+    : (rH ? (rH+aH+10)+"px"
+          : "calc(env(safe-area-inset-top,0px) + "+(aH+10)+"px)");
+  /* La pastille centrale déborde du haut de la barre : le contenu doit
+     pouvoir défiler au-delà d'elle, sinon la dernière ligne reste dessous. */
+  const debord = nav.hidden ? 20 : 46;
   main.style.paddingBottom = basH
-    ? (basH+20)+"px"
+    ? (basH+debord)+"px"
     : "calc(env(safe-area-inset-bottom,0px) + 24px)";
 }
 addEventListener("resize", place);
@@ -1499,6 +1527,16 @@ function carte(c){
    sauvegarde au troisième acte, c'est apprendre à ignorer l'avertissement
    avant qu'il ait servi. Et il ne gronde pas : il dit où en est la copie, et
    ouvre le partage. Ranger reste le geste du disciple (P9). */
+/* Le rail n'existe que pendant qu'on compte. Il faut donc, quand rien ne
+   compte, une porte pour commencer — et elle disparaît d'elle-même au
+   premier pointage, puisque le rail la remplace alors en haut. */
+function rappelTemps(){
+  if(ouvert()) return "";
+  const cj=cumul(minuit(0), Date.now());
+  return liste(ligne({titre:"Rien n'est compté",
+    sous: cj.tot ? esc(hm(cj.tot))+" comptés aujourd'hui" : "Dire à quoi va ton temps",
+    attr:'data-go="pointer"'}), "lien") + `<div style="height:6px"></div>`;
+}
 function rappelFichier(){
   const n=db.nodes.length + (db.temps||[]).length;
   if(n<5) return "";
@@ -1529,7 +1567,6 @@ window.addEventListener("resize", function(){
 function vToday(){
   const now=new Date();
   const d = now.getDate()+" "+MOIS[now.getMonth()];
-  gesteNoter();
   if(!db.nodes.length){
     Z.file = true;
     Z.haut = RAMEAU("marque") + `<p class="titre-page">Rien encore.</p><p class="ssTitre">${d}</p>`;
@@ -1543,7 +1580,7 @@ function vToday(){
     Z.file = true;
     Z.haut = RAMEAU("marque") + `<p class="titre-page">Rien ne revient aujourd'hui.</p><p class="ssTitre">${d}</p>`;
     Z.html = `<div class="block amorce" style="margin-top:20px">Tout ce qu'Il a fait a reçu quelque chose de toi. Note la suite quand elle vient.</div>`
-      + rappelFichier();
+      + rappelTemps() + rappelFichier();
     return;
   }
   /* Quatre derniers gardés remplissent un téléphone et laissent une tablette
@@ -1554,6 +1591,7 @@ function vToday(){
   Z.haut = RAMEAU("marque") + `<p class="titre-page">Ce qui revient</p><p class="ssTitre">${d}</p>`;
   Z.html = `<div class="carr" id="carr" style="margin-top:16px">${cartes.map(carte).join("")}</div>
     ${cartes.length>1 ? `<div class="points" id="points">${cartes.map((c,i)=>`<i${i?"":' class="on"'}></i>`).join("")}</div>` : ""}
+    ${rappelTemps()}
     ${titreBloc("Derniers gardés")}
     ${liste(recents.map(n=>ligneActe(n,{attr:'data-node="'+n.id+'"'})).join(""))}
     ${rappelFichier()}`;
@@ -2839,7 +2877,7 @@ function vData(){
 }
 
 /* Depuis n'importe quel onglet, le geste reste à portée. */
-function vListe(f){ return function(){ f(); if(!Z.action) gesteNoter(); }; }
+function vListe(f){ return function(){ f(); }; }
 const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), actes:vListe(vActes), chemin:vChemin, faits:vFaits,
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData,
               pointer:vPointer, temps:vMonTemps, bloc:vBloc, sync:vSync, reglages:vReglages};

@@ -146,6 +146,11 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 .meta{font-family:var(--sans);font-size:12.5px;font-weight:500;letter-spacing:.015em;
   color:var(--muted);margin:13px 0 0 17px;line-height:1.5}
 .amorce{font-family:var(--sans);font-size:14.5px;line-height:1.52;color:var(--muted);margin:0}
+/* Le code de récupération : fait pour être recopié à la main, donc grand,
+   espacé, et à chasse fixe pour qu'aucun signe n'en imite un autre. */
+.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:19px;
+  line-height:1.9;letter-spacing:.06em;font-weight:600;text-align:center;
+  color:var(--f7-text-color);word-break:break-all;-webkit-user-select:all;user-select:all}
 .list .item-title{font-family:var(--sans);font-size:16px;font-weight:500;line-height:1.35;
   white-space:normal;color:var(--f7-text-color)}
 .list .item-title.serif{font-family:var(--serif);font-weight:400;font-size:16px;
@@ -1636,40 +1641,71 @@ function blocQuand(id, val, prec, avecEtat, etat){
 
 /* ---------- la synchronisation ---------- */
 /* Rien ne part en clair. Le journal nomme des frères et des sœurs, porte ce
-   qu'Il a dit, et tient désormais le relevé minute par minute d'une vie. Le
-   serveur n'en voit qu'un bloc opaque : la clé ne quitte jamais l'appareil,
-   et Supabase ne peut pas lire ce qu'il garde. Le prix est une phrase de
-   passe à retenir — et si elle se perd, c'est la copie distante qui devient
-   illisible, pas l'archive : le téléphone garde la sienne en clair, et le
-   fichier aussi. */
+   qu'Il a dit, et tient le relevé minute par minute d'une vie. Le serveur n'en
+   voit qu'un bloc opaque, et celui qui l'héberge ne peut rien y lire. */
+/* Mais « le serveur ne lit pas » et « on peut récupérer » semblent s'exclure,
+   et c'est faux. Une clé est tirée au sort pour chaque personne : c'est elle
+   qui chiffre l'archive. Cette clé est ensuite mise sous enveloppe DEUX fois —
+   une enveloppe que le mot de passe ouvre, une enveloppe qu'un code de
+   récupération ouvre. Le serveur ne garde que les deux enveloppes closes. Qui
+   oublie son mot de passe ressort son code et retrouve tout ; le serveur,
+   lui, n'a jamais rien pu lire. C'est le procédé des gestionnaires de mots de
+   passe, et il n'y en a pas d'autre qui tienne les deux bouts. */
+/* Rempli à la publication. Personne d'autre que l'auteur n'a à connaître
+   Supabase, ni à exécuter du SQL pour tenir son journal : l'adresse et la clé
+   publique du projet voyagent avec l'application. Le formulaire reste là,
+   derrière un lien, pour qui veut héberger le sien. */
+const SUPA = {url:"", cle:""};
 const SYK = "ebenezer.sync";
-let SY = {url:"", cle:"", mail:"", uid:"", jwt:"", raf:"", exp:0, phr:"",
-          vu:"", base:0, fait:0, err:"", actif:false};
+const SYVIDE = {url:"", cle:"", mail:"", uid:"", jwt:"", raf:"", exp:0,
+                dk:"", envM:null, envR:null, aVoir:"",
+                vu:"", base:0, fait:0, err:"", actif:false};
+let SY = Object.assign({}, SYVIDE);
 function syLoad(){ try{ const r=localStorage.getItem(SYK); if(r) Object.assign(SY, JSON.parse(r)); }catch(e){} }
 function sySave(){ try{ localStorage.setItem(SYK, JSON.stringify(SY)); }catch(e){} }
-function syOublie(){ SY={url:"",cle:"",mail:"",uid:"",jwt:"",raf:"",exp:0,phr:"",vu:"",base:0,fait:0,err:"",actif:false};
-  try{ localStorage.removeItem(SYK); }catch(e){} }
+function syOublie(){ SY=Object.assign({}, SYVIDE); try{ localStorage.removeItem(SYK); }catch(e){} }
 
 function b64(buf){ let s=""; const a=new Uint8Array(buf);
   for(let i=0;i<a.length;i++) s+=String.fromCharCode(a[i]); return btoa(s); }
 function deb64(t){ const s=atob(t), a=new Uint8Array(s.length);
   for(let i=0;i<s.length;i++) a[i]=s.charCodeAt(i); return a; }
-async function syCle(phrase, sel){
-  const brut=await crypto.subtle.importKey("raw", new TextEncoder().encode(phrase), "PBKDF2", false, ["deriveKey"]);
+function alea(n){ return crypto.getRandomValues(new Uint8Array(n)); }
+async function deKDF(secret, sel){
+  const brut=await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), "PBKDF2", false, ["deriveKey"]);
   return crypto.subtle.deriveKey({name:"PBKDF2", salt:sel, iterations:250000, hash:"SHA-256"},
     brut, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
 }
-async function chiffre(obj, phrase){
-  const sel=crypto.getRandomValues(new Uint8Array(16)), iv=crypto.getRandomValues(new Uint8Array(12));
-  const k=await syCle(phrase, sel);
-  const c=await crypto.subtle.encrypt({name:"AES-GCM", iv:iv}, k, new TextEncoder().encode(JSON.stringify(obj)));
-  return JSON.stringify({v:1, s:b64(sel), i:b64(iv), c:b64(c)});
+async function ferme(dk, secret){
+  const sel=alea(16), iv=alea(12), k=await deKDF(secret, sel);
+  const c=await crypto.subtle.encrypt({name:"AES-GCM", iv:iv}, k, dk);
+  return {s:b64(sel), i:b64(iv), c:b64(c)};
 }
-async function dechiffre(txt, phrase){
-  const o=JSON.parse(txt);
-  const k=await syCle(phrase, deb64(o.s));
+async function ouvre(env, secret){
+  const k=await deKDF(secret, deb64(env.s));
+  return new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM", iv:deb64(env.i)}, k, deb64(env.c)));
+}
+async function cleDoc(dk){ return crypto.subtle.importKey("raw", dk, {name:"AES-GCM"}, false, ["encrypt","decrypt"]); }
+async function chiffreDoc(obj, dk){
+  const iv=alea(12), k=await cleDoc(dk);
+  const c=await crypto.subtle.encrypt({name:"AES-GCM", iv:iv}, k, new TextEncoder().encode(JSON.stringify(obj)));
+  return {i:b64(iv), c:b64(c)};
+}
+async function dechiffreDoc(o, dk){
+  const k=await cleDoc(dk);
   const p=await crypto.subtle.decrypt({name:"AES-GCM", iv:deb64(o.i)}, k, deb64(o.c));
   return JSON.parse(new TextDecoder().decode(p));
+}
+/* Vingt caractères sans I, O, 0 ni 1 : on le recopie à la main, souvent au
+   crayon, et il ne faut pas qu'on puisse confondre deux signes. Deux cent
+   quarante-huit, c'est bien au-delà de ce qui se devine. */
+const ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+function codeNeuf(){
+  const a=alea(20); let t="";
+  for(let i=0;i<20;i++){ t+=ALPHA.charAt(a[i]%32); if(i%4===3 && i<19) t+="-"; }
+  return t;
+}
+function codeNu(c){
+  return String(c||"").toUpperCase().split("").filter(function(x){ return ALPHA.indexOf(x)!==-1; }).join("");
 }
 
 /* On parle à Supabase en HTTP nu, sans bibliothèque : l'application reste sans
@@ -1686,11 +1722,9 @@ async function syFetch(chemin, opt){
   if(!r.ok){ const e=new Error((j&&(j.msg||j.message||j.error_description||j.error))||("HTTP "+r.status)); e.code=r.status; e.corps=j; throw e; }
   return j;
 }
-/* Le code par courriel suppose deux choses fragiles : que le gabarit du
-   courriel ait été modifié pour porter le code au lieu d'un lien, et que le
-   courrier arrive. Le mot de passe ne suppose rien et n'envoie rien. C'est
-   donc lui par défaut, et le code reste en secours. Il ne garde d'ailleurs
-   qu'une porte : ce qu'il y a derrière est chiffré de toute façon. */
+/* Le mot de passe fait deux métiers : il ouvre la porte du serveur, et il
+   ouvre l'enveloppe qui contient la clé. Un seul secret à retenir au lieu de
+   deux — et donc une occasion d'oublier au lieu de deux. */
 async function sySignup(mail, mdp){
   return syFetch("/auth/v1/signup", {method:"POST", jeton:false, body:{email:mail, password:mdp}});
 }
@@ -1699,12 +1733,6 @@ async function syMotDePasse(mail, mdp){
   SY.jwt=j.access_token; SY.raf=j.refresh_token; SY.exp=Date.now()+((j.expires_in||3600)*1000);
   SY.uid=(j.user&&j.user.id)||""; SY.mail=mail; sySave();
   return j;
-}
-async function syCode(mail){ await syFetch("/auth/v1/otp", {method:"POST", jeton:false, body:{email:mail, create_user:true}}); }
-async function syValide(mail, code){
-  const j=await syFetch("/auth/v1/verify", {method:"POST", jeton:false, body:{email:mail, token:code, type:"email"}});
-  SY.jwt=j.access_token; SY.raf=j.refresh_token; SY.exp=Date.now()+((j.expires_in||3600)*1000);
-  SY.uid=(j.user&&j.user.id)||""; SY.mail=mail; sySave();
 }
 async function syJeton(){
   if(SY.jwt && SY.exp>Date.now()+90000) return true;
@@ -1724,13 +1752,30 @@ async function syLit(entier){
   const a=await syFetch("/rest/v1/etat?uid=eq."+encodeURIComponent(SY.uid)+"&select="+champs);
   return (a && a.length) ? a[0] : null;
 }
+/* Les deux enveloppes sont réémises à chaque envoi. Elles ne changent qu'à
+   une récupération — qui pousse aussitôt et change le jalon, donc l'autre
+   appareil relira l'archive entière avant de poser la sienne. */
 async function syEcrit(doc){
   const j=jalonNeuf();
-  const corps=await chiffre(doc, SY.phr);
+  const corps=JSON.stringify({v:2, mdp:SY.envM, rec:SY.envR,
+    doc:await chiffreDoc(doc, deb64(SY.dk))});
   await syFetch("/rest/v1/etat", {method:"POST",
     headers:{"Prefer":"resolution=merge-duplicates,return=minimal"},
     body:{uid:SY.uid, doc:corps, jalon:j, maj:new Date().toISOString()}});
   return j;
+}
+
+/* Reprendre une archive déjà déposée : on l'ouvre, on la réunit avec ce que
+   cet appareil tient déjà, et on repose le tout. */
+async function syRejoint(r, envM){
+  const env=JSON.parse(r.doc);
+  const autre=sane(await dechiffreDoc(env.doc, deb64(SY.dk)));
+  SY.envM = envM || env.mdp; SY.envR = env.rec;
+  db = (db.nodes.length || (db.temps||[]).length) ? fusionne(db, autre) : autre;
+  save(true);
+  SY.actif=true; SY.vu=await syEcrit(db); SY.base=db.maj||0; SY.fait=Date.now(); sySave();
+  S.syEtape=0; S.syMdp=""; S.pile=[]; S.view="data";
+  toast("Synchronisation en route."); render();
 }
 
 let sySuite=null, syEnCours=false;
@@ -1760,7 +1805,9 @@ async function syMaintenant(manuel){
       SY.vu=await syEcrit(db); SY.base=db.maj||0;
     } else {
       const plein=await syLit(true);
-      const autre=sane(await dechiffre(plein.doc, SY.phr));
+      const env=JSON.parse(plein.doc);
+      SY.envM=env.mdp; SY.envR=env.rec;
+      const autre=sane(await dechiffreDoc(env.doc, deb64(SY.dk)));
       if(!localBouge){
         db=autre; save(true); SY.vu=plein.jalon; SY.base=db.maj||0;
       } else {
@@ -1781,7 +1828,8 @@ async function syMaintenant(manuel){
 }
 function syDit(e){
   const m=String(e&&e.message||e);
-  if(/OperationError|operation-specific/i.test(m)) return "La phrase de passe ne correspond pas";
+  if(/OperationError|operation-specific/i.test(m)) return "Ce secret n'ouvre pas cette archive";
+  if(/format inconnu/i.test(m)) return "Archive d'une version plus récente";
   if(/relation .* does not exist|42P01/i.test(m)) return "La table « etat » manque encore";
   if(/not confirmed/i.test(m)) return "Décoche « Confirm email » dans Supabase";
   if(/already registered/i.test(m)) return "Ce compte existe : mot de passe incorrect";
@@ -2051,8 +2099,14 @@ function syEtat(){
   return "Dernière fois le "+new Date(SY.fait).toLocaleDateString("fr-FR");
 }
 function vSync(){
+  if(SUPA.url && !SY.url){ SY.url=SUPA.url; SY.cle=SUPA.cle; sySave(); }
+  const fourni = !!SUPA.url && !S.syPropre;
   Z.titre="Synchronisation"; Z.retour=true;
-  const e=SY.actif ? 9 : (S.syEtape||0);
+  let e = SY.actif ? 9 : (S.syEtape||0);
+  if(e===0 && fourni) e=1;
+  /* Tant qu'il n'a pas dit l'avoir noté, le code revient : fermer
+     l'application au mauvais moment ne doit pas le lui coûter. */
+  if(SY.aVoir){ S.syCode=SY.aVoir; e=2; }
   let h="";
   if(e===9){
     h+=`<div class="block amorce" style="margin-top:18px">Cet appareil est relié. Tout ce que tu notes ici arrive sur l'autre, et l'inverse — même si les deux ont travaillé hors ligne chacun de leur côté.</div>`;
@@ -2061,51 +2115,52 @@ function vSync(){
              ligne({titre:"Cet appareil", apres:esc(DEV)}));
     h+=liste(ligne({titre:"Synchroniser maintenant", attr:'data-act="syManuel"'}), "lien");
     h+=titreBloc("Au cas où","ecart");
-    h+=`<div class="block amorce">Détacher laisse l'archive intacte sur ce téléphone et le laisse simplement de côté. Tu pourras le rattacher avec la même phrase de passe.</div>`;
+    h+=`<div class="block amorce">Détacher laisse l'archive intacte sur ce téléphone et le laisse simplement de côté. Tu pourras le rattacher avec le même mot de passe.</div>`;
     h+=liste(ligne({titre:`<span class="rouge">Détacher cet appareil</span>`, attr:'data-act="syDetache"'}));
     Z.html=h; return;
   }
-  Z.avance=(e+1)/4;
+  Z.avance=(e+1)/3;
   if(e===0){
     h+=`<div class="block amorce" style="margin-top:18px">Sur <b>supabase.com</b> : crée un compte, puis un projet. Trois choses à y faire, dans l'ordre :</div>`;
     h+=liste(ligne({titre:"1. SQL Editor", texte:"Colle le texte ci-dessous et exécute-le. C'est la table, et la règle qui fait que toi seul la lis."})+
              ligne({titre:"2. Authentication → Sign In / Providers → Email", texte:"Décoche <b>Confirm email</b>. Sans ça, Supabase attend que tu cliques un lien reçu par courriel avant de te laisser entrer."})+
-             ligne({titre:"3. Project Settings → API", texte:"Recopie ici l'URL du projet et la clé <b>anon</b>."}));
+             ligne({titre:"3. Project Settings → API Keys", texte:"Recopie ici l'URL du projet et la clé <b>publishable</b>."}));
     h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
         <textarea id="sql" readonly style="min-height:150px;font-size:11.5px">${esc(SQL)}</textarea></div></div></li>`);
     h+=liste(ligne({titre:"Copier ce texte", attr:'data-act="copieSql"'}), "lien");
     h+=titreBloc("Les deux valeurs","ecart");
     h+=champ("syUrl","https://xxxx.supabase.co","url",esc(SY.url||""));
-    h+=champ("syCle","Clé anon (un long jeton)","text",esc(SY.cle||""));
-    h+=`<div class="block amorce">La clé <b>anon</b> est faite pour être publique : seule la règle posée plus haut décide qui lit quoi. Ne colle jamais la clé <b>service_role</b>.</div>`;
+    h+=champ("syCle","Clé publishable (un long jeton)","text",esc(SY.cle||""));
+    h+=`<div class="block amorce">La clé <b>publishable</b> est faite pour être publique : seule la règle posée plus haut décide qui lit quoi. Ne colle jamais la clé <b>secret</b>.</div>`;
     Z.action=bouton("Continuer", 'data-act="syProjet"');
-  } else if(e===1 && !S.syOtp){
+
+  } else if(e===1){
     h+=`<div class="block amorce" style="margin-top:18px">Ton adresse et un mot de passe. La première fois, le compte se crée tout seul ; ensuite c'est la même chose sur la tablette.</div>`;
     h+=champ("syMail","toi@exemple.com","email",esc(SY.mail||""));
     h+=champ("syMdp","Mot de passe","password","");
-    h+=`<div class="block amorce">Ce mot de passe ne garde qu'une porte : derrière, l'archive est chiffrée par ta phrase de passe, que Supabase ne connaît pas.</div>`;
-    h+=liste(ligne({titre:"Je préfère un code par courriel", attr:'data-act="syParCode"'}), "lien");
+    h+=`<div class="block amorce">Ce mot de passe fait deux métiers : il ouvre la porte du serveur, et lui seul ouvre l'archive. Le serveur, lui, ne voit qu'un bloc illisible — <b>personne d'autre que toi ne peut lire ce que tu écris ici</b>, ni moi, ni celui qui héberge.</div>`;
+    if(fourni)
+      h+=liste(ligne({titre:"Héberger chez moi", texte:"Donner mon propre projet Supabase", attr:'data-act="syPropre"'}), "lien");
     Z.action=bouton("Se connecter", 'data-act="syEntre"');
-  } else if(e===1){
-    h+=`<div class="block amorce" style="margin-top:18px">Supabase enverra un code à six chiffres — à condition que le gabarit « Magic Link » ait été modifié pour porter <b>{{ .Token }}</b>. Sans quoi tu recevras un lien, qui s'ouvrirait hors de ton application.</div>`;
-    h+=champ("syMail","toi@exemple.com","email",esc(SY.mail||""));
-    h+=liste(ligne({titre:"Revenir au mot de passe", attr:'data-act="syParMdp"'}), "lien");
-    Z.action=bouton("Recevoir un code", 'data-act="syEnvoieCode"');
+
   } else if(e===2){
-    h+=`<div class="block amorce" style="margin-top:18px">Le code envoyé à <b>${esc(SY.mail)}</b>.</div>`;
-    h+=champ("syCode","123456","text","");
-    h+=liste(ligne({titre:"Renvoyer un code", attr:'data-act="syEnvoieCode"'}), "lien");
-    Z.action=bouton("Valider", 'data-act="syVerifie"');
+    /* Le seul moment où ce code existe en clair quelque part. Après, il est
+       sous enveloppe et personne — pas même cette page — ne peut le relire. */
+    h+=`<div class="block amorce" style="margin-top:18px">C'est en route. Il reste <b>une chose</b>, et elle ne se représentera plus.</div>`;
+    h+=titreBloc("Ton code de récupération","ecart");
+    h+=`<div class="block"><div class="code">${esc(S.syCode||"")}</div></div>`;
+    h+=liste(ligne({titre:"Copier le code", attr:'data-act="copieCode"'}), "lien");
+    h+=`<div class="block amorce">Écris-le quelque part de sûr : dans ta Bible, chez ton gestionnaire de mots de passe, sur un papier rangé. <b>Il n'est montré qu'ici, cette fois-ci.</b></div>`;
+    h+=`<div class="block amorce">Il sert le jour où tu oublies ton mot de passe : lui seul rouvrira ton archive. Sans lui et sans cet appareil, elle restera close — c'est le prix de ce que personne ne puisse la lire.</div>`;
+    h+=titreBloc("Et pendant qu'on y est","ecart");
+    h+=liste(ligne({titre:"Sortir un fichier de sauvegarde", texte:"Une copie en clair, sur cet appareil", attr:'data-act="fichier"'}), "lien");
+    Z.action=bouton("Je l'ai noté", 'data-act="syNote"');
+
   } else {
-    h+=`<div class="block amorce" style="margin-top:18px">${S.syExiste
-      ? "Une archive est déjà déposée. Donne la phrase de passe que tu as choisie sur l'autre appareil."
-      : "Choisis une phrase de passe. Elle ne part jamais d'ici : c'est elle qui chiffre l'archive avant l'envoi, et sans elle le serveur ne garde qu'un bloc illisible."}</div>`;
-    h+=champ("syPhr","Ta phrase de passe","password","");
-    if(!S.syExiste){
-      h+=champ("syPhr2","Encore une fois","password","");
-      h+=`<div class="block amorce"><b>Retiens-la.</b> Perdue, c'est la copie distante qui devient illisible — pas tes données : ce téléphone garde la sienne en clair, et le fichier de sauvegarde aussi.</div>`;
-    }
-    Z.action=bouton(S.syExiste?"Rejoindre":"Activer", 'data-act="syActive"');
+    h+=`<div class="block amorce" style="margin-top:18px">Ce mot de passe n'ouvre pas cette archive. Il a dû changer depuis, et le serveur ne garde rien qui permette de le retrouver. Ton <b>code de récupération</b>, lui, la rouvrira — et le mot de passe que tu viens de taper reprendra la main ensuite.</div>`;
+    h+=champ("syRec","XXXX-XXXX-XXXX-XXXX-XXXX","text","");
+    h+=`<div class="block amorce">Si tu n'as plus ce code, il n'y a pas d'autre porte : c'est ce qui fait que personne ne lit ton journal. Mais l'archive reste entière sur l'appareil où tu la tiens — pars de celui-là, et rattache celui-ci ensuite.</div>`;
+    Z.action=bouton("Récupérer", 'data-act="syRecupere"');
   }
   Z.html=h;
 }
@@ -2548,13 +2603,12 @@ const actions={
     if(/service_role/.test(c)) return toast("Pas celle-là : la clé anon");
     SY.url=u; SY.cle=c; sySave(); S.syEtape=1; render();
   },
-  syParCode(){ S.syOtp=true; SY.mail=(val("syMail")||SY.mail||"").trim(); sySave(); render(); },
-  syParMdp(){ S.syOtp=false; SY.mail=(val("syMail")||SY.mail||"").trim(); sySave(); render(); },
+  syPropre(){ S.syPropre=true; S.syEtape=0; render(); },
   async syEntre(){
     const m=(val("syMail")||"").trim(), p=val("syMdp");
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)) return toast("Écris ton adresse");
     if(p.length<8) return toast("Au moins huit caractères");
-    SY.mail=m; sySave(); toast("…");
+    SY.mail=m; S.syMdp=p; sySave(); toast("…");
     try{
       try{ await syMotDePasse(m, p); }
       catch(e){
@@ -2564,46 +2618,61 @@ const actions={
         await sySignup(m, p);
         await syMotDePasse(m, p);
       }
-      const r=await syLit(false);
-      S.syExiste=!!r; S.syEtape=3; render();
-    }catch(e){ toast(syDit(e)); }
-  },
-  async syEnvoieCode(){
-    const m=(val("syMail")||SY.mail||"").trim();
-    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)) return toast("Écris ton adresse");
-    SY.mail=m; sySave();
-    toast("Envoi…");
-    try{ await syCode(m); S.syEtape=2; render(); toast("Code envoyé"); }
-    catch(e){ toast(syDit(e)); }
-  },
-  async syVerifie(){
-    const c=val("syCode").trim();
-    if(c.length<6) return toast("Le code fait six chiffres");
-    try{
-      await syValide(SY.mail, c);
-      const r=await syLit(false);
-      S.syExiste=!!r; S.syEtape=3; render();
-    }catch(e){ toast(syDit(e)); }
-  },
-  async syActive(){
-    const p=val("syPhr");
-    if(p.length<8) return toast("Au moins huit caractères");
-    if(!S.syExiste && p!==val("syPhr2")) return toast("Les deux phrases diffèrent");
-    SY.phr=p;
-    try{
-      if(S.syExiste){
-        /* Rejoindre : on vérifie la phrase en ouvrant vraiment l'archive
-           distante, et on fusionne avec ce que cet appareil tient déjà. */
-        const plein=await syLit(true);
-        const autre=sane(await dechiffre(plein.doc, p));
-        db=(db.nodes.length||(db.temps||[]).length) ? fusionne(db, autre) : autre;
-        save(true);
-        SY.actif=true; SY.vu=await syEcrit(db); SY.base=db.maj||0; SY.fait=Date.now(); sySave();
-      } else {
-        SY.actif=true; SY.vu=await syEcrit(db); SY.base=db.maj||0; SY.fait=Date.now(); sySave();
+      const r=await syLit(true);
+      if(!r){
+        /* Premier appareil : on tire la clé au sort, on tire le code, et on
+           met la clé sous les deux enveloppes avant le premier envoi. */
+        const dk=alea(32), code=codeNeuf();
+        SY.dk=b64(dk);
+        SY.envM=await ferme(dk, p);
+        SY.envR=await ferme(dk, codeNu(code));
+        SY.actif=true; SY.vu=await syEcrit(db); SY.base=db.maj||0; SY.fait=Date.now();
+        SY.aVoir=code; sySave();
+        S.syCode=code; S.syEtape=2; render();
+        return;
       }
-      S.syEtape=0; S.pile=[]; S.view="data"; toast("Synchronisation en route."); render();
-    }catch(e){ SY.phr=""; SY.actif=false; sySave(); toast(syDit(e)); }
+      const env=JSON.parse(r.doc);
+      if(env.v!==2) throw new Error("format inconnu");
+      try{
+        /* Le cas ordinaire : le mot de passe ouvre l'enveloppe. */
+        SY.dk=b64(await ouvre(env.mdp, p)); sySave();
+        await syRejoint(r);
+      }catch(x){
+        /* Le mot de passe a changé ailleurs depuis. Si cet appareil tient
+           déjà la clé, il se répare tout seul et referme l'enveloppe avec le
+           mot de passe d'aujourd'hui — rien à demander. */
+        if(SY.dk){
+          try{
+            await dechiffreDoc(env.doc, deb64(SY.dk));
+            await syRejoint(r, await ferme(deb64(SY.dk), p));
+            return;
+          }catch(y){}
+        }
+        S.syEtape=3; render();
+      }
+    }catch(e){ toast(syDit(e)); }
+  },
+  syNote(){ SY.aVoir=""; sySave(); S.syCode=""; S.syMdp=""; S.syEtape=0; S.pile=[]; S.view="data";
+            toast("Synchronisation en route."); render(); },
+  copieCode(){ const c=S.syCode||"";
+    try{ navigator.clipboard.writeText(c).then(()=>toast("Copié"),()=>toast("Recopie-le à la main")); }
+    catch(x){ toast("Recopie-le à la main"); } },
+  async syRecupere(){
+    const c=codeNu(val("syRec")), p=S.syMdp||"";
+    if(c.length!==20) return toast("Le code fait vingt caractères");
+    if(!p) return toast("Reprends depuis le mot de passe");
+    toast("…");
+    try{
+      const r=await syLit(true);
+      if(!r) throw new Error("rien");
+      const env=JSON.parse(r.doc);
+      let dk;
+      try{ dk=await ouvre(env.rec, c); }
+      catch(x){ return toast("Ce code n'ouvre pas cette archive"); }
+      SY.dk=b64(dk); sySave();
+      await syRejoint(r, await ferme(dk, p));
+      toast("Récupérée. Ce mot de passe l'ouvrira désormais.");
+    }catch(e){ toast(syDit(e)); }
   },
   syManuel(){ toast("…"); syMaintenant(true).then(function(){ render(); }); },
   syDetache(){
@@ -2611,7 +2680,7 @@ const actions={
                 {txt:"Détacher", rouge:true, attr:'data-act="syDetacheOk"'}],
                [{txt:"Annuler", attr:'data-act="fermeMenu"'}]]);
   },
-  syDetacheOk(){ fermeMenu(); syOublie(); S.syEtape=0; toast("Détaché."); render(); },
+  syDetacheOk(){ fermeMenu(); syOublie(); S.syEtape=0; S.syCode=""; S.syMdp=""; toast("Détaché."); render(); },
   restore(){ try{ const v=JSON.parse(document.getElementById("dump").value); if(!v||!Array.isArray(v.nodes)) throw 0; db=sane(v); save(); toast("Remplacé"); S.view="today"; render(); }catch(e){ toast("Ce texte n'est pas une sauvegarde"); } },
   askWipe(){
     ouvreMenu([[{label:"Tous tes mémoriaux seront effacés. Copie d'abord ta sauvegarde."},

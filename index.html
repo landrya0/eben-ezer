@@ -752,7 +752,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v52";
+const VERSION = "v53";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -798,7 +798,8 @@ let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an"
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
          per:"jour", tQ:"", tCat:"", blocId:null, medId:null, trou:null, quand:null,
-         noteFocus:false, frisZ:null, enPlus:false, tchId:null, lu:null};
+         noteFocus:false, frisZ:null, enPlus:false, tchId:null,
+         lu:null, luA:null, luZ:null, luPlein:false, tSp:null};
 
 /* Un seul « écran précédent » ne suffisait pas : en ouvrant un retour depuis
    un acte, il finissait par désigner l'acte lui-même, et le bouton Retour ne
@@ -938,11 +939,18 @@ function catId(nom){
 function tache(id){ return (db.taches||[]).filter(t=>t.id===id)[0]; }
 function tacheNom(id){ const t=tache(id); return t ? t.nom : "—"; }
 function tacheCat(id){ const t=tache(id); return t ? (t.cat||"reste") : "reste"; }
-function tacheId(nom, cat){
+/* Une activité naît avec son type, comme elle naît avec sa catégorie : le
+   deviner d'après le nom dépannait les anciennes, ce n'est pas une manière
+   de créer les nouvelles. À défaut de choix, le nom tranche — mais le choix
+   est offert, au même écran (13.cg). */
+function tacheId(nom, cat, sp){
   const v=String(nom||"").trim(); if(!v) return "";
   const t=(db.taches||[]).filter(x=>x.nom.toLowerCase()===v.toLowerCase())[0];
   if(t){ if(cat && t.cat!==cat){ t.cat=cat; touche(t); } return t.id; }
-  const id=uid("a"); db.taches.push({id:id, nom:cap(v), cat:cat||"reste", maj:Date.now()}); return id;
+  const id=uid("a");
+  db.taches.push({id:id, nom:cap(v), cat:cat||"reste",
+                  sp:(sp===undefined||sp===null) ? spDeNom(v) : sp, maj:Date.now()});
+  return id;
 }
 function blocT(id){ return (db.temps||[]).filter(b=>b.id===id)[0]; }
 /* Un bloc qui en recouvre un autre, même partiellement : c'est le seul cas
@@ -1529,7 +1537,8 @@ function render(){
      démarrer une activité par-dessus une autre sans qu'on l'ait voulu. */
   if(S.view!=="pointer"){ S.tQ=""; S.tCat=""; S.enPlus=false; }
   if(S.view!=="pointer" && S.view!=="temps" && S.view!=="bloc" && S.view!=="frise" && S.view!=="lecture"){ S.blocId=null; S.trou=null; }
-  if(S.view!=="lecture") S.lu=null;
+  if(S.view!=="lecture"){ S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false; }
+  if(S.view!=="pointer") S.tSp=null;
   (VUES[S.view]||vToday)();
   const onglet = ONGLETS.some(o=>o[0]===S.view);
   const colle = Z.haut && !Z.file;
@@ -2362,6 +2371,23 @@ function etapes(d){
    dessus répondent toutes à « qu'est-ce que tu gardes ? », et pointer n'est
    pas garder. Un titre l'en sépare, pour qu'on ne la lise pas comme une
    cinquième réponse à une question qu'elle ne répond pas. */
+/* Le bouton du milieu est là sur les quatre onglets : c'est le seul endroit
+   que le pouce trouve sans réfléchir. Ce qu'on fait tous les jours doit donc
+   y être, en clair, à une place qui ne bouge jamais — une roue de pastilles
+   autour du bouton ne raccourcirait rien (deux gestes dans les deux cas) et
+   dirait l'accent d'une autre application. La lecture de la Parole y gagne
+   sa ligne, et cette ligne dit déjà où l'on reprendra : une information qui
+   se lit sans ouvrir est une information gratuite (13.cg). */
+function porteLecture(){
+  const id=tacheBible();
+  const o=id ? ouverts().filter(function(b){ return b.t===id; })[0] : null;
+  if(o) return ligne({titre:"Arrêter la lecture",
+    sous:esc(hm(Date.now()-o.deb))+" — tu diras jusqu'où tu es allé",
+    attr:'data-act="bibleStop"'});
+  return ligne({titre:"Lire la Bible",
+    sous:"Le compteur part, à "+esc(nomPlat(debutPlat())),
+    attr:'data-act="bibleGo"'});
+}
 function portePointage(){
   const o=ouvert();
   return titreBloc("Ou bien","ecart") + liste(ligne(o
@@ -2369,7 +2395,8 @@ function portePointage(){
        sous:esc(hm(Date.now()-o.deb))+" pour l'instant — changer ou arrêter",
        attr:'data-go="pointer"'}
     : {titre:"Compter mon temps", sous:"Dire à quoi va ton temps",
-       attr:'data-go="pointer"'}), "lien");
+       attr:'data-go="pointer"'})
+    + porteLecture(), "lien");
 }
 function vNote(){
   const d=S.draft||(S.draft=neuf(null));
@@ -2980,6 +3007,11 @@ function vPointer(){
       ${titreBloc("Nouvelle activité")}
       <div class="block amorce">Dans quoi la ranger ? C'est ce rangement, et lui seul, qui fera les parts.</div>
       <div class="puces">${cats.map(c=>`<button class="puce" data-tcat="${c.id}" aria-pressed="${S.tCat===c.id}">${esc(c.nom)}</button>`).join("")}</div>
+      <div class="block amorce" style="margin-top:14px">Et qu'est-ce qu'on y note, en plus du temps ?</div>
+      <div class="puces" id="tTypes">${[["","Rien de plus"],["bible","Lecture de la Bible"]].map(function(x){
+        const vu = S.tSp===null||S.tSp===undefined ? spDeNom(q) : S.tSp;
+        return `<button class="puce" data-tsp="${x[0]}" aria-pressed="${vu===x[0]}">${x[1]}</button>`;
+      }).join("")}</div>
       ${liste(ligne({titre:`<span class="qn">Compter « ${esc(cap(q))} »</span>`, attr:'data-act="neufTache"'}), "lien")}
     </div>`;
 
@@ -3399,11 +3431,22 @@ function chapitresTxt(n){ return n+" chapitre"+(n>1?"s":""); }
    Parole » lit la Bible — et l'écran de l'activité tranche quand le nom se
    trompe. Son avis tient : un champ posé à la main vaut mieux qu'une
    devinette qui revient. */
+function spDeNom(nom){
+  return /bible|parole|écriture|ecriture/i.test(String(nom||"")) ? "bible" : "";
+}
 function spTache(id){
   const t=tache(id);
   if(!t) return "";
-  if(t.sp!==undefined) return t.sp;
-  return /bible|parole|écriture|ecriture/i.test(t.nom||"") ? "bible" : "";
+  return (t.sp!==undefined) ? t.sp : spDeNom(t.nom);
+}
+/* L'activité qui porte la lecture : celle qu'on a déclarée telle, et s'il y
+   en a plusieurs, celle où l'on passe le plus de temps. */
+function tacheBible(){
+  const ts=(db.taches||[]).filter(function(t){ return spTache(t.id)==="bible"; });
+  if(!ts.length) return "";
+  if(ts.length===1) return ts[0].id;
+  const freq=cumul(minuit(29), Date.now()).par;
+  return ts.slice().sort(function(a,b){ return (freq[b.id]||0)-(freq[a.id]||0); })[0].id;
 }
 
 /* On reprend là où l'on s'est arrêté, et « là » se lit dans l'archive : le
@@ -3457,6 +3500,49 @@ function chapDistincts(tid){
   return Object.keys(vus).length;
 }
 
+/* Les chapitres mis bout à bout, de Genèse 1 à Apocalypse 22 : une lecture
+   continue ne connaît pas les frontières de livres, elle passe de Genèse 50
+   à Exode 1 sans s'en apercevoir. Une seule liste peut donc la suivre, et
+   c'est elle qui ramène le geste à un seul. */
+const BIBLE_DEB = (function(){ const a=[]; let n=0;
+  BIBLE.forEach(function(l){ a.push(n); n+=l[1]; }); return a; })();
+function plat(li, c){ return BIBLE_DEB[li] + (c-1); }
+function dePlat(i){
+  i=Math.max(0, Math.min(BIBLE_CH-1, i));
+  let li=0; while(li+1<BIBLE.length && BIBLE_DEB[li+1]<=i) li++;
+  return {li:li, c:i-BIBLE_DEB[li]+1};
+}
+function nomPlat(i){ const p=dePlat(i); return nomLivre(p.li)+" "+p.c; }
+/* Une traversée continue se range en un passage par livre : c'est ainsi
+   qu'elle se relira, et ainsi que les chapitres se comptent. */
+function passagesDe(a, z){
+  const out=[]; let i=a;
+  while(i<=z){
+    const p=dePlat(i);
+    const bout=Math.min(z, BIBLE_DEB[p.li]+nbChap(p.li)-1);
+    out.push([p.li, p.c, dePlat(bout).c]);
+    i=bout+1;
+  }
+  return out;
+}
+/* La question se pose au moment où elle est naturelle : on vient de fermer
+   la lecture, on sait jusqu'où on est allé, et on est déjà là — aucun écran
+   à traverser. L'app demande ; elle n'inscrit rien, et Retour suffit à ne
+   rien dire. Un bloc trop court a déjà été effacé : on ne demande pas ce
+   qu'on a lu en vingt secondes. */
+function apresArret(bs, repli){
+  const b=(bs||[]).filter(function(x){ return x && blocT(x.id) && spTache(x.t)==="bible"; })[0];
+  if(!b) return false;
+  S.pile=[]; S.view=repli||"today"; empile();
+  S.blocId=b.id; S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false;
+  S.view="lecture";
+  return true;
+}
+function debutPlat(){
+  const der=derniereLu();
+  const a=apresLu(der && der.r);
+  return plat(a.li, a.d);
+}
 function optsLivres(sel){
   function pan(a, z){
     let o="";
@@ -3484,13 +3570,49 @@ function listeLu(b){
   }).join(""));
 }
 
+/* Dire ce qu'on a lu coûtait sept gestes : aller dans Mon temps, faire
+   défiler, toucher le bloc, ouvrir l'écran, bouger trois listes, valider.
+   Or l'app SAIT où l'on s'est arrêté — elle l'annonçait même en haut de
+   l'écran avant de redemander le livre et le chapitre de départ. Elle ne
+   demande donc plus qu'une chose : JUSQU'OÙ. Une liste, un geste.
+   Le reste — j'ai sauté, j'ai relu, j'ai préparé une prédication dans
+   Romains — est le cas rare, et le cas rare ne commande pas la forme du
+   geste quotidien : il garde ses trois listes, derrière une ligne (13.cg). */
+function vLecture(){
+  const b=blocT(S.blocId);
+  if(!b){ depile("temps"); return render(); }
+  if(S.luPlein) return vLecturePlein(b);
+  const der=derniereLu();
+  if(S.luA===null || S.luA===undefined){ S.luA=debutPlat(); S.luZ=S.luA; }
+  const a=S.luA, z=Math.max(a, S.luZ);
+  Z.titre="Ce que tu as lu"; Z.retour=true;
+  let h=`<div class="block amorce" style="margin-top:16px">${
+    !der ? "Tu commences à <b>"+esc(nomPlat(a))+"</b>. Jusqu'où es-tu allé ?"
+    : der.b===b ? "Tu reprends à <b>"+esc(nomPlat(a))+"</b>. Jusqu'où es-tu allé ?"
+    : "Tu t'étais arrêté à <b>"+esc(nomPassage(der.r))+"</b>. Jusqu'où es-tu allé ?"
+  }</div>`;
+  h+=titreBloc("Jusqu'où");
+  let o="";
+  const bout=Math.min(BIBLE_CH-1, a+199);
+  for(let i=a;i<=bout;i++) o+=`<option value="${i}"${i===z?" selected":""}>${esc(nomPlat(i))}</option>`;
+  h+=liste(champSel("luZ", "Dernier chapitre lu", o));
+  const ps=passagesDe(a, z);
+  h+=`<div class="block amorce"><b>${esc(ps.map(nomPassage).join(" · "))}</b> — ${chapitresTxt(z-a+1)}.</div>`;
+  h+=liste(ligne({titre:"Ce n'est pas là que j'ai commencé",
+      sous:"Choisir le livre et les deux bornes", attr:'data-act="luPlein"'}), "lien");
+  if((b.lu||[]).length){
+    h+=titreBloc("Déjà noté sur ce bloc","ecart");
+    h+=listeLu(b);
+  }
+  Z.html=h;
+  Z.action=bouton("Garder", 'data-act="addLuSimple"');
+}
+
 /* L'écran ne garde rien avant qu'on le dise : on choisit, on voit ce que ça
    fera, on ajoute. Et il ne se referme pas sur un ajout — une séance traverse
    parfois deux livres, ou saute d'un psaume à une épître. Le passage suivant
    est déjà proposé. */
-function vLecture(){
-  const b=blocT(S.blocId);
-  if(!b){ depile("temps"); return render(); }
+function vLecturePlein(b){
   const der=derniereLu();
   if(!S.lu) S.lu=apresLu(der && der.r);
   const l=S.lu;
@@ -3848,6 +3970,7 @@ document.addEventListener("input", ev=>{
   /* Changer de livre reprend au premier chapitre non lu de ce livre-là, et
      une fin plus tôt que le début n'existe pas : l'écran se redessine, et
      les trois listes restent d'accord entre elles. */
+  if(id==="luZ"){ S.luZ=+ev.target.value; return render(); }
   if(id==="luLiv" || id==="luDeb" || id==="luFin"){
     if(!S.lu) return;
     const v=+ev.target.value;
@@ -3894,6 +4017,14 @@ document.addEventListener("input", ev=>{
       nf.hidden = !q || exact;
       const b=nf.querySelector(".qn");
       if(b) b.textContent="Compter « "+cap(ev.target.value.trim())+" »";
+      /* Le nom propose, il ne décide plus : tant que rien n'est touché, la
+         pastille suit ce qu'on écrit ; dès qu'on en touche une, elle tient. */
+      if(S.tSp===null || S.tSp===undefined){
+        const vu=spDeNom(ev.target.value);
+        [].forEach.call(document.querySelectorAll("#tTypes .puce"), function(p){
+          p.setAttribute("aria-pressed", String(p.dataset.tsp===vu));
+        });
+      }
     }
     return;
   }
@@ -3946,7 +4077,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup],[data-tch],[data-sp],[data-lusup]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup],[data-tch],[data-sp],[data-lusup],[data-tsp]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -3979,6 +4110,7 @@ document.addEventListener("click", ev=>{
     S.step=0; empile(); S.view="note"; return render();
   }
   if(g.per){ S.per=g.per; return render(); }
+  if(g.tsp!==undefined){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.tSp=g.tsp; return render(); }
   if(g.plus!==undefined){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.enPlus=(g.plus==="1"); return render(); }
   if(g.tcat){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.tCat=g.tcat; return render(); }
   if(g.creux){
@@ -3990,7 +4122,8 @@ document.addEventListener("click", ev=>{
   if(g.stop){
     const b=blocT(g.stop); if(!b) return;
     const n=tacheNom(b.t);
-    arreteUn(b); toast("Arrêté : "+n); return render();
+    arreteUn(b); toast("Arrêté : "+n);
+    apresArret([b]); return render();
   }
   /* Une ligne d'« activité par activité » ne menait nulle part : elle est
      maintenant la porte de l'activité elle-même, et de ce qu'on y note. */
@@ -4095,7 +4228,8 @@ function poseTache(id){
   const dejaLa=ouverts().filter(function(b){ return b.t===id; })[0];
   if(dejaLa){
     arreteUn(dejaLa); S.pile=[]; S.view="today";
-    toast("Arrêté : "+tacheNom(id)); return render();
+    toast("Arrêté : "+tacheNom(id));
+    apresArret([dejaLa]); return render();
   }
   const enPlus=!!S.enPlus;
   const chg=pointe(id, enPlus);
@@ -4139,14 +4273,39 @@ const actions={
     const v=((e&&e.value)||S.tQ||"").trim();
     if(!v) return toast("Écris le nom de l'activité");
     if(!S.tCat) return toast("Dis dans quoi la ranger");
-    poseTache(tacheId(v, S.tCat));
+    poseTache(tacheId(v, S.tCat, S.tSp));
   },
   corrBloc(){ fermeMenu(); empile(); S.view="pointer"; render(); },
   heuresBloc(){ fermeMenu(); empile(); S.view="bloc"; render(); },
   /* Le même écran, mais le curseur déjà dans la note : la porte manquait,
      et « Corriger les heures » ne disait à personne qu'on pouvait écrire. */
   direBloc(){ fermeMenu(); empile(); S.view="bloc"; S.noteFocus=true; render(); },
-  direLu(){ fermeMenu(); empile(); S.lu=null; S.view="lecture"; render(); },
+  bibleGo(){
+    const id=tacheBible() || tacheId("Lecture de la Parole", "dieu", "bible");
+    pointe(id, false); S.pile=[]; S.view="today";
+    toast("On compte : "+tacheNom(id)); render();
+  },
+  bibleStop(){
+    const id=tacheBible();
+    const b=ouverts().filter(function(x){ return x.t===id; })[0];
+    if(!b) return render();
+    arreteUn(b); S.pile=[]; S.view="today";
+    toast("Arrêté : "+tacheNom(id));
+    apresArret([b]); render();
+  },
+  direLu(){ fermeMenu(); empile(); S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false;
+    S.view="lecture"; render(); },
+  /* Le cas rare s'atteint depuis le cas courant, jamais l'inverse. */
+  luPlein(){ S.luPlein=true; S.lu=null; render(); },
+  addLuSimple(){
+    const b=blocT(S.blocId);
+    if(!b || S.luA===null) return;
+    const ps=passagesDe(S.luA, Math.max(S.luA, S.luZ));
+    b.lu=(b.lu||[]).concat(ps);
+    touche(b); save();
+    toast(ps.map(nomPassage).join(" · ")+" · "+chapitresTxt(Math.max(S.luA,S.luZ)-S.luA+1));
+    depile("temps"); render();
+  },
   addLu(){
     const b=blocT(S.blocId), l=S.lu;
     if(!b || !l) return;
@@ -4204,7 +4363,8 @@ const actions={
     save(); toast("Gardé.");
     depile("temps"); render();
   },
-  stopBloc(){ fermeMenu(); const b=blocT(S.blocId); arreteUn(b); S.blocId=null; toast("Arrêté."); render(); },
+  stopBloc(){ fermeMenu(); const b=blocT(S.blocId); arreteUn(b); S.blocId=null; toast("Arrêté.");
+    if(b) apresArret([b], "temps"); render(); },
   /* Les deux heures sont proposées, pas devinées : s'il y a un vide entre le
      début de la fenêtre et le premier bloc, c'est très probablement celui-là
      qu'on vient combler — la nuit qu'on a passée debout. */
@@ -4260,9 +4420,10 @@ const actions={
   comblerVif(){ const v=creuxVif(); if(!v) return;
     S.blocId=null; S.trou={deb:v.deb, vif:true};
     empile(); S.view="pointer"; render(); },
-  arretNet(){ const o=ouvert(); const n=o?tacheNom(o.t):"";
+  arretNet(){ const o=ouvert(); const n=o?tacheNom(o.t):""; const ouv=ouverts().slice();
     arrete(); S.pile=[]; S.view="today";
-    toast(n ? "Arrêté. Le temps ne va plus à « "+n+" »." : "Arrêté."); render(); },
+    toast(n ? "Arrêté. Le temps ne va plus à « "+n+" »." : "Arrêté.");
+    apresArret(ouv); render(); },
   delBloc(){
     fermeMenu();
     db.temps=(db.temps||[]).filter(b=>b.id!==S.blocId);

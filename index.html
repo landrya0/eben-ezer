@@ -475,6 +475,10 @@ textarea.dicte:focus{outline:0}
 
 <script>
 "use strict";
+/* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
+   nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
+   on en est réduit à deviner. Elle monte avec le cache du service worker. */
+const VERSION = "v27";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -2184,6 +2188,9 @@ function vData(){
     <input type="file" id="fin" accept=".json,application/json,text/plain" hidden>
     ${titreBloc("Sur mes deux appareils","ecart")}
     ${liste(ligne({titre:"Synchronisation", sous:esc(syEtat()), attr:'data-go="sync"'}), "lien")}
+    ${titreBloc("Cette application","ecart")}
+    ${liste(ligne({titre:"Version", apres:VERSION}))}
+    ${liste(ligne({titre:"Chercher une mise à jour", sous:"Va voir s'il y en a une, puis recharge", attr:'data-act="maj"'}), "lien")}
     ${titreBloc("À la main","ecart")}
     ${liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
       <textarea id="dump" style="min-height:120px;font-size:12px">${esc(JSON.stringify(db))}</textarea></div></div></li>`)}
@@ -2603,6 +2610,19 @@ const actions={
     if(c.length<20) return toast("Colle la clé anon");
     if(/service_role/.test(c)) return toast("Pas celle-là : la clé anon");
     SY.url=u; SY.cle=c; sySave(); S.syEtape=1; render();
+  },
+  /* Une application installée ne se recharge pas d'un geste : sur iPhone, en
+     plein écran, il n'y a ni barre d'adresse ni tirer-pour-rafraîchir. Il
+     faut donc un bouton, sans quoi la seule issue est de désinstaller. */
+  async maj(){
+    toast("Je regarde…");
+    try{
+      if("serviceWorker" in navigator){
+        const reg=await navigator.serviceWorker.getRegistration();
+        if(reg) await reg.update();
+      }
+    }catch(e){}
+    setTimeout(function(){ location.reload(); }, 700);
   },
   syPropre(){ S.syPropre=true; S.syEtape=0; render(); },
   async syEntre(){

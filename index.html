@@ -426,7 +426,7 @@ const ETATS = [["fait","C'est fait"],["encours","Ça dure encore"],["prevu","C'e
 
 let db = {nodes:[], gens:[], noms:[], mans:[], seq:1};
 let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an", rev:"noms", pile:[], nodeId:null,
-         cheminId:null, eMan:"", eEtat:"fait", ePrec:"j",
+         cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:""};
 
 /* Un seul « écran précédent » ne suffisait pas : en ouvrant un retour depuis
@@ -895,37 +895,148 @@ function vRevel(){
               (dit?("Tu lui as rendu "+dit+" chose"+(dit>1?"s":"")+".") : "Tu ne lui as rien rendu.")});
     }).join(""));
   } else {
-    h+=liste(chiffres().map(t=>ligne({titre:t})).join(""));
-    h+=`<div class="block amorce">Aucune moyenne n'est un jugement.</div>`;
+    /* La garde est en tête, une fois pour toutes — pas en note de bas de page
+       après qu'on a déjà lu les chiffres. */
+    h+=`<div class="block amorce" style="margin:16px 0 4px">Aucune moyenne n'est un jugement.
+      Ce que le chiffre veut dire reste à toi.</div>`;
+    CS=constats();
+    if(!CS.length) h+=`<p class="vide">Pas encore de quoi compter. Garde quelques actes, et relie-les.</p>`;
+    else {
+      let fam=null, buf="", prem=true;
+      CS.forEach((c,i)=>{
+        if(c.fam!==fam){
+          if(buf){ h+=liste(buf); buf=""; }
+          h+=titreBloc(c.fam, prem?"":"ecart"); fam=c.fam; prem=false;
+        }
+        buf+=ligne({titre:c.txt, sous:c.ids.length?(c.ids.length+" acte"+(c.ids.length>1?"s":"")):"",
+          attr:c.ids.length?'data-faits="'+i+'"':""});
+      });
+      if(buf) h+=liste(buf);
+    }
   }
   h+=liste(ligne({titre:"Mes données", attr:'data-go="data"'}));
   Z.html=h;
 }
-function chiffres(){
-  const out=[], dn=dieuNodes();
-  const prem=dn.map(n=>n.date).filter(Boolean).sort()[0];
-  out.push(`Il a agi <b>${dn.length}</b> fois${prem?(", depuis "+(parse(prem)||{y:"?"}).y):""}.`);
+function jours(a,b){
+  const pa=parse(a), pb=parse(b); if(!pa||!pb) return null;
+  return Math.round((Date.UTC(pb.y,pb.m-1,pb.d)-Date.UTC(pa.y,pa.m-1,pa.d))/86400000);
+}
+function duree(j){
+  j=Math.abs(Math.round(j));
+  if(j<31) return j+" jour"+(j>1?"s":"");
+  const m=Math.round(j/30.44); if(m<24) return m+" mois";
+  return Math.round(j/365.25)+" ans";
+}
+function court(t,n){ t=String(t||""); n=n||44;
+  return t.length>n ? esc(t.slice(0,n-1).replace(/\s+\S*$/,""))+"…" : esc(t); }
+/* Une citation déjà entre guillemets, remise entre guillemets, en porte deux
+   paires : « « Je pourvoirai » ». On dénude avant de citer. */
+function nue(t){ return String(t||"").trim().replace(/^[«“"]\s*/,"").replace(/\s*[»”"]$/,"").replace(/\s*\.$/,""); }
+
+/* Mes chiffres : pas une jauge, des phrases. Chacune s'ouvre sur les faits
+   qui la composent — un constat qu'on ne peut pas vérifier n'est pas un
+   constat, c'est un verdict (14.5-bis.f, P4). Une famille dont la mémoire
+   n'a pas encore de quoi parler se tait : mieux vaut six phrases vraies que
+   douze dont la moitié dit « 0 sur 0 ». */
+let CS=[];
+function constats(){
+  const out=[], dn=dieuNodes(), mien=db.nodes.filter(n=>n.act==="moi");
+  const uniq=a=>a.filter((x,i)=>x&&a.indexOf(x)===i);
+  const dit=(fam,txt,ids)=>out.push({fam:fam, txt:txt, ids:uniq(ids||[])});
+  const pl=(n,m,p)=>n>1?(p||(m+"s")):m;
+
+  /* --- Ses délais --- */
+  const paroles=db.nodes.filter(n=>n.kind==="rhema"||n.kind==="ecriture");
+  const paires=[];
+  paroles.forEach(p=>enfants(p.id).filter(e=>e.act!=="moi"&&e.etat!=="prevu").forEach(e=>{
+    const j=jours(p.date,e.date); if(j!=null&&j>=0) paires.push({p:p,e:e,j:j});
+  }));
+  if(paires.length){
+    const moy=paires.reduce((s,x)=>s+x.j,0)/paires.length;
+    dit("Ses délais", `Entre une parole et ce qui l'accomplit, Il a mis <b>${duree(moy)}</b> en moyenne, sur ${paires.length} ${pl(paires.length,"fois","fois")}.`, paires.map(x=>x.e.id));
+    const max=paires.slice().sort((a,b)=>b.j-a.j)[0];
+    if(max.j>0) dit("Ses délais", `Le plus long : <b>${duree(max.j)}</b>, après « ${court(nue(max.p.txt))} ».`, [max.p.id,max.e.id]);
+  }
+  const attente=paroles.filter(n=>!enfants(n.id).some(e=>e.act!=="moi"));
+  if(attente.length) dit("Ses délais", `<b>${attente.length}</b> ${pl(attente.length,"parole")} ${attente.length>1?"attendent":"attend"} encore.`, attente.map(n=>n.id));
+
+  /* --- Ce qui marche --- */
+  const faits=mien.filter(n=>n.etat==="fait");
+  const suivis=faits.filter(n=>enfants(n.id).some(e=>e.act!=="moi"));
+  if(faits.length>=3) dit("Ce qui marche", `Sur tes ${faits.length} actes, <b>${suivis.length}</b> ont été suivis d'un acte de Lui.`, suivis.map(n=>n.id));
+  [["dieu","pour Lui"],["gens","pour d'autres"],["moi","pour toi"]].forEach(([k,l])=>{
+    const a=faits.filter(n=>n.dest===k); if(a.length<3) return;
+    const b=a.filter(n=>enfants(n.id).some(e=>e.act!=="moi"));
+    dit("Ce qui marche", `Tes actes ${l} : <b>${b.length}</b> sur ${a.length} ${b.length>1?"ont été suivis":"a été suivi"} d'un acte de Lui.`, b.map(n=>n.id));
+  });
+
+  /* --- Ta réponse --- */
   if(dn.length){
-    const sansR=dn.filter(n=>!enfants(n.id).some(e=>e.act==="moi")).length;
-    out.push(sansR ? `<b>${sansR}</b> de ses actes n'ont jamais rien reçu de toi.`
-                   : `Chacun de ses actes a reçu quelque chose de toi.`);
+    const sans=dn.filter(n=>!enfants(n.id).some(e=>e.act==="moi"));
+    dit("Ta réponse", sans.length
+      ? `<b>${sans.length}</b> de Ses actes ${sans.length>1?"n'ont":"n'a"} jamais rien reçu de toi.`
+      : `Chacun de Ses actes a reçu quelque chose de toi.`, sans.map(n=>n.id));
+    const vieux=sans.filter(n=>n.date).sort((a,b)=>(a.date||"").localeCompare(b.date||""))[0];
+    if(vieux){ const j=jours(vieux.date,today());
+      if(j!=null&&j>60) dit("Ta réponse", `Le plus ancien attend depuis <b>${duree(j)}</b>.`, [vieux.id]); }
+    const rep=[];
+    dn.forEach(n=>{
+      const e=enfants(n.id).filter(x=>x.act==="moi"&&x.etat==="fait")
+                           .sort((a,b)=>(a.date||"").localeCompare(b.date||""))[0];
+      if(e){ const j=jours(n.date,e.date); if(j!=null&&j>=0) rep.push({e:e,j:j}); }
+    });
+    if(rep.length>=2){ const moy=rep.reduce((s,x)=>s+x.j,0)/rep.length;
+      dit("Ta réponse", `Quand tu réponds, tu mets <b>${duree(moy)}</b> en moyenne.`, rep.map(x=>x.e.id)); }
   }
-  const mien=db.nodes.filter(n=>n.act==="moi");
-  if(mien.length){
-    out.push(`Tu as posé <b>${mien.length}</b> acte${mien.length>1?"s":""} : ${mien.filter(n=>n.dest==="dieu").length} pour Lui, ${mien.filter(n=>n.dest==="gens").length} pour d'autres, ${mien.filter(n=>n.dest==="moi").length} pour toi.`);
-    const yrs={};
-    mien.forEach(n=>{ const p=parse(n.date); if(!p) return; yrs[p.y]=yrs[p.y]||{t:0,moi:0}; yrs[p.y].t++; if(n.dest==="moi") yrs[p.y].moi++; });
-    const ks=Object.keys(yrs).sort();
-    if(ks.length>=2){
-      const a=yrs[ks[0]], b=yrs[ks[ks.length-1]];
-      if(a.t>=5 && b.t>=5) out.push(`En ${ks[0]}, ${Math.round(100*a.moi/a.t)}% de tes actes étaient pour toi. En ${ks[ks.length-1]}, ${Math.round(100*b.moi/b.t)}%.`);
-    }
-  }
+
+  /* --- Les hommes --- */
   const par={};
-  db.nodes.forEach(n=>{ if(n.act==="gens"&&n.gid) par[n.gid]=(par[n.gid]||0)+1; });
-  const top=Object.keys(par).sort((a,b)=>par[b]-par[a])[0];
-  if(top) out.push(`Dieu est passé <b>${par[top]}</b> fois par ${esc(gensNom(top))}.`);
+  db.nodes.forEach(n=>{ if(n.act==="gens"&&n.gid) (par[n.gid]=par[n.gid]||[]).push(n.id); });
+  const gids=Object.keys(par);
+  if(gids.length){
+    const top=gids.slice().sort((a,b)=>par[b].length-par[a].length)[0];
+    dit("Les hommes", `Dieu est passé <b>${par[top].length}</b> fois par ${esc(gensNom(top))}.`, par[top]);
+    const muets=gids.filter(g=>!db.nodes.some(n=>n.act==="moi"&&n.dest==="gens"&&n.dgid===g));
+    if(muets.length) dit("Les hommes", `Tu n'as jamais rien rendu à <b>${muets.length}</b> ${pl(muets.length,"personne")} par qui Il est passé.`,
+      [].concat.apply([], muets.map(g=>par[g])));
+  }
+
+  /* --- Tes chemins --- */
+  const ch=chemins();
+  if(ch.length){
+    const plus=ch.slice().sort((a,b)=>b.length-a.length)[0];
+    dit("Tes chemins", `Ta plus longue histoire compte <b>${plus.length}</b> actes.`, plus.map(n=>n.id));
+    if(ch.length>1){
+      const moy=ch.reduce((s,a)=>s+a.length,0)/ch.length;
+      dit("Tes chemins", `<b>${ch.length}</b> chemins, ${String(Math.round(moy*10)/10).replace(".",",")} actes en moyenne.`, []);
+    }
+    const dort=ch.filter(a=>{ const j=jours(a[a.length-1].date, today()); return j!=null && j>365; });
+    if(dort.length) dit("Tes chemins", `<b>${dort.length}</b> ${pl(dort.length,"chemin")} ${dort.length>1?"n'ont":"n'a"} rien reçu depuis plus d'un an.`,
+      dort.map(a=>a[a.length-1].id));
+  }
+
+  /* --- Tes saisons --- */
+  const ans={};
+  db.nodes.forEach(n=>{ const p=parse(n.date); if(p) (ans[p.y]=ans[p.y]||[]).push(n.id); });
+  const ks=Object.keys(ans).sort();
+  if(ks.length>=2){
+    const dense=ks.slice().sort((a,b)=>ans[b].length-ans[a].length)[0];
+    dit("Tes saisons", `Ton année la plus dense : <b>${dense}</b>, ${ans[dense].length} actes.`, ans[dense]);
+    const trous=[]; for(let y=+ks[0]+1; y<+ks[ks.length-1]; y++){ if(!ans[y]) trous.push(y); }
+    if(trous.length) dit("Tes saisons", `Rien n'est gardé pour <b>${trous.join(", ")}</b>.`, []);
+  }
   return out;
+}
+
+/* Les faits derrière un constat. */
+function vFaits(){
+  const c=CS[S.faits];
+  if(!c){ S.view="revel"; return render(); }
+  Z.titre="Les faits"; Z.retour=true;
+  const ns=c.ids.map(node).filter(Boolean).sort(parDate);
+  Z.html=`<div class="block amorce" style="margin-top:18px">${c.txt}</div>`
+    + (ns.length ? liste(ns.map(n=>ligneActe(n,{attr:'data-node="'+n.id+'"'})).join(""))
+                 : `<p class="vide">Rien à montrer ici.</p>`);
 }
 
 /* ---------- Mes actes ---------- */
@@ -1247,7 +1358,7 @@ function vData(){
 
 /* Depuis n'importe quel onglet, le geste reste à portée. */
 function vListe(f){ return function(){ f(); if(!Z.action) Z.action=bouton("Noter quelque chose",'data-go="note"'); }; }
-const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), actes:vListe(vActes), chemin:vChemin,
+const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), actes:vListe(vActes), chemin:vChemin, faits:vFaits,
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData};
 
 /* ---------- dictée ---------- */
@@ -1325,7 +1436,7 @@ document.addEventListener("input", ev=>{
 /* ---------- gestes ---------- */
 fond.addEventListener("click", ()=>fermeMenu());
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-fait],[data-abandon],[data-back]");
+  const t=ev.target.closest("[data-go],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -1343,6 +1454,7 @@ document.addEventListener("click", ev=>{
   if(g.node){ fermeMenu(); empile(); S.nodeId=g.node; S.view="node"; return render(); }
   if(g.lierview){ empile(); S.nodeId=g.lierview; S.view="lier"; return render(); }
   if(g.chemin){ empile(); S.cheminId=g.chemin; S.view="chemin"; return render(); }
+  if(g.faits){ empile(); S.faits=+g.faits; S.view="faits"; return render(); }
   if(g.ctype){ S.cTxt=((document.getElementById("cNeuf")||{}).value)||S.cTxt; S.cType=g.ctype; return render(); }
   if(g.attach){
     fermeMenu(); S.nodeId=g.attach;

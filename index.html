@@ -211,6 +211,19 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
   background:var(--barre);border-bottom:1px solid var(--filet);
   -webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou)}
 #haut[hidden]{display:none}
+/* Sur un écran de liste, ce n'est pas une barre : c'est l'en-tête de la page,
+   qui porte son nom et ses commandes et ne bouge pas pendant qu'on parcourt.
+   La liste glisse dessous, derrière le verre dépoli. */
+#haut.libre{display:block;min-height:0;
+  padding:calc(12px + env(safe-area-inset-top,0px)) 0 12px}
+#haut.libre .titre-page{margin:0 16px 2px}
+#haut.libre .marque{margin:0 0 4px 13px}
+#haut.libre .ssTitre{margin:0 16px 0}
+#haut.libre .ptitre{margin:12px 16px -2px}
+#haut.libre .puces{padding:10px 16px 0}
+#haut.libre .puces.suite{padding-top:0}
+#haut.libre .plier{margin:11px 16px 0;background:none;box-shadow:none;
+  -webkit-backdrop-filter:none;backdrop-filter:none;border:1px solid var(--filet)}
 #haut .t{flex:1 1 auto;min-width:0;text-align:center;font-size:16px;font-weight:600;
   letter-spacing:-.01em;color:var(--f7-text-color);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -271,11 +284,7 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
   background:var(--barre);-webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou);
   box-shadow:var(--ombre);font-family:var(--sans);font-size:13px;line-height:1.35;
   color:var(--muted);text-align:left;cursor:pointer}
-/* Replié, le bandeau suit le pouce : dans une archive qui défile longtemps,
-   un filtre qu'il faut remonter chercher n'est pas un filtre. Déplié, il
-   reste à sa place — trois rangs de pastilles épinglés mangeraient l'écran
-   qu'on venait justement de libérer. */
-.plier.colle{position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+
 .plier b{font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:10.5px;
   color:var(--f7-theme-color);flex:0 0 auto}
 .plier .q{flex:1 1 auto;min-width:0}
@@ -567,7 +576,7 @@ const ONGLETS = [["today","Aujourd'hui"],["oeuvres","Ses œuvres"],["revel","Ré
 
 /* Chaque vue remplit ces zones. Une seule action principale par écran. */
 let Z = {};
-function zero(){ Z = {titre:"", retour:false, fermer:false, plus:false, action:"", avance:0, html:""}; }
+function zero(){ Z = {titre:"", retour:false, fermer:false, plus:false, action:"", avance:0, haut:"", html:""}; }
 
 function render(){
   if(rec) micArret();
@@ -579,8 +588,10 @@ function render(){
   if(!surCause){ S.cNeuf=false; S.cTxt=""; S.cType=""; S.cQ=""; }
   (VUES[S.view]||vToday)();
   const onglet = ONGLETS.some(o=>o[0]===S.view);
-  haut.hidden = !Z.titre && !Z.retour && !Z.fermer;
-  if(!haut.hidden){
+  haut.hidden = !Z.titre && !Z.retour && !Z.fermer && !Z.haut;
+  haut.className = Z.haut ? "libre" : "";
+  if(!haut.hidden && Z.haut){ haut.innerHTML = Z.haut; }
+  else if(!haut.hidden){
     haut.innerHTML =
       (Z.retour ? `<button data-back="1" aria-label="Revenir">${CHEV}<span>Retour</span></button>`
        : Z.fermer ? `<button data-back="1" aria-label="Fermer">${CROIX}</button>`
@@ -689,20 +700,20 @@ function vToday(){
   const d = now.getDate()+" "+MOIS[now.getMonth()];
   Z.action = bouton("Noter quelque chose", 'data-go="note"');
   if(!db.nodes.length){
-    Z.html = RAMEAU("marque") + `<p class="titre-page">Rien encore.</p><p class="ssTitre">${d}</p>
-      <div class="block amorce" style="margin-top:14px">Note la première chose : ce qu'Il a fait, ce que tu as fait, ou ce que quelqu'un a fait.</div>
+    Z.haut = RAMEAU("marque") + `<p class="titre-page">Rien encore.</p><p class="ssTitre">${d}</p>`;
+    Z.html = `<div class="block amorce" style="margin-top:20px">Note la première chose : ce qu'Il a fait, ce que tu as fait, ou ce que quelqu'un a fait.</div>
       ${liste(ligne({titre:"Voir un exemple", attr:'data-act="demo"'}))}`;
     return;
   }
   const cartes=remontees();
   if(!cartes.length){
-    Z.html = RAMEAU("marque") + `<p class="titre-page">Rien ne revient aujourd'hui.</p><p class="ssTitre">${d}</p>
-      <div class="block amorce" style="margin-top:14px">Tout ce qu'Il a fait a reçu quelque chose de toi. Note la suite quand elle vient.</div>`;
+    Z.haut = RAMEAU("marque") + `<p class="titre-page">Rien ne revient aujourd'hui.</p><p class="ssTitre">${d}</p>`;
+    Z.html = `<div class="block amorce" style="margin-top:20px">Tout ce qu'Il a fait a reçu quelque chose de toi. Note la suite quand elle vient.</div>`;
     return;
   }
   const recents=db.nodes.slice().sort(parDate).slice(0,4);
-  Z.html = RAMEAU("marque") + `<p class="titre-page">Ce qui revient</p><p class="ssTitre">${d}</p>
-    <div class="carr" id="carr">${cartes.map(carte).join("")}</div>
+  Z.haut = RAMEAU("marque") + `<p class="titre-page">Ce qui revient</p><p class="ssTitre">${d}</p>`;
+  Z.html = `<div class="carr" id="carr" style="margin-top:16px">${cartes.map(carte).join("")}</div>
     ${cartes.length>1 ? `<div class="points" id="points">${cartes.map((c,i)=>`<i${i?"":' class="on"'}></i>`).join("")}</div>` : ""}
     ${titreBloc("Derniers gardés")}
     ${liste(recents.map(n=>ligne({titre:esc(n.txt), serif:estParole(n),
@@ -720,20 +731,23 @@ function vOeuvres(){
   const fg=[["an","Par année"],["mois","Par mois"],["semaine","Par semaine"]];
   /* Replié, le bandeau dit lui-même ce qu'il cache : sans cela, on filtre
      sans le savoir et on croit l'archive vide. */
+  /* Le bandeau ne dit que ce qui retranche : « répondu ou non » n'apprend
+     rien et pousse la ligne sur deux rangs pour rien. */
   const resume=[
     S.filtre==="tout" ? "toutes Ses manières" : manTxt(S.filtre).toLowerCase(),
-    S.ret==="tout" ? "répondu ou non" : (S.ret==="oui" ? "là où j'ai répondu" : "là où je n'ai rien rendu"),
+    S.ret==="oui" ? "là où j'ai répondu" : (S.ret==="non" ? "là où je n'ai rien rendu" : ""),
     (fg.filter(x=>x[0]===S.grain)[0]||fg[0])[1].toLowerCase()
-  ].join(" · ");
-  let h=`<p class="titre-page">Ses œuvres</p><p class="ssTitre">${list.length} fois, par Lui-même ou par une main.</p>
-    <button class="plier${S.plie?" colle":""}" data-act="plier" aria-expanded="${!S.plie}">
+  ].filter(Boolean).join(" · ");
+  Z.haut=`<p class="titre-page">Ses œuvres</p><p class="ssTitre">${list.length} fois, par Lui-même ou par une main.</p>
+    <button class="plier" data-act="plier" aria-expanded="${!S.plie}">
       <b>Filtres</b><span class="q">${esc(resume)}</span>${BAS}</button>`;
-  if(!S.plie) h+=`<div class="ptitre">Sa manière</div>
+  if(!S.plie) Z.haut+=`<div class="ptitre">Sa manière</div>
     <div class="puces">${fl.map(f=>`<button class="puce" data-filtre="${f}" aria-pressed="${S.filtre===f}">${f==="tout"?"Tout":manTxt(f)}</button>`).join("")}</div>
     <div class="ptitre">Mon retour</div>
     <div class="puces suite">${fr.map(([k,l])=>`<button class="puce" data-fret="${k}" aria-pressed="${S.ret===k}">${l}</button>`).join("")}</div>
     <div class="ptitre">Ranger</div>
     <div class="puces suite">${fg.map(([k,l])=>`<button class="puce" data-grain="${k}" aria-pressed="${S.grain===k}">${l}</button>`).join("")}</div>`;
+  let h="";
   const rendu=n=>enfants(n.id).some(e=>e.act==="moi");
   const vus=list
     .filter(n=>S.filtre==="tout" || n.man===S.filtre)
@@ -754,8 +768,9 @@ function vOeuvres(){
 /* ---------- Révélations ---------- */
 function vRevel(){
   const o=[["noms","Noms"],["chemins","Chemins"],["gens","Personnes"],["chiffres","Chiffres"]];
-  let h=`<p class="titre-page">Révélations</p><p class="ssTitre">Ce que tout cela t'a fait connaître de Lui.</p>
+  Z.haut=`<p class="titre-page">Révélations</p><p class="ssTitre">Ce que tout cela t'a fait connaître de Lui.</p>
     <div class="puces">${o.map(([k,l])=>`<button class="puce" data-rev="${k}" aria-pressed="${S.rev===k}">${l}</button>`).join("")}</div>`;
+  let h="";
   if(S.rev==="noms"){
     if(!db.noms.length) h+=`<p class="vide">Aucun nom encore. Ils viennent en relisant.</p>`;
     else h+=liste(db.noms.slice().reverse().map(nm=>ligne({titre:esc(nm.txt), serif:true,
@@ -827,8 +842,8 @@ function vActes(){
     return h;
   };
   const faits=mien.filter(n=>n.etat==="fait").sort(parDate);
-  Z.html = `<p class="titre-page">Mes actes</p>`
-    + bloc("En cours", mien.filter(n=>n.etat==="encours").sort(parDate))
+  Z.haut = `<p class="titre-page">Mes actes</p>`;
+  Z.html = bloc("En cours", mien.filter(n=>n.etat==="encours").sort(parDate))
     + bloc("Planifié", mien.filter(n=>n.etat==="prevu").sort((a,b)=>(a.date||"").localeCompare(b.date||"")))
     + bloc("Fait", faits.slice(0,12), faits.length-12);
 }

@@ -338,6 +338,38 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
    suffit pas à tous les yeux. */
 #nav button[aria-current="page"] svg{stroke-width:1.8}
 
+/* ---------- la tablette : une colonne, pas une nappe ---------- */
+/* Déverrouiller le paysage ne suffit pas. Une phrase qui court sur mille
+   pixels cesse d'être lisible : au retour à la ligne, l'œil ne retrouve plus
+   laquelle il quitte. L'application garde donc la colonne du téléphone, posée
+   au milieu de l'écran, et les barres suivent la colonne au lieu de s'étirer
+   avec lui — quatre onglets écartés sur toute la largeur d'une tablette ne
+   sont plus une barre, c'est une frise. Le fond déborde de part et d'autre :
+   c'est la nappe, et elle n'a rien à porter. */
+@media (min-width:720px){
+  :root{--colonne:640px}
+  #main>*{max-width:var(--colonne);margin-left:auto;margin-right:auto}
+  #haut, #avance, #bas{left:50%;right:auto;transform:translateX(-50%);
+    width:100%;max-width:var(--colonne)}
+  #haut{border-left:1px solid var(--filet);border-right:1px solid var(--filet)}
+  #nav{border-left:1px solid var(--filet);border-right:1px solid var(--filet)}
+}
+/* Un téléphone couché a de la largeur mais presque pas de hauteur : trois
+   étages de mobilier y mangeraient tout. On resserre les barres plutôt que
+   de refuser la rotation. */
+@media (max-height:460px) and (orientation:landscape){
+  #haut{min-height:44px;padding-top:calc(3px + env(safe-area-inset-top,0px));padding-bottom:3px}
+  #haut.libre{padding-top:calc(7px + env(safe-area-inset-top,0px));padding-bottom:7px}
+  #nav button{min-height:44px;padding:4px 2px 3px}
+  #nav button svg{width:20px;height:20px}
+  #acte.geste{padding-top:5px;padding-bottom:7px}
+  #acte .pastille, .tic{height:46px;min-height:46px}
+  .entete{padding-bottom:2px}
+  #haut.libre .marque, .entete .marque{width:40px;margin-top:0;margin-bottom:0}
+  #haut.libre .titre-page, .entete .titre-page{font-size:23px;margin-top:8px}
+  .carr{padding-top:9px;padding-bottom:6px}
+}
+
 /* ---------- ce qui revient : des cartes qui défilent ---------- */
 .carr{display:flex;gap:13px;overflow-x:auto;scroll-snap-type:x mandatory;
   padding:14px 16px 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
@@ -497,7 +529,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v31";
+const VERSION = "v32";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */

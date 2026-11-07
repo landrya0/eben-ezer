@@ -659,6 +659,25 @@ textarea.dicte:focus{outline:0}
 @keyframes bat{0%,100%{opacity:1}50%{opacity:.4}}
 .micro.on svg{animation:bat 1.1s ease-in-out infinite}
 
+/* ---------- choisir dans une liste ---------- */
+/* Un chapitre se choisit, il ne s'écrit pas : « Genèse 51 » n'existe pas, et
+   une liste déroulante le sait. Notre bundle Framework7 est taillé et ne
+   connaît pas les select ; on les habille donc ici, au registre des champs,
+   avec le chevron qu'un doigt attend. */
+.sel{position:relative;display:block}
+.sel::after{content:"";position:absolute;right:3px;top:50%;width:7px;height:7px;
+  margin-top:-6px;border-right:1.7px solid var(--muted);border-bottom:1.7px solid var(--muted);
+  transform:rotate(45deg);pointer-events:none}
+.sel select{width:100%;min-height:38px;border:0;background:transparent;border-radius:0;
+  font-family:var(--sans);font-size:17px;line-height:1.3;color:var(--f7-text-color);
+  appearance:none;-webkit-appearance:none;padding:0 22px 0 0}
+.sel select:focus{outline:0}
+.item-title.item-label{font-family:var(--sans);font-size:11px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0}
+/* Les chapitres traversés ne sont pas une note : ils se lisent d'un coup
+   d'oeil, en clair, sous le bloc qui les a reçus. */
+.item-subtitle .lus{display:block;margin-top:3px;font-weight:600;color:var(--f7-theme-color)}
+
 /* ---------- feuilles d'action (Framework7 les cache, son JS les montre ; on fait sans) ---------- */
 .actions-backdrop{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(14,10,8,.45);
   z-index:13000;opacity:0;visibility:hidden;transition:opacity .3s}
@@ -733,7 +752,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v50";
+const VERSION = "v51";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -779,7 +798,7 @@ let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an"
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
          per:"jour", tQ:"", tCat:"", blocId:null, medId:null, trou:null, quand:null,
-         noteFocus:false, frisZ:null, enPlus:false};
+         noteFocus:false, frisZ:null, enPlus:false, tchId:null, lu:null};
 
 /* Un seul « écran précédent » ne suffisait pas : en ouvrant un retour depuis
    un acte, il finissait par désigner l'acte lui-même, et le bouton Retour ne
@@ -1500,7 +1519,8 @@ function render(){
   /* L'interrupteur ne se garde pas : « en plus » oublié d'hier ferait
      démarrer une activité par-dessus une autre sans qu'on l'ait voulu. */
   if(S.view!=="pointer"){ S.tQ=""; S.tCat=""; S.enPlus=false; }
-  if(S.view!=="pointer" && S.view!=="temps" && S.view!=="bloc" && S.view!=="frise"){ S.blocId=null; S.trou=null; }
+  if(S.view!=="pointer" && S.view!=="temps" && S.view!=="bloc" && S.view!=="frise" && S.view!=="lecture"){ S.blocId=null; S.trou=null; }
+  if(S.view!=="lecture") S.lu=null;
   (VUES[S.view]||vToday)();
   const onglet = ONGLETS.some(o=>o[0]===S.view);
   const colle = Z.haut && !Z.file;
@@ -3179,7 +3199,23 @@ function vMonTemps(){
   h += titreBloc("Activité par activité","ecart");
   if(porte) h += `<div class="block amorce">Chacune compte tout son temps. Quand plusieurs sont menées de front, leur somme dépasse la journée — c'est voulu : la journée, elle, est au-dessus.</div>`;
   h += liste(tids.map(tid=>ligne({titre:esc(tacheNom(tid)), sous:esc(catNom(tacheCat(tid))),
-      apres:esc(hm(c.par[tid]))})).join(""));
+      apres:esc(hm(c.par[tid])), attr:'data-tch="'+tid+'"'})).join(""));
+
+  /* Le temps dit la fidélité, pas le chemin. Deux heures dans la Parole
+     peuvent être dix chapitres ou un seul relu dix fois : les deux sont
+     justes, et aucun des deux ne se déduit de l'autre. On compte donc à
+     part — les chapitres lus sur la fenêtre, et le terrain parcouru depuis
+     le début, qui lui ne grandit qu'une fois par chapitre. */
+  const lf=chapFen(f.t0, f.t1), lt=chapDistincts(null);
+  if(lf.ch || lt){
+    h += titreBloc("La Parole","ecart");
+    h += liste(ligne({titre:"Chapitres lus",
+        sous: lf.p ? "En "+lf.p+" passage"+(lf.p>1?"s":"")+" "+f.nom : "Rien de lu "+f.nom,
+        apres:esc(String(lf.ch))})
+      + ligne({titre:"Depuis le début",
+        sous:partPc(lt, BIBLE_CH)+" % de l'Écriture — il reste "+(BIBLE_CH-lt)+" chapitres",
+        apres:esc(lt+" / "+BIBLE_CH)}));
+  }
 
   /* Les blocs ne se lisaient qu'aujourd'hui, tant qu'ils ne portaient qu'une
      heure : une heure passée ne se relit pas. Depuis qu'ils portent ce qu'on
@@ -3237,6 +3273,7 @@ function vMonTemps(){
     const b=it.b, a=it.d;
     return ligne({titre:esc(tacheNom(b.t))+(b.porte?` <span class="pte">porte l'heure</span>`:""),
       sous:jourBref(a)+hmin(new Date(a))+" → "+(b.fin?hmin(new Date(b.fin)):"maintenant")
+        +((b.lu&&b.lu.length)?`<span class="lus">${esc(passagesTxt(b))}</span>`:"")
         +(b.note?`<span class="medNote">${esc(b.note)}</span>`:""),
       apres:esc(hm((b.fin||n2)-a)), attr:'data-bloc="'+b.id+'"'});
   }).join(""));
@@ -3287,6 +3324,192 @@ function noteBloc(b){
   const v=e.value.trim();
   if(v) b.note=v; else delete b.note;
 }
+
+/* ---------- la Parole : les chapitres traversés ---------- */
+/* Deux heures de lecture ne disent pas si l'on a traversé un livre ou relu
+   trois versets. Le compte pèse le temps ; il ne dit rien du chemin parcouru
+   dans l'Écriture — or c'est le chemin qui se relit : « j'en suis à Jérémie »,
+   « j'ai lu les évangiles cette année ». On garde donc, sur le bloc, les
+   chapitres lus ; et comme l'Écriture a un nombre de chapitres fini et connu,
+   l'app sait où l'on s'est arrêté et propose de reprendre juste après.
+   Les chapitres tiennent au bloc, jamais à l'activité : « Lecture de la
+   Parole » revient tous les jours, et ce qu'on y lit change chaque fois.
+   Soixante-six livres, mille cent quatre-vingt-neuf chapitres — le canon
+   protestant, dans les noms de la Segond, ceux qu'on lit à la CMCI. */
+const BIBLE = [
+  ["Genèse",50],["Exode",40],["Lévitique",27],["Nombres",36],["Deutéronome",34],
+  ["Josué",24],["Juges",21],["Ruth",4],["1 Samuel",31],["2 Samuel",24],["1 Rois",22],
+  ["2 Rois",25],["1 Chroniques",29],["2 Chroniques",36],["Esdras",10],["Néhémie",13],
+  ["Esther",10],["Job",42],["Psaumes",150],["Proverbes",31],["Ecclésiaste",12],
+  ["Cantique des cantiques",8],["Ésaïe",66],["Jérémie",52],["Lamentations",5],
+  ["Ézéchiel",48],["Daniel",12],["Osée",14],["Joël",3],["Amos",9],["Abdias",1],
+  ["Jonas",4],["Michée",7],["Nahum",3],["Habacuc",3],["Sophonie",3],["Aggée",2],
+  ["Zacharie",14],["Malachie",4],
+  ["Matthieu",28],["Marc",16],["Luc",24],["Jean",21],["Actes",28],["Romains",16],
+  ["1 Corinthiens",16],["2 Corinthiens",13],["Galates",6],["Éphésiens",6],
+  ["Philippiens",4],["Colossiens",4],["1 Thessaloniciens",5],["2 Thessaloniciens",3],
+  ["1 Timothée",6],["2 Timothée",4],["Tite",3],["Philémon",1],["Hébreux",13],
+  ["Jacques",5],["1 Pierre",5],["2 Pierre",3],["1 Jean",5],["2 Jean",1],["3 Jean",1],
+  ["Jude",1],["Apocalypse",22]
+];
+const BIBLE_NT = 39, BIBLE_CH = 1189;
+function nomLivre(li){ const l=BIBLE[li]; return l ? l[0] : "?"; }
+function nbChap(li){ const l=BIBLE[li]; return l ? l[1] : 1; }
+function nbLu(r){ return r[2]-r[1]+1; }
+function nomPassage(r){
+  const n=nomLivre(r[0]);
+  return r[1]===r[2] ? n+" "+r[1] : n+" "+r[1]+" à "+r[2];
+}
+function passagesTxt(b){ return (b.lu||[]).map(nomPassage).join(" · "); }
+function chapitresTxt(n){ return n+" chapitre"+(n>1?"s":""); }
+
+/* Une activité ne porte pas toutes les questions : on ne demande pas des
+   chapitres à un trajet. Le nom donne un premier avis — « Lecture de la
+   Parole » lit la Bible — et l'écran de l'activité tranche quand le nom se
+   trompe. Son avis tient : un champ posé à la main vaut mieux qu'une
+   devinette qui revient. */
+function spTache(id){
+  const t=tache(id);
+  if(!t) return "";
+  if(t.sp!==undefined) return t.sp;
+  return /bible|parole|écriture|ecriture/i.test(t.nom||"") ? "bible" : "";
+}
+
+/* On reprend là où l'on s'est arrêté, et « là » se lit dans l'archive : le
+   dernier passage noté, au bloc le plus récent. Rien à garder à part — un
+   signet qu'on tient à jour soi-même se désaccorde du jour où l'on corrige
+   une lecture. Le dernier chapitre du livre fait passer au livre suivant. */
+function derniereLu(){
+  let der=null;
+  (db.temps||[]).forEach(function(b){
+    if(!b.lu || !b.lu.length) return;
+    if(!der || b.deb>der.deb) der=b;
+  });
+  return der ? {r:der.lu[der.lu.length-1], b:der} : null;
+}
+function apresLu(r){
+  if(!r) return {li:0, d:1, f:1};
+  if(r[2] < nbChap(r[0])) return {li:r[0], d:r[2]+1, f:r[2]+1};
+  return {li:(r[0]+1) % BIBLE.length, d:1, f:1};
+}
+/* Qui lit l'Ancien le matin et le Nouveau le soir a deux signets. Changer de
+   livre reprend donc au premier chapitre non lu de CE livre-là, pas au
+   premier tout court. */
+function repriseLivre(li){
+  let m=0;
+  (db.temps||[]).forEach(function(b){
+    (b.lu||[]).forEach(function(r){ if(r[0]===li && r[2]>m) m=r[2]; });
+  });
+  return m>=nbChap(li) ? 1 : m+1;
+}
+/* Deux comptes, et ils ne disent pas la même chose. Sur une fenêtre, on
+   compte les chapitres lus — relire Jean 3 trois fois, c'est trois fois
+   avoir lu. Sur toute la vie, on compte les chapitres distincts : c'est du
+   terrain parcouru, et relire ne l'agrandit pas. La lecture se rattache au
+   début de son bloc : un bloc n'appartient qu'à un jour. */
+function chapFen(t0, t1){
+  let ch=0, p=0;
+  (db.temps||[]).forEach(function(b){
+    if(!b.lu || !b.lu.length || b.deb<t0 || b.deb>=t1) return;
+    b.lu.forEach(function(r){ ch+=nbLu(r); p++; });
+  });
+  return {ch:ch, p:p};
+}
+function chapDistincts(tid){
+  const vus={};
+  (db.temps||[]).forEach(function(b){
+    if(tid && b.t!==tid) return;
+    (b.lu||[]).forEach(function(r){
+      for(let c=r[1]; c<=r[2]; c++) vus[r[0]+"."+c]=1;
+    });
+  });
+  return Object.keys(vus).length;
+}
+
+function optsLivres(sel){
+  function pan(a, z){
+    let o="";
+    for(let i=a;i<z;i++) o+=`<option value="${i}"${i===sel?" selected":""}>${esc(BIBLE[i][0])}</option>`;
+    return o;
+  }
+  return `<optgroup label="Ancien Testament">${pan(0, BIBLE_NT)}</optgroup>`
+       + `<optgroup label="Nouveau Testament">${pan(BIBLE_NT, BIBLE.length)}</optgroup>`;
+}
+function optsChap(li, sel, min){
+  let o="";
+  for(let c=(min||1); c<=nbChap(li); c++) o+=`<option value="${c}"${c===sel?" selected":""}>${c}</option>`;
+  return o;
+}
+function champSel(id, label, corps){
+  return `<li class="item-content item-input"><div class="item-inner">
+      <div class="item-title item-label">${label}</div>
+      <div class="item-input-wrap"><span class="sel"><select id="${id}">${corps}</select></span></div>
+    </div></li>`;
+}
+function listeLu(b){
+  return liste(b.lu.map(function(r,i){
+    return ligne({titre:esc(nomPassage(r)), sous:chapitresTxt(nbLu(r)),
+      apres:`<span class="rouge">Retirer</span>`, attr:'data-lusup="'+i+'"'});
+  }).join(""));
+}
+
+/* L'écran ne garde rien avant qu'on le dise : on choisit, on voit ce que ça
+   fera, on ajoute. Et il ne se referme pas sur un ajout — une séance traverse
+   parfois deux livres, ou saute d'un psaume à une épître. Le passage suivant
+   est déjà proposé. */
+function vLecture(){
+  const b=blocT(S.blocId);
+  if(!b){ depile("temps"); return render(); }
+  const der=derniereLu();
+  if(!S.lu) S.lu=apresLu(der && der.r);
+  const l=S.lu;
+  Z.titre="Ce que tu as lu"; Z.retour=true;
+  /* Le même fait, dit deux fois selon qu'il vient d'arriver ou d'hier :
+     « la dernière fois » sonne faux trois secondes après l'avoir noté. */
+  let h=`<div class="block amorce" style="margin-top:16px">${
+    !der ? "Dis le livre et les chapitres traversés. Dès la prochaine fois, l'app reprendra là où tu t'arrêtes."
+    : der.b===b ? "Tu viens de noter <b>"+esc(nomPassage(der.r))+"</b>. On continue juste après."
+    : "La dernière fois, tu t'es arrêté à <b>"+esc(nomPassage(der.r))+"</b>. On reprend juste après."
+  }</div>`;
+  h+=titreBloc("Le passage");
+  h+=liste(champSel("luLiv", "Le livre", optsLivres(l.li))
+         + champSel("luDeb", "Du chapitre", optsChap(l.li, l.d))
+         + champSel("luFin", "Jusqu'au chapitre", optsChap(l.li, l.f, l.d)));
+  h+=`<div class="block amorce"><b>${esc(nomPassage([l.li, l.d, l.f]))}</b> — ${chapitresTxt(l.f-l.d+1)}.</div>`;
+  if((b.lu||[]).length){
+    h+=titreBloc("Déjà noté sur ce bloc","ecart");
+    h+=listeLu(b);
+  }
+  Z.html=h;
+  Z.action=bouton("Ajouter ce passage", 'data-act="addLu"');
+}
+
+/* Ce que l'app demande à une activité se règle une fois, sur l'activité —
+   pas à chaque bloc. Un seul réglage pour l'instant, et c'est voulu : on
+   n'ouvre pas un atelier de champs sur mesure avant de savoir, à l'usage,
+   lesquels manquent vraiment. */
+function vTache(){
+  const t=tache(S.tchId);
+  if(!t){ depile("temps"); return render(); }
+  const sp=spTache(t.id);
+  Z.titre=t.nom; Z.retour=true;
+  let h=`<div class="block amorce" style="margin-top:16px">Rangée dans <b>${esc(catNom(t.cat||"reste"))}</b>. C'est ce rangement qui fait les parts.</div>`;
+  h+=titreBloc("Ce qu'on y note");
+  h+=`<div class="block amorce">En plus du temps et de ce qui s'y est passé, l'app peut demander autre chose à cette activité.</div>`;
+  h+=liste(ligne({titre:"Rien de plus", sous:"Le temps, et la note du bloc",
+      apres: sp!=="bible" ? `<span class="coche">✓</span>` : "", attr:'data-sp="-"'})
+    + ligne({titre:"Les chapitres de la Bible",
+      sous:"Le livre et les chapitres lus, avec la reprise là où tu t'es arrêté",
+      apres: sp==="bible" ? `<span class="coche">✓</span>` : "", attr:'data-sp="bible"'}));
+  if(sp==="bible"){
+    const n=chapDistincts(t.id);
+    h+=titreBloc("Ce que tu as traversé","ecart");
+    h+=liste(ligne({titre:"Chapitres distincts", sous:"Relire ne l'agrandit pas",
+        apres:esc(n+" / "+BIBLE_CH)}));
+  }
+  Z.html=h;
+}
+
 function vBloc(){
   const b=blocT(S.blocId);
   if(!b){ depile("temps"); return render(); }
@@ -3303,6 +3526,14 @@ function vBloc(){
   h+=titreBloc("Ce qui s'y est passé","ecart");
   h+=`<div class="block amorce">Ce que tu écris ici se garde tout seul.</div>`;
   h+=`<div class="block"><textarea class="dicte petit" id="bNote" placeholder="Ce que tu as vu, reçu, compris, ou simplement fait…" style="min-height:84px">${esc(b.note||"")}</textarea>${micBloc("bNote")}</div>`;
+  /* La question n'est posée qu'à qui peut y répondre : demander des chapitres
+     à un trajet encombrerait l'écran sans rien recueillir. */
+  if(spTache(b.t)==="bible"){
+    h+=titreBloc("Ce que tu as lu","ecart");
+    if((b.lu||[]).length) h+=listeLu(b);
+    h+=liste(ligne({titre:(b.lu||[]).length ? "Ajouter un passage" : "Dire les chapitres lus",
+        sous:"Le livre et les chapitres traversés", attr:'data-act="direLu"'}), "lien");
+  }
   h+=titreBloc("Le début","ecart");
   h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
       <input type="datetime-local" id="bDeb" value="${dtl(b.deb)}"></div></div></li>`);
@@ -3514,6 +3745,7 @@ function vListe(f){ return function(){ f(); }; }
 const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), actes:vListe(vActes), chemin:vChemin, faits:vFaits,
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData,
               pointer:vPointer, temps:vMonTemps, bloc:vBloc, quand:vQuand, frise:vFrise,
+              tache:vTache, lecture:vLecture,
               sync:vSync, reglages:vReglages};
 
 /* ---------- dictée ---------- */
@@ -3582,6 +3814,17 @@ document.addEventListener("focusout", function(ev){
 document.addEventListener("input", ev=>{
   const id=ev.target.id;
   if(id==="bNote"){ clearTimeout(noteT); noteT=setTimeout(gardeNote, 900); return; }
+  /* Changer de livre reprend au premier chapitre non lu de ce livre-là, et
+     une fin plus tôt que le début n'existe pas : l'écran se redessine, et
+     les trois listes restent d'accord entre elles. */
+  if(id==="luLiv" || id==="luDeb" || id==="luFin"){
+    if(!S.lu) return;
+    const v=+ev.target.value;
+    if(id==="luLiv"){ const d=repriseLivre(v); S.lu={li:v, d:d, f:d}; }
+    else if(id==="luDeb"){ S.lu.d=v; if(S.lu.f<v) S.lu.f=v; }
+    else S.lu.f=v;
+    return render();
+  }
   if(id==="cNeuf"){ S.cTxt=ev.target.value; return; }
   if(id==="cFiltre"){
     const q=ev.target.value.trim().toLowerCase();
@@ -3672,7 +3915,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup],[data-tch],[data-sp],[data-lusup]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -3718,6 +3961,21 @@ document.addEventListener("click", ev=>{
     const n=tacheNom(b.t);
     arreteUn(b); toast("Arrêté : "+n); return render();
   }
+  /* Une ligne d'« activité par activité » ne menait nulle part : elle est
+     maintenant la porte de l'activité elle-même, et de ce qu'on y note. */
+  if(g.tch){ empile(); S.tchId=g.tch; S.view="tache"; return render(); }
+  if(g.sp){
+    const t=tache(S.tchId); if(!t) return;
+    t.sp = g.sp==="-" ? "" : g.sp;
+    touche(t); save(); toast("Noté."); return render();
+  }
+  if(g.lusup!==undefined){
+    const b=blocT(S.blocId); if(!b || !b.lu) return;
+    const r=b.lu[+g.lusup]; if(!r) return;
+    b.lu.splice(+g.lusup, 1);
+    if(!b.lu.length) delete b.lu;
+    touche(b); save(); toast("Retiré : "+nomPassage(r)); return render();
+  }
   if(g.tache) return poseTache(g.tache);
   if(g.sugg){ return poseTache(tacheId(g.sugg, g.cat)); }
   if(g.bloc){
@@ -3727,6 +3985,9 @@ document.addEventListener("click", ev=>{
         attr:'data-act="direBloc"'},
        {txt:"C'était autre chose", attr:'data-act="corrBloc"'},
        {txt:"Corriger les heures", attr:'data-act="heuresBloc"'}]
+        .concat(spTache(b.t)==="bible" ? [{txt:(b.lu&&b.lu.length) ? "Corriger les chapitres lus"
+                                                                   : "Dire les chapitres lus",
+                                            attr:'data-act="direLu"'}] : [])
         .concat(chevauche(b) ? [{txt: b.porte ? "Rendre l'heure à ce qui tournait déjà"
                                                : "C'est ça qui portait l'heure",
                                   attr:'data-act="porteBloc"'}] : [])
@@ -3854,6 +4115,17 @@ const actions={
   /* Le même écran, mais le curseur déjà dans la note : la porte manquait,
      et « Corriger les heures » ne disait à personne qu'on pouvait écrire. */
   direBloc(){ fermeMenu(); empile(); S.view="bloc"; S.noteFocus=true; render(); },
+  direLu(){ fermeMenu(); empile(); S.lu=null; S.view="lecture"; render(); },
+  addLu(){
+    const b=blocT(S.blocId), l=S.lu;
+    if(!b || !l) return;
+    const r=[l.li, Math.min(l.d, l.f), Math.max(l.d, l.f)];
+    b.lu=(b.lu||[]).concat([r]);
+    touche(b); save();
+    toast(nomPassage(r)+" · "+chapitresTxt(nbLu(r)));
+    S.lu=apresLu(r);
+    render();
+  },
   bCours(){
     const b=blocT(S.blocId); if(!b) return;
     /* Le début déjà tapé ne doit pas se perdre en basculant la fin. */

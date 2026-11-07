@@ -673,7 +673,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v42";
+const VERSION = "v43";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -2145,6 +2145,26 @@ function etapes(d){
   if(!d.fige) e.push("par");
   return e;
 }
+/* Tant que le compteur occupait le bas de l'écran, le pointage avait une
+   porte permanente : « Rien n'est compté · Compter », sur tous les onglets.
+   En montant dans le rail (13.bt), il l'a emportée avec lui — car le rail
+   n'existe que pendant qu'on compte, et quand rien ne compte il ne restait
+   qu'une ligne au milieu d'Aujourd'hui. Il fallait donc la chercher.
+   Or compter son temps n'est pas l'affaire d'un onglet, c'est un geste ; et
+   les gestes sont derrière le bouton du milieu, qui est là sur les quatre
+   onglets. La porte revient donc là, mais à part : les quatre lignes au-
+   dessus répondent toutes à « qu'est-ce que tu gardes ? », et pointer n'est
+   pas garder. Un titre l'en sépare, pour qu'on ne la lise pas comme une
+   cinquième réponse à une question qu'elle ne répond pas. */
+function portePointage(){
+  const o=ouvert();
+  return titreBloc("Ou bien","ecart") + liste(ligne(o
+    ? {titre:"« "+esc(tacheNom(o.t))+" » tourne",
+       sous:esc(hm(Date.now()-o.deb))+" pour l'instant — changer ou arrêter",
+       attr:'data-go="pointer"'}
+    : {titre:"Compter mon temps", sous:"Dire à quoi va ton temps",
+       attr:'data-go="pointer"'}), "lien");
+}
 function vNote(){
   const d=S.draft||(S.draft=neuf(null));
   const et=etapes(d);
@@ -2167,6 +2187,7 @@ function vNote(){
         ligne({titre:"J'ai fait…", serif:true, attr:'data-qui="moi"'})+
         ligne({titre:"Je vais faire…", sous:"une résolution, un engagement, un vœu", serif:true, attr:'data-qui="moiPrevu"'})+
         ligne({titre:"Quelqu'un a fait…", sous:"même si c'est Lui derrière", serif:true, attr:'data-qui="gens"'}));
+    if(!parent) Z.html += portePointage();
   }
   else if(cle==="dest"){
     Z.titre="Pour qui ?";

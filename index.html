@@ -550,7 +550,16 @@ textarea.dicte:focus{outline:0}
 .actions-backdrop{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(14,10,8,.45);
   z-index:13000;opacity:0;visibility:hidden;transition:opacity .3s}
 .actions-backdrop.backdrop-in{opacity:1;visibility:visible}
-.actions-modal{display:none;position:fixed;left:0;right:0;bottom:0;z-index:13500}
+/* Framework7 recentre sa feuille au-delà de 496 points — mais il le fait
+   avec « left:50% » et une marge négative de la moitié de sa largeur. Nous
+   posons left:0 et right:0 pour tenir les deux bords du téléphone ; la marge
+   négative, elle, survivait, et la feuille partait à moins deux cent quarante
+   points du bord gauche. Sur tablette, les choix étaient coupés : « une
+   photo », « mer », « er un son ». On ne défait pas la moitié d'une règle
+   étrangère : on la défait en entier, et on recentre à notre façon — bornée
+   comme la colonne de lecture, jamais plus large (13.bn). */
+.actions-modal{display:none;position:fixed;left:0;right:0;bottom:0;z-index:13500;
+  width:auto;max-width:480px;margin-left:auto;margin-right:auto}
 .actions-modal.modal-in{display:block;animation:monte .28s cubic-bezier(.2,.8,.3,1)}
 @keyframes monte{from{transform:translate3d(0,100%,0)}to{transform:none}}
 .actions-button{font-family:var(--sans)}
@@ -610,7 +619,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v38";
+const VERSION = "v39";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */

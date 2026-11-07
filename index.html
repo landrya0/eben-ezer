@@ -173,6 +173,11 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
   line-height:1.5;letter-spacing:.006em;color:var(--voix)}
 .pas .sous{display:block;font-family:var(--sans);font-size:12.5px;font-weight:500;
   letter-spacing:.015em;color:var(--muted);margin-top:5px}
+/* La phrase est la voix, la description est le commentaire : deux fontes,
+   pour qu'on ne les confonde pas d'un coup d'œil (13.q). */
+.dicte.petit{font-family:var(--sans);font-size:15.5px;line-height:1.55;letter-spacing:0}
+.desc{font-family:var(--sans);font-size:14.5px;line-height:1.55;color:var(--muted);
+  margin:14px 0 0 17px;white-space:pre-wrap}
 .pas .apres{display:block;font-family:var(--sans);font-size:12.5px;line-height:1.45;
   color:var(--muted);margin-top:4px;font-style:italic}
 /* Ce qui est prévu n'a pas encore eu lieu : le point reste creux et pointillé,
@@ -259,6 +264,18 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 /* ---------- puces de filtre ---------- */
 .puces{display:flex;gap:8px;overflow-x:auto;padding:12px 16px;scrollbar-width:none}
 .puces.suite{padding-top:0}
+/* Trois rangs de pastilles mangeaient l'écran avant la première œuvre.
+   Repliés, ils tiennent sur une ligne qui dit ce qui est filtré. */
+.plier{display:flex;align-items:center;gap:10px;width:calc(100% - 32px);
+  margin:14px 16px 0;padding:10px 14px;border:0;border-radius:15px;
+  background:var(--verre);-webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou);
+  box-shadow:var(--ombre);font-family:var(--sans);font-size:13px;line-height:1.35;
+  color:var(--muted);text-align:left;cursor:pointer}
+.plier b{font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:10.5px;
+  color:var(--f7-theme-color);flex:0 0 auto}
+.plier .q{flex:1 1 auto;min-width:0}
+.plier .ch{flex:0 0 auto;transition:transform .2s;color:var(--muted)}
+.plier[aria-expanded="true"] .ch{transform:rotate(180deg)}
 .ptitre{font-family:var(--sans);font-weight:700;letter-spacing:.12em;text-transform:uppercase;
   font-size:10.5px;color:var(--muted);margin:14px 16px -2px}
 .puces::-webkit-scrollbar{display:none}
@@ -363,7 +380,7 @@ const ETATS = [["fait","C'est fait"],["encours","Ça dure encore"],["prevu","C'e
 let db = {nodes:[], gens:[], noms:[], mans:[], seq:1};
 let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an", rev:"noms", pile:[], nodeId:null,
          cheminId:null, eMan:"", eEtat:"fait", ePrec:"j",
-         cNeuf:false, cTxt:"", cType:"", cQ:""};
+         descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:""};
 
 /* Un seul « écran précédent » ne suffisait pas : en ouvrant un retour depuis
    un acte, il finissait par désigner l'acte lui-même, et le bouton Retour ne
@@ -456,7 +473,9 @@ function chemins(){
   return Object.keys(paquets).map(k=>paquets[k])
     .filter(a=>a.length>1)
     .map(a=>a.slice().sort((x,y)=>(x.date||"").localeCompare(y.date||"")))
-    .sort((a,b)=>b.length-a.length || (b[0].date||"").localeCompare(a[0].date||""));
+    /* Le chemin qui a bougé le plus récemment se lit d'abord — la longueur
+       n'est pas ce qu'on cherche en ouvrant la liste. */
+    .sort((a,b)=>(b[b.length-1].date||"").localeCompare(a[a.length-1].date||"") || b.length-a.length);
 }
 function cheminDe(id){ if(!id) return null; return chemins().filter(a=>a.some(n=>n.id===id))[0]||null; }
 function estParole(n){ return n.kind==="rhema" || n.kind==="ecriture" || (n.act==="dieu" && n.man==="parle"); }
@@ -536,6 +555,7 @@ const main=document.getElementById("main"), haut=document.getElementById("haut")
       fond=document.getElementById("fond");
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 const CHEV = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>`;
+const BAS = `<svg class="ch" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>`;
 const CROIX = `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>`;
 const MICSVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg>`;
 const ONGLETS = [["today","Aujourd'hui"],["oeuvres","Ses œuvres"],["revel","Révélations"],["actes","Mes actes"]];
@@ -548,6 +568,7 @@ function render(){
   if(rec) micArret();
   fermeMenu(true);
   zero();
+  if(S.view!=="note" && S.view!=="edit") S.descOuvert=false;
   const surCause = S.view==="lier" ||
     (S.view==="note" && S.draft && etapes(S.draft)[S.step]==="par");
   if(!surCause){ S.cNeuf=false; S.cTxt=""; S.cType=""; S.cQ=""; }
@@ -692,8 +713,17 @@ function vOeuvres(){
      être à portée de pouce. */
   const fr=[["tout","Tout"],["oui","J'ai répondu"],["non","Je n'ai rien rendu"]];
   const fg=[["an","Par année"],["mois","Par mois"],["semaine","Par semaine"]];
+  /* Replié, le bandeau dit lui-même ce qu'il cache : sans cela, on filtre
+     sans le savoir et on croit l'archive vide. */
+  const resume=[
+    S.filtre==="tout" ? "toutes Ses manières" : manTxt(S.filtre).toLowerCase(),
+    S.ret==="tout" ? "répondu ou non" : (S.ret==="oui" ? "là où j'ai répondu" : "là où je n'ai rien rendu"),
+    (fg.filter(x=>x[0]===S.grain)[0]||fg[0])[1].toLowerCase()
+  ].join(" · ");
   let h=`<p class="titre-page">Ses œuvres</p><p class="ssTitre">${list.length} fois, par Lui-même ou par une main.</p>
-    <div class="ptitre">Sa manière</div>
+    <button class="plier" data-act="plier" aria-expanded="${!S.plie}">
+      <b>Filtres</b><span class="q">${esc(resume)}</span>${BAS}</button>`;
+  if(!S.plie) h+=`<div class="ptitre">Sa manière</div>
     <div class="puces">${fl.map(f=>`<button class="puce" data-filtre="${f}" aria-pressed="${S.filtre===f}">${f==="tout"?"Tout":manTxt(f)}</button>`).join("")}</div>
     <div class="ptitre">Mon retour</div>
     <div class="puces suite">${fr.map(([k,l])=>`<button class="puce" data-fret="${k}" aria-pressed="${S.ret===k}">${l}</button>`).join("")}</div>
@@ -723,7 +753,7 @@ function vRevel(){
     <div class="puces">${o.map(([k,l])=>`<button class="puce" data-rev="${k}" aria-pressed="${S.rev===k}">${l}</button>`).join("")}</div>`;
   if(S.rev==="noms"){
     if(!db.noms.length) h+=`<p class="vide">Aucun nom encore. Ils viennent en relisant.</p>`;
-    else h+=liste(db.noms.map(nm=>ligne({titre:esc(nm.txt), serif:true,
+    else h+=liste(db.noms.slice().reverse().map(nm=>ligne({titre:esc(nm.txt), serif:true,
       apres:`<span class="coche">${(nm.nodes||[]).length||"—"}</span>`})).join(""));
     h+=titreBloc("Garder un nom")+champ("newNom","Comment Il t'a traité ? « Celui qui… »")+
       `<div class="block">${bouton("Garder ce nom",'data-act="addNom"')}</div>`;
@@ -738,7 +768,7 @@ function vRevel(){
     }).join(""));
   } else if(S.rev==="gens"){
     if(!db.gens.length) h+=`<p class="vide">Personne encore.</p>`;
-    else h+=liste(db.gens.map(g=>{
+    else h+=liste(db.gens.slice().reverse().map(g=>{
       const par=db.nodes.filter(n=>n.gid===g.id).length;
       const dit=db.nodes.filter(n=>n.act==="moi"&&n.dest==="gens"&&n.dgid===g.id).length;
       return ligne({titre:esc(g.nom),
@@ -793,7 +823,7 @@ function vActes(){
   };
   const faits=mien.filter(n=>n.etat==="fait").sort(parDate);
   Z.html = `<p class="titre-page">Mes actes</p>`
-    + bloc("En cours", mien.filter(n=>n.etat==="encours"))
+    + bloc("En cours", mien.filter(n=>n.etat==="encours").sort(parDate))
     + bloc("Planifié", mien.filter(n=>n.etat==="prevu").sort((a,b)=>(a.date||"").localeCompare(b.date||"")))
     + bloc("Fait", faits.slice(0,12), faits.length-12);
 }
@@ -839,7 +869,7 @@ function vChemin(){
   if(fin && fin.act!=="moi" && !enfants(fin.id).length){
     h+=`<div class="block amorce" style="margin-top:18px">Qu'est-ce qui est sorti de ceci ?
       <span class="rien">Tu as le droit de ne pas répondre.</span></div>`;
-    Z.action=bouton("Mon retour", 'data-attach="'+fin.id+'"');
+    Z.action=bouton("Dire ce qui a suivi", 'data-attach="'+fin.id+'"');
   }
   Z.html=h;
 }
@@ -854,6 +884,7 @@ function vNode(){
       ${RAMEAU("filigrane")}
       <p class="grand ${estParole(n)?"voix":""}" style="position:relative;max-width:76%">${esc(n.txt)}</p>
       <p class="meta">${esc(acteurTxt(n))}${dte?" · "+dte:""}${n.man?" · "+manCourt(n.man):""}${n.etat&&n.etat!=="fait"?" · "+ETAT[n.etat]:""}</p>
+      ${n.desc?`<p class="desc">${esc(n.desc)}</p>`:""}
     </div>`;
   h+=titreBloc("En réponse à");
   h+=liste(
@@ -861,7 +892,9 @@ function vNode(){
         sous:esc(acteurTxt(p))+(human(p)?" · "+human(p):""), attr:'data-node="'+p.id+'"'})).join("")
       : ligne({titre:`<span class="rien">Rien, pour l'instant</span>`}))
     + ligne({titre:`<span class="coche">Dire ce qui a précédé</span>`, attr:'data-lierview="'+n.id+'"'}));
-  h+=titreBloc("Mes retours");
+  /* « Mes retours » était faux une fois sur deux : ce qui suit peut être Sa
+     réponse autant que la mienne. Le titre ne présume plus de l'acteur. */
+  h+=titreBloc("Ce qui a suivi");
   h+= enf.length
     ? liste(enf.map(e=>ligne({titre:esc(e.txt),
         sous:esc(acteurTxt(e))+(e.etat&&e.etat!=="fait"?" · "+ETAT[e.etat]:""),
@@ -870,13 +903,13 @@ function vNode(){
   Z.html=h;
   Z.action = (n.etat==="prevu")
     ? bouton("C'est fait", 'data-fait="'+n.id+'"')
-    : bouton("Mon retour", 'data-attach="'+n.id+'"');
+    : bouton("Dire ce qui a suivi", 'data-attach="'+n.id+'"');
 }
 function menuNode(){
   const n=node(S.nodeId); if(!n) return;
   const g=[{label:"Cet acte"},{txt:"Corriger", attr:'data-act="edit"'}];
   if(n.etat==="prevu"){ g.push({txt:"J'y renonce", attr:'data-abandon="'+n.id+'"'}); }
-  else { g.push({txt:"Mon retour", attr:'data-attach="'+n.id+'"'}); }
+  else { g.push({txt:"Dire ce qui a suivi", attr:'data-attach="'+n.id+'"'}); }
   g.push({txt:"Supprimer", rouge:true, attr:'data-act="askDel"'});
   ouvreMenu([g, [{txt:"Annuler", attr:'data-act="fermeMenu"'}]]);
 }
@@ -886,7 +919,8 @@ function vEdit(){
   const n=node(S.nodeId); if(!n){ S.view="today"; return render(); }
   Z.titre="Corriger"; Z.retour=true;
   let h=titreBloc("Le texte")+
-    `<div class="block"><textarea class="dicte" id="eTxt" style="min-height:90px">${esc(n.txt)}</textarea>${micBloc("eTxt")}</div>`;
+    `<div class="block"><textarea class="dicte" id="eTxt" style="min-height:90px">${esc(n.txt)}</textarea>${micBloc("eTxt")}</div>`
+    + blocDesc("eDesc", n.desc, S.descOuvert);
   if(n.act!=="moi"){
     h+=titreBloc("Sa manière")+liste(Object.keys(MANS()).map(k=>ligne({titre:manTxt(k),
       apres:S.eMan===k?`<span class="coche">✓</span>`:"", attr:'data-eman="'+k+'"'})).join(""));
@@ -951,7 +985,16 @@ function vLier(){
 }
 
 /* ---------- l'assistant : noter, et attacher une réponse ---------- */
-function neuf(act){ return {act:act,gid:null,dest:"dieu",dgid:null,txt:"",man:"",par:[],etat:"fait",date:today(),prec:"j",fige:false}; }
+function neuf(act){ return {act:act,gid:null,dest:"dieu",dgid:null,txt:"",desc:"",man:"",par:[],etat:"fait",date:today(),prec:"j",fige:false}; }
+/* La phrase courte est ce qui se relit ; la description est ce qu'on y ajoute
+   quand on a le temps. Elle reste pliée tant qu'elle est vide, pour ne pas
+   peser sur la capture — c'est la capture qui doit être rapide (P2). */
+function blocDesc(id, val, ouvert){
+  if(!ouvert && !val) return liste(ligne({titre:`<span class="coche">+ Ajouter une description</span>`,
+    sous:"facultatif", attr:'data-act="ouvreDesc"'}));
+  return titreBloc("Description")
+    + `<div class="block"><textarea class="dicte petit" id="${id}" placeholder="Les détails, le contexte, ce que tu ne veux pas perdre…" style="min-height:76px">${esc(val||"")}</textarea>${micBloc(id)}</div>`;
+}
 /* L'ordre des questions se déduit du brouillon : une question par écran. */
 function etapes(d){
   const e=[];
@@ -1015,6 +1058,7 @@ function vNote(){
                              : "Qu'a fait "+(gensNom(d.gid)||"cette personne")+" ?");
     let h = parent?rappel(parent):"";
     h+=`<div class="block"><textarea class="dicte" id="nTxt" placeholder="${ph}">${esc(d.txt)}</textarea>${micBloc("nTxt")}</div>`;
+    h+=blocDesc("nDesc", d.desc, S.descOuvert);
     if(d.act==="moi"){
       const sug = (parent && parent.act==="gens")
         ? ["Le lui dire","Lui rendre un service","Prier pour lui","Remercier Dieu pour lui"]
@@ -1158,6 +1202,7 @@ document.addEventListener("input", ev=>{
     return;
   }
   if(id==="nTxt" && S.draft) S.draft.txt=ev.target.value;
+  if(id==="nDesc" && S.draft) S.draft.desc=ev.target.value;
   if(id==="nDate" && S.draft) S.draft.date=ev.target.value;
 });
 
@@ -1223,7 +1268,10 @@ document.addEventListener("click", ev=>{
 });
 
 function valDate(id, repli){ const e=document.getElementById(id); return (e&&e.value)?e.value:(repli||today()); }
-function saveTxt(){ const e=document.getElementById("nTxt"); if(e&&S.draft) S.draft.txt=e.value; }
+function saveTxt(){
+  const e=document.getElementById("nTxt"); if(e&&S.draft) S.draft.txt=e.value;
+  const d=document.getElementById("nDesc"); if(d&&S.draft) S.draft.desc=d.value;
+}
 
 const actions={
   menu(){ if(S.view==="node") menuNode(); },
@@ -1241,6 +1289,8 @@ const actions={
     if(!id) return toast("Écris un nom");
     S.draft[ch]=id; save(); S.step++; render();
   },
+  plier(){ S.plie=!S.plie; render(); },
+  ouvreDesc(){ saveTxt(); S.descOuvert=true; render(); },
   addMan(){
     const e=document.getElementById("newMan");
     const id=manId(e&&e.value);
@@ -1274,7 +1324,7 @@ const actions={
   },
   saveNote(){
     const d=S.draft;
-    const n={id:nid(),act:d.act,gid:d.gid,dest:d.act==="moi"?d.dest:null,dgid:d.dgid,txt:d.txt.trim(),man:d.man,
+    const n={id:nid(),act:d.act,gid:d.gid,dest:d.act==="moi"?d.dest:null,dgid:d.dgid,txt:d.txt.trim(),desc:(d.desc||"").trim(),man:d.man,
       kind:(d.act==="dieu"&&d.man==="parle")?"rhema":"acte",
       date:valDate("nDate", d.date),prec:d.prec||"j",etat:d.act==="moi"?(d.etat||"fait"):"fait",par:d.par.slice()};
     db.nodes.push(n); save();
@@ -1293,12 +1343,13 @@ const actions={
     const n=node(S.nodeId), e=document.getElementById("eTxt");
     if(n){
       if(e&&e.value.trim()) n.txt=e.value.trim();
+      const ed=document.getElementById("eDesc"); if(ed) n.desc=ed.value.trim();
       n.date=valDate("eDate"); n.prec=S.ePrec||"j";
       if(n.act!=="moi"){ n.man=S.eMan; if(n.kind!=="ecriture") n.kind=(n.act==="dieu"&&n.man==="parle")?"rhema":"acte"; }
       else { n.etat=S.eEtat||"fait"; }
       save(); toast("Corrigé.");
     }
-    S.view="node"; render();
+    depile("node"); render();
   },
   askDel(){
     fermeMenu();

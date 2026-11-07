@@ -752,7 +752,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v54";
+const VERSION = "v55";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -984,12 +984,17 @@ function chef(arr){
   return c;
 }
 function ouvert(){ return chef(ouverts()); }
-/* Vingt secondes, c'est un doigt qui s'est trompé, pas du temps vécu : on ne
-   garde pas la trace d'une erreur de pouce. */
+/* Vingt secondes passaient pour une erreur de pouce, et l'app les effaçait
+   d'elle-même. Mais une intercession de dix secondes est du temps vécu, et
+   rien n'autorise l'outil à décider que ce qui est bref n'a pas eu lieu —
+   surtout dans un registre dont toute la valeur tient à ce qu'il ne maquille
+   rien. Le disciple efface ce qu'il veut effacer ; l'app garde (13.ci).
+   Reste un plancher d'une seconde, qui n'invente aucune durée vécue : il
+   tient seulement le bloc au-dessus de la durée nulle, que la fusion laisse
+   tomber sans rien dire. */
 function fermeBloc(b){
   if(!b || b.fin) return;
-  b.fin=Date.now(); touche(b);
-  if(b.fin-b.deb<20000){ db.temps=(db.temps||[]).filter(function(x){ return x!==b; }); tue(b.id); }
+  b.fin=Math.max(Date.now(), b.deb+1000); touche(b);
 }
 function pointe(tid, enPlus){
   const n=Date.now(), ouv=ouverts();
@@ -4343,7 +4348,10 @@ const actions={
     if(b.fin){
       delete b.fin;
     } else {
-      b.fin=Math.max(Date.now(), b.deb+60000);
+      /* Le même plancher d'une seconde qu'à l'arrêt : forcer la minute ici
+         gonflerait un bloc de trente secondes au moment même où l'on vient
+         de dire qu'il avait duré trente secondes. */
+      b.fin=Math.max(Date.now(), b.deb+1000);
     }
     touche(b); save(); render();
   },

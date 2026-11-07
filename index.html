@@ -62,6 +62,12 @@
   --f7-list-link-pressed-bg-color:rgba(78,97,82,.09);
   --f7-input-text-color:#1D1A17;
 
+  --c-dieu:#4E6152;
+  --c-famille:#7B6A4C;
+  --c-travail:#4D5B6E;
+  --c-moi:#6E5560;
+  --c-reste:#6B6560;
+
   --muted:#736D66;
   --voix:#2C332C;
   --filet:rgba(29,26,23,.12);
@@ -101,6 +107,12 @@
   --f7-actions-label-text-color:#99918A;
   --f7-input-text-color:#EEE9E3;
   --f7-bars-text-color:#EEE9E3;
+
+  --c-dieu:#9DB7A4;
+  --c-famille:#C6B289;
+  --c-travail:#97AAC4;
+  --c-moi:#C0A0AE;
+  --c-reste:#A9A29B;
 
   --muted:#99918A;
   --voix:#E3E8DF;
@@ -581,6 +593,27 @@ body.avecRail .entete .rouage{top:calc(var(--rail,0px) + 5px)}
 .tl.creuse .tn,.tl.creuse .tv b{color:var(--muted)}
 .tl.creuse .tj i{background:var(--muted);opacity:.5}
 
+.frisew{padding:6px 16px 14px 46px}
+.frise{position:relative}
+.fh{position:absolute;left:-46px;right:0;border-top:1px solid var(--filet);z-index:0}
+.fh span{position:absolute;left:0;top:-8px;font-family:var(--sans);font-size:10px;
+  color:var(--muted);letter-spacing:.02em}
+.ftrou{position:absolute;left:0;right:0;z-index:1;border-radius:5px;
+  background:repeating-linear-gradient(135deg,var(--filet) 0 3px,transparent 3px 11px)}
+.ftrou::after{content:"";position:absolute;left:0;right:0;top:-7px;bottom:-7px}
+.ftrou span{position:absolute;left:8px;top:50%;transform:translateY(-50%);
+  font-family:var(--sans);font-size:10.5px;color:var(--muted);white-space:nowrap}
+.fb{position:absolute;z-index:2;box-sizing:border-box;border-radius:7px;
+  padding:3px 7px 3px 12px;overflow:hidden;border:1px solid;
+  background:var(--f7-list-strong-bg-color);
+  font-family:var(--sans);font-size:11px;line-height:1.3;
+  transition:transform .12s ease}
+.fb b,.fb i{position:relative;z-index:1;display:block}
+.fb b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fb i{font-style:normal;font-size:10px;opacity:.75}
+.fb .fp{position:absolute;left:0;width:4px;border-radius:0 3px 3px 0;z-index:0}
+.fb:active{transform:scale(.985)}
+
 /* ---------- puces de filtre ---------- */
 .puces{display:flex;gap:8px;overflow-x:auto;padding:12px 16px;scrollbar-width:none}
 .puces.suite{padding-top:0}
@@ -696,7 +729,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v48";
+const VERSION = "v49";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -1462,7 +1495,7 @@ function render(){
   /* L'interrupteur ne se garde pas : « en plus » oublié d'hier ferait
      démarrer une activité par-dessus une autre sans qu'on l'ait voulu. */
   if(S.view!=="pointer"){ S.tQ=""; S.tCat=""; S.enPlus=false; }
-  if(S.view!=="pointer" && S.view!=="temps" && S.view!=="bloc"){ S.blocId=null; S.trou=null; }
+  if(S.view!=="pointer" && S.view!=="temps" && S.view!=="bloc" && S.view!=="frise"){ S.blocId=null; S.trou=null; }
   (VUES[S.view]||vToday)();
   const onglet = ONGLETS.some(o=>o[0]===S.view);
   const colle = Z.haut && !Z.file;
@@ -2920,6 +2953,114 @@ function vPointer(){
   Z.html = h;
 }
 
+/* Un creux, c'est un moment où rien ne tournait : il se lit sur l'union des
+   périodes, jamais sur la suite des blocs (13.by). Le même calcul sert à la
+   liste, à la frise et à la porte qui mène au dernier creux — un vide ne doit
+   pas être compté de trois façons.
+   Une minute, et non dix. Le récap tient pour non compté tout ce qui dépasse
+   la minute ; la liste n'en montrait qu'au-delà de dix. L'app accusait donc
+   trois minutes sans offrir de les dire. Deux seuils sur un même écran, c'est
+   un reproche sans porte : il n'en reste qu'un (13.cb). */
+const SEUIL_CREUX = 60000;
+function creuxDe(t0, t1, seuil){
+  const n=Date.now(), fus=[];
+  (db.temps||[]).map(function(b){ return [Math.max(b.deb,t0), Math.min(b.fin||n, t1)]; })
+    .filter(function(sp){ return sp[1]>sp[0]; })
+    .sort(function(p,q){ return p[0]-q[0]; })
+    .forEach(function(sp){
+      const d=fus[fus.length-1];
+      if(d && sp[0]<=d[1]){ if(sp[1]>d[1]) d[1]=sp[1]; }
+      else fus.push([sp[0], sp[1]]);
+    });
+  const out=[];
+  for(let i=0;i<fus.length-1;i++)
+    if(fus[i+1][0]-fus[i][1] >= seuil) out.push([fus[i][1], fus[i+1][0]]);
+  const der=fus.length ? fus[fus.length-1][1] : 0;
+  const haut=Math.min(n, t1);
+  if(der && haut-der >= seuil) out.push([der, haut]);
+  return out;
+}
+/* Cinq teintes sourdes, au même registre que le papier : elles ne décorent
+   rien, elles distinguent — sans elles, deux barres côte à côte ne disent pas
+   si l'on servait Dieu ou soi-même. Une catégorie ajoutée à la main prend le
+   gris du reste : mieux vaut une teinte honnête qu'une couleur inventée. */
+const CCOUL = {dieu:"--c-dieu", famille:"--c-famille", travail:"--c-travail",
+               moi:"--c-moi", reste:"--c-reste"};
+function coulCat(id){ return "var("+(CCOUL[id]||"--c-reste")+")"; }
+/* ---------- la frise : la journée vue de haut ---------- */
+/* Une liste dit la suite ; elle ne dit pas l'épaisseur. Depuis qu'on mène
+   plusieurs choses de front, la question « qu'est-ce qui tournait pendant
+   quoi » ne se lit plus en ligne : il faut de la largeur. Le temps descend,
+   les activités se rangent en colonnes, et chacune occupe exactement ce
+   qu'elle a duré — une heure, un centimètre, la même échelle d'un bout à
+   l'autre, sans quoi la frise mentirait pour faire joli.
+   La journée seulement : à sept jours, la même échelle ferait dix mille
+   pixels, et une frise qu'on ne peut pas embrasser n'est plus une frise. */
+function vFrise(){
+  const n=Date.now(), f=fenetre(), t1=Math.min(n, f.t1);
+  Z.titre="La journée"; Z.retour=true;
+  const bs=(db.temps||[]).filter(function(b){ return (b.fin||n)>f.t0 && b.deb<t1; })
+    .slice().sort(function(a,b){ return a.deb-b.deb; });
+  if(!bs.length){ Z.html=`<p class="vide">Rien de compté ${f.nom}.</p>`; return; }
+  const t0=Math.max(f.t0, bs[0].deb);
+  const PX=1, H=Math.max(180, Math.round((t1-t0)/60000*PX));
+  const y=function(t){ return Math.round((Math.max(t0, Math.min(t1, t))-t0)/60000*PX); };
+  /* Chaque bloc tombe dans la première colonne qui s'est libérée : l'ordre
+     des colonnes ne veut rien dire, seule leur simultanéité se lit. */
+  const fins=[], pose=[];
+  bs.forEach(function(b){
+    const d=Math.max(b.deb, t0), fi=Math.min(finDe(b), t1);
+    let i=0; while(i<fins.length && fins[i]>d) i++;
+    if(i===fins.length) fins.push(fi); else fins[i]=Math.max(fins[i], fi);
+    pose.push({b:b, l:i, d:d, f:fi});
+  });
+  const nl=Math.max(1, fins.length), w=100/nl;
+
+  /* Une activité ne porte pas l'heure tout du long : elle la porte par
+     morceaux, selon ce qui tournait à côté d'elle à chaque instant. Dire
+     « pleine » ou « creuse » la barre entière aurait menti sur ses bords.
+     Le trait de gauche marque donc exactement les moments portés — c'est la
+     règle des parts (13.by) rendue visible, et non une seconde règle. */
+  const marques={};
+  pose.forEach(function(x){ marques[x.d]=1; marques[x.f]=1; });
+  const ts=Object.keys(marques).map(Number).sort(function(p,q){ return p-q; });
+  const port={};
+  for(let i=0;i<ts.length-1;i++){
+    const a=ts[i], z=ts[i+1];
+    const act=pose.filter(function(x){ return x.d<=a && x.f>=z; });
+    if(!act.length) continue;
+    const c=chef(act.map(function(x){ return x.b; }));
+    if(!c) continue;
+    const arr=port[c.id]||(port[c.id]=[]);
+    const d=arr[arr.length-1];
+    if(d && d[1]===a) d[1]=z; else arr.push([a, z]);
+  }
+
+  let h=`<div class="block amorce" style="margin-top:16px">Une heure, un centimètre ; la couleur dit la catégorie. Le trait plein, à gauche, marque les moments où cette activité <b>portait l'heure</b> — le reste tournait à côté. Touche une barre pour la corriger, un tireté pour dire ce que c'était.</div>`;
+  h+=`<div class="frisew"><div class="frise" style="height:${H}px">`;
+  const h0=new Date(t0); h0.setMinutes(0,0,0);
+  for(let t=h0.getTime(); t<=t1; t+=3600000){
+    if(t<t0) continue;
+    h+=`<div class="fh" style="top:${y(t)}px"><span>${new Date(t).getHours()} h</span></div>`;
+  }
+  creuxDe(f.t0, t1, SEUIL_CREUX).forEach(function(v){
+    if(v[1]<=t0) return;
+    const a=y(v[0]), z=y(v[1]), e=Math.max(2, z-a);
+    h+=`<div class="ftrou" style="top:${a}px;height:${e}px" data-creux="${v[0]}|${v[1]}">${
+      e>=18 ? `<span>Rien de compté — ${esc(hm(v[1]-v[0]))}</span>` : ""}</div>`;
+  });
+  pose.forEach(function(x){
+    const a=y(x.d), z=y(x.f), col=coulCat(tacheCat(x.b.t)), e=Math.max(16, z-a);
+    const sp=(port[x.b.id]||[]).map(function(v){
+      const sa=Math.min(e-2, y(v[0])-a);
+      return `<span class="fp" style="top:${Math.max(0,sa)}px;height:${Math.max(3, Math.min(e-Math.max(0,sa), y(v[1])-y(v[0])))}px;background:${col}"></span>`;
+    }).join("");
+    h+=`<div class="fb" data-bloc="${x.b.id}" style="top:${a}px;height:${e}px;left:${x.l*w}%;width:calc(${w}% - 4px);border-color:${col};color:${col};background:color-mix(in srgb, ${col} 11%, transparent)">${sp}<b>${esc(tacheNom(x.b.t))}</b><i>${esc(hm((x.b.fin||n)-x.b.deb))}</i></div>`;
+  });
+  h+=`</div></div>`;
+  Z.html=h;
+}
+
 /* ---------- mon temps ---------- */
 /* Des heures et des parts. Le dénominateur a d'abord été ce qui avait été
    compté, et non la journée : une part sur du temps qu'on n'a jamais réclamé
@@ -2962,6 +3103,15 @@ function vMonTemps(){
       <span class="tv"><b>${partPc(creux, ecoule)} %</b>${esc(hm(creux))}</span>
       <span class="tj"><i style="width:${ecoule?creux*100/ecoule:0}%"></i></span></div>` : "")
    + `</div>`;
+  /* La bande « Non compté » disait un chiffre sans mener nulle part. Elle a
+     maintenant sa porte, juste dessous : on comble du plus récent vers le
+     plus ancien, parce que c'est celui qu'on a encore en mémoire. */
+  const cx=creuxDe(f.t0, Math.min(f.t1, Date.now()), SEUIL_CREUX);
+  if(cx.length)
+    h += liste(ligne({titre:"Combler ce qui n'est pas compté",
+      sous: cx.length>1 ? cx.length+" plages — on commence par la dernière"
+                        : "Une plage de "+esc(hm(cx[0][1]-cx[0][0])),
+      attr:'data-act="comblerDer"'}), "lien");
 
   /* Ici, chaque activité compte tout son temps, et les pourcentages n'ont
      plus leur place : ils ne se rapporteraient à aucun total commun. Les
@@ -2982,6 +3132,11 @@ function vMonTemps(){
   const n2=Date.now();
   const bs=(db.temps||[]).filter(b=>(b.fin||n2)>f.t0 && b.deb<f.t1).slice().reverse();
   const lus=bs.slice(0,60);
+  /* La frise n'a de sens que sur un jour : c'est la seule fenêtre qu'un
+     regard embrasse à la même échelle. */
+  if(S.per==="jour")
+    h += liste(ligne({titre:"Voir la frise de la journée",
+      sous:"Les activités côte à côte, heure par heure", attr:'data-go="frise"'}), "lien");
   h += titreBloc(S.per==="jour" ? "La journée, bloc par bloc" : "Bloc par bloc","ecart");
   h += `<div class="block amorce">Touche un bloc pour corriger ses heures — ou pour dire ce qui s'y est passé.</div>`;
   /* Toute une vie a précédé le compteur, et une nuit de prière ne se rattrape
@@ -2998,10 +3153,11 @@ function vMonTemps(){
      Le creux se montre donc pour ce qu'il est : un vide, nommé, daté, qu'on
      peut venir combler plus tard d'une tape. Tant qu'on ne le comble pas,
      il ne pèse sur aucune part.
-     Dix minutes au moins : en deçà, ce n'est pas un trou, c'est l'écart
-     entre le geste et la pensée. Et pas de creux de tête : avant le premier
-     bloc d'une fenêtre il y a surtout la nuit, qu'on n'a pas à justifier. */
-  const SEUIL=10*60000;
+     Une minute au moins, le même seuil que la bande « Non compté » du récap :
+     deux seuils différents sur un même écran accusaient sans laisser
+     répondre (13.cb). Et pas de creux de tête : avant le premier bloc d'une
+     fenêtre il y a surtout la nuit, qu'on n'a pas à justifier — elle s'écrit
+     à la main, par « Ajouter un temps passé ». */
   /* Un creux, c'est un moment où RIEN ne tournait — donc il se lit sur
      l'union des périodes, jamais sur la suite des blocs. Tant qu'un seul
      bloc courait à la fois, les deux revenaient au même ; depuis qu'on peut
@@ -3010,19 +3166,7 @@ function vMonTemps(){
      On fusionne donc les périodes, et ce qui reste entre elles est vide.
      Toute fenêtre finit à l'instant présent : le dernier creux est celui
      qu'on vient d'ouvrir en s'arrêtant. */
-  const fus=[];
-  bs.map(function(b){ return [Math.max(b.deb,f.t0), Math.min(b.fin||n2,f.t1)]; })
-    .sort(function(p,q){ return p[0]-q[0]; })
-    .forEach(function(sp){
-      const d=fus[fus.length-1];
-      if(d && sp[0]<=d[1]){ if(sp[1]>d[1]) d[1]=sp[1]; }
-      else fus.push([sp[0], sp[1]]);
-    });
-  const vides=[];
-  for(let i=0;i<fus.length-1;i++)
-    if(fus[i+1][0]-fus[i][1] >= SEUIL) vides.push([fus[i][1], fus[i+1][0]]);
-  const der=fus.length ? fus[fus.length-1][1] : 0;
-  if(der && n2-der >= SEUIL) vides.push([der, n2]);
+  const vides=creuxDe(f.t0, Math.min(n2, f.t1), SEUIL_CREUX);
 
   /* Blocs et creux se mêlent par l'heure, pas par le rang : un creux peut
      tomber entre deux blocs qui ne se suivent pas dans la liste. */
@@ -3302,7 +3446,7 @@ function vData(){
 function vListe(f){ return function(){ f(); }; }
 const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), actes:vListe(vActes), chemin:vChemin, faits:vFaits,
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData,
-              pointer:vPointer, temps:vMonTemps, bloc:vBloc, quand:vQuand,
+              pointer:vPointer, temps:vMonTemps, bloc:vBloc, quand:vQuand, frise:vFrise,
               sync:vSync, reglages:vReglages};
 
 /* ---------- dictée ---------- */
@@ -3678,6 +3822,13 @@ const actions={
       if(prem-f.t0 >= 600000){ deb=f.t0; fin=prem; }
     }
     S.quand={deb:deb, fin:fin}; empile(); S.view="quand"; render();
+  },
+  comblerDer(){
+    const f=fenetre(), cx=creuxDe(f.t0, Math.min(f.t1, Date.now()), SEUIL_CREUX);
+    if(!cx.length) return toast("Tout est compté");
+    const v=cx[cx.length-1];
+    S.blocId=null; S.trou={deb:v[0], fin:v[1]};
+    empile(); S.view="pointer"; render();
   },
   poseQuand(){
     const d=valHeure("qDeb"), f=valHeure("qFin");

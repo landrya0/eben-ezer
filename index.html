@@ -131,11 +131,15 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 .titre-page{font-family:var(--serif);font-size:30px;font-weight:600;letter-spacing:-.006em;
   margin:20px 16px 3px;line-height:1.2;color:var(--f7-text-color)}
 .ssTitre{margin:0 16px 4px;font-size:13px;color:var(--muted);line-height:1.5}
-.grand{font-family:var(--serif);font-size:23px;font-weight:400;line-height:1.42;
-  letter-spacing:.004em;margin:0;color:var(--f7-text-color);
+.grand{font-family:var(--sans);font-size:21px;font-weight:500;line-height:1.4;
+  letter-spacing:-.002em;margin:0;color:var(--f7-text-color);
   border-left:2px solid var(--filet);padding-left:15px}
 .grand.voix{color:var(--voix);border-left-color:var(--f7-theme-color)}
-.voix{font-family:var(--serif);color:var(--voix)}
+.voix{color:var(--voix)}
+/* Partout où du texte d'acte s'affiche, ce qui est entre guillemets passe
+   en romaine, et lui seul. */
+.cite{font-family:var(--serif);font-weight:400;letter-spacing:.006em;color:var(--voix)}
+.grand .cite{font-size:1.04em;line-height:1.5}
 .meta{font-family:var(--sans);font-size:12.5px;font-weight:500;letter-spacing:.015em;
   color:var(--muted);margin:13px 0 0 17px;line-height:1.5}
 .amorce{font-family:var(--sans);font-size:14.5px;line-height:1.52;color:var(--muted);margin:0}
@@ -150,6 +154,26 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 .list .item-after{font-family:var(--sans);font-size:12.5px;font-variant-numeric:tabular-nums;
   white-space:nowrap;flex-shrink:0;align-self:flex-start;padding-top:4px}
 .list .item-inner{align-items:flex-start}
+/* Une ligne d'acte, la même partout : la pastille de l'acteur, deux lignes
+   de texte au plus — le reste est sur l'écran de l'acte — puis le pied qui
+   dit qui a agi, de quelle manière et quand. Pas de chevron : la ligne
+   entière se touche, et le répéter treize fois n'ajoute rien. */
+.list .acte .item-inner{display:flex;align-items:flex-start;gap:11px;
+  padding-top:15px;padding-bottom:15px;padding-right:15px;min-height:0}
+.list .acte .item-inner::before{display:none}
+.acte .pt{flex:0 0 auto;width:9px;height:9px;border-radius:50%;margin-top:6px;
+  box-sizing:border-box}
+.acte .pt.lui{background:var(--f7-theme-color);border:2px solid var(--f7-theme-color)}
+.acte .pt.moi{background:transparent;border:2px solid var(--muted)}
+.acte .pt.gens{background:var(--muted);border:2px solid var(--muted)}
+.acte .corps{flex:1 1 auto;min-width:0;display:block}
+.acte .ph{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;font-family:var(--sans);font-size:15.5px;font-weight:500;
+  line-height:1.42;color:var(--f7-text-color)}
+.acte .ph .cite{font-size:16px;line-height:1.5}
+.acte .pied{display:block;font-family:var(--sans);font-size:12px;line-height:1.45;
+  color:var(--muted);margin-top:6px}
+.acte .coche{flex:0 0 auto;margin-top:3px}
 .lien .item-title{color:var(--f7-theme-color);font-weight:600}
 .coche{color:var(--f7-theme-color);font-weight:700}
 .vide{margin:0;padding:13px 16px;color:var(--muted);font-size:14.5px;font-style:italic}
@@ -169,8 +193,7 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 .pas.gens::before{background:var(--muted);border:2px solid var(--muted)}
 .pas .dit{display:block;font-family:var(--sans);font-size:16px;font-weight:500;
   line-height:1.4;color:var(--f7-text-color)}
-.pas .dit.voix{font-family:var(--serif);font-weight:400;font-size:17px;
-  line-height:1.5;letter-spacing:.006em;color:var(--voix)}
+.pas .dit .cite{font-size:17px;line-height:1.5}
 .pas .sous{display:block;font-family:var(--sans);font-size:12.5px;font-weight:500;
   letter-spacing:.015em;color:var(--muted);margin-top:5px}
 /* La phrase est la voix, la description est le commentaire : deux fontes,
@@ -492,6 +515,26 @@ function chemins(){
     .sort((a,b)=>(b[b.length-1].date||"").localeCompare(a[a.length-1].date||"") || b.length-a.length);
 }
 function cheminDe(id){ if(!id) return null; return chemins().filter(a=>a.some(n=>n.id===id))[0]||null; }
+/* La romaine est réservée à ce qui est CITÉ, jamais à ce qui est raconté au
+   sujet d'une parole. « Dieu m'a parlé pendant la croisade » n'est pas une
+   parole : c'est un récit. Le texte lui-même le dit, par ses guillemets, et
+   l'application n'a qu'à les lire — rien de plus à demander au disciple.
+   Une parole notée sans guillemets est citée tout entière : c'est le seul
+   cas où l'on devine, et il est sans danger. */
+const GUIL = /«[^»]*»|“[^”]*”|"[^"]{1,600}"/g;
+function cite(n){
+  const t = String((n && n.txt!=null ? n.txt : n) || "");
+  GUIL.lastIndex = 0;
+  if(n && n.txt!=null && estParole(n) && !GUIL.test(t))
+    return '<span class="cite">'+esc(t)+'</span>';
+  GUIL.lastIndex = 0;
+  let out="", i=0, m;
+  while((m=GUIL.exec(t))){
+    out += esc(t.slice(i, m.index)) + '<span class="cite">'+esc(m[0])+'</span>';
+    i = m.index + m[0].length;
+  }
+  return out + esc(t.slice(i));
+}
 function estParole(n){ return n.kind==="rhema" || n.kind==="ecriture" || (n.act==="dieu" && n.man==="parle"); }
 function acteurTxt(n){
   if(n.act==="dieu") return n.kind==="ecriture" ? "Écriture" : (n.kind==="rhema" ? "Dieu · rhema" : "Dieu");
@@ -628,6 +671,22 @@ function ligne(o){
   if(o.attr) return `<li><a class="item-link item-content" ${o.attr}>${inner}</a></li>`;
   return `<li><div class="item-content">${inner}</div></li>`;
 }
+function ligneActe(n, o){
+  o=o||{};
+  const cls = n.act==="dieu" ? "lui" : (n.act==="gens" ? "gens" : "moi");
+  /* « Dieu · rhema · parlé » dit deux fois la même chose : la nature de
+     l'acte porte déjà la manière. */
+  const pied = [ acteurTxt(n),
+                 (n.man && n.kind!=="rhema") ? manCourt(n.man) : "",
+                 human(n),
+                 (n.etat && n.etat!=="fait") ? ETAT[n.etat] : "" ]
+               .filter(Boolean).map(esc).join(" · ");
+  return `<li><a class="item-link item-content acte" ${o.attr||""}>
+      <div class="item-inner"><span class="pt ${cls}"></span>
+        <span class="corps"><span class="ph">${cite(n)}</span>${pied?`<span class="pied">${pied}</span>`:""}</span>
+        ${o.coche?`<span class="coche">✓</span>`:""}
+      </div></a></li>`;
+}
 function champ(id, ph, type, val){
   return liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
     <input type="${type||"text"}" id="${id}" placeholder="${ph||""}" value="${val||""}"></div></div></li>`);
@@ -691,7 +750,7 @@ function carte(c){
   return `<a class="carte" data-node="${n.id}">
     <span class="quand">${esc(c.quand)}</span>
     <span class="amorce" style="margin:9px 0 10px">${phrase(c)}</span>
-    <span class="grand ${estParole(n)?"voix":""}">${esc(n.txt)}</span>
+    <span class="grand ${estParole(n)?"voix":""}">${cite(n)}</span>
     <span class="meta">${esc(acteurTxt(n))}${human(n)?" · "+human(n):""}</span>
   </a>`;
 }
@@ -716,8 +775,7 @@ function vToday(){
   Z.html = `<div class="carr" id="carr" style="margin-top:16px">${cartes.map(carte).join("")}</div>
     ${cartes.length>1 ? `<div class="points" id="points">${cartes.map((c,i)=>`<i${i?"":' class="on"'}></i>`).join("")}</div>` : ""}
     ${titreBloc("Derniers gardés")}
-    ${liste(recents.map(n=>ligne({titre:esc(n.txt), serif:estParole(n),
-        sous:esc(acteurTxt(n)), apres:human(n), attr:'data-node="'+n.id+'"'})).join(""))}`;
+    ${liste(recents.map(n=>ligneActe(n,{attr:'data-node="'+n.id+'"'})).join(""))}`;
 }
 
 /* ---------- Ses œuvres ---------- */
@@ -757,9 +815,7 @@ function vOeuvres(){
   vus.forEach(n=>{
     const y=tranche(n, S.grain);
     if(y!==an){ if(buf){ h+=liste(buf); buf=""; } an=y; h+=titreBloc(esc(y)); }
-    buf += ligne({titre:esc(n.txt), serif:estParole(n),
-      sous:(n.act==="gens"?"par "+esc(gensNom(n.gid)):""),
-      apres:manCourt(n.man), attr:'data-node="'+n.id+'"'});
+    buf += ligneActe(n, {attr:'data-node="'+n.id+'"'});
   });
   if(buf) h+=liste(buf);
   Z.html=h;
@@ -783,7 +839,7 @@ function vRevel(){
     else h+=liste(ch.map(a=>{
       const an=a.map(n=>parse(n.date)).filter(Boolean).map(p=>p.y).sort();
       const sp=an.length ? (an[0]===an[an.length-1] ? ""+an[0] : an[0]+" → "+an[an.length-1]) : "";
-      return ligne({titre:esc(a[0].txt), serif:estParole(a[0]),
+      return ligne({titre:cite(a[0]),
         sous:a.length+" actes"+(sp?" · "+sp:""), attr:'data-chemin="'+a[0].id+'"'});
     }).join(""));
   } else if(S.rev==="gens"){
@@ -835,9 +891,7 @@ function vActes(){
   const bloc=(t,arr,reste)=>{
     let h=titreBloc(t);
     if(!arr.length) return h+`<p class="vide">Rien.</p>`;
-    h+=liste(arr.map(n=>ligne({titre:esc(n.txt),
-      sous:(n.dest==="gens"?"à "+esc(gensNom(n.dgid)):(n.dest==="moi"?"pour moi":"à Dieu")),
-      apres:human(n), attr:'data-node="'+n.id+'"'})).join(""));
+    h+=liste(arr.map(n=>ligneActe(n,{attr:'data-node="'+n.id+'"'})).join(""));
     if(reste>0) h+=`<div class="block amorce">…et ${reste} autre${reste>1?"s":""}.</div>`;
     return h;
   };
@@ -877,7 +931,7 @@ function vChemin(){
     if(prec.length) apres=`après : ${prec.map(p=>court(p.txt)).join(" · ")}`;
     else if(i>0 && !(n.par||[]).length) apres="un autre fil commence ici";
     h+=`<a class="pas ${cls}" data-node="${n.id}">
-        <span class="dit ${estParole(n)?"voix":""}">${esc(n.txt)}</span>
+        <span class="dit">${cite(n)}</span>
         <span class="sous">${n.etat&&n.etat!=="fait"?`<span class="etiq">${ETAT[n.etat]}</span>`:""}${esc(acteurTxt(n))}${human(n)?" · "+human(n):""}</span>
         ${apres?`<span class="apres">${apres}</span>`:""}
       </a>`;
@@ -902,23 +956,20 @@ function vNode(){
   const dte=human(n);
   let h=`<div class="block" style="margin-top:20px;position:relative">
       ${RAMEAU("filigrane")}
-      <p class="grand ${estParole(n)?"voix":""}" style="position:relative;max-width:76%">${esc(n.txt)}</p>
-      <p class="meta">${esc(acteurTxt(n))}${dte?" · "+dte:""}${n.man?" · "+manCourt(n.man):""}${n.etat&&n.etat!=="fait"?" · "+ETAT[n.etat]:""}</p>
+      <p class="grand ${estParole(n)?"voix":""}" style="position:relative;max-width:76%">${cite(n)}</p>
+      <p class="meta">${esc(acteurTxt(n))}${(n.man&&n.kind!=="rhema")?" · "+esc(manCourt(n.man)):""}${dte?" · "+dte:""}${n.etat&&n.etat!=="fait"?" · "+ETAT[n.etat]:""}</p>
       ${n.desc?`<p class="desc">${esc(n.desc)}</p>`:""}
     </div>`;
   h+=titreBloc("En réponse à");
   h+=liste(
-    (par.length ? par.map(p=>ligne({titre:esc(p.txt), serif:estParole(p),
-        sous:esc(acteurTxt(p))+(human(p)?" · "+human(p):""), attr:'data-node="'+p.id+'"'})).join("")
+    (par.length ? par.map(p=>ligneActe(p,{attr:'data-node="'+p.id+'"'})).join("")
       : ligne({titre:`<span class="rien">Rien, pour l'instant</span>`}))
     + ligne({titre:`<span class="coche">Dire ce qui a précédé</span>`, attr:'data-lierview="'+n.id+'"'}));
   /* « Mes retours » était faux une fois sur deux : ce qui suit peut être Sa
      réponse autant que la mienne. Le titre ne présume plus de l'acteur. */
   h+=titreBloc("Ce qui a suivi");
   h+= enf.length
-    ? liste(enf.map(e=>ligne({titre:esc(e.txt),
-        sous:esc(acteurTxt(e))+(e.etat&&e.etat!=="fait"?" · "+ETAT[e.etat]:""),
-        apres:human(e), attr:'data-node="'+e.id+'"'})).join(""))
+    ? liste(enf.map(e=>ligneActe(e,{attr:'data-node="'+e.id+'"'})).join(""))
     : `<p class="vide">Rien n'a suivi, pour l'instant.</p>`;
   Z.html=h;
   Z.action = (n.etat==="prevu")
@@ -982,9 +1033,7 @@ function choixCause(sel, exclus){
     + liste(ligne({titre:`<span class="coche">+ Ajouter quelque chose de nouveau</span>`,
         attr:'data-act="causeNeuf"'}))
     + (cands.length
-        ? liste(cands.map(x=>ligne({titre:esc(x.txt), serif:estParole(x),
-            sous:esc(acteurTxt(x))+(human(x)?" · "+human(x):""),
-            apres:sel.indexOf(x.id)!==-1?`<span class="coche">✓</span>`:"",
+        ? liste(cands.map(x=>ligneActe(x,{coche:sel.indexOf(x.id)!==-1,
             attr:'data-par="'+x.id+'"'+(sel.indexOf(x.id)!==-1?' data-sel="1"':"")})).join(""), "cands")
         : `<p class="vide">Rien d'autre dans ta mémoire pour l'instant.</p>`)
     + `<p class="vide" id="attente" hidden>Écris un mot : ce que tu as déjà gardé apparaîtra.</p>`

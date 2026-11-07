@@ -612,6 +612,10 @@ body.avecRail .entete .rouage{top:calc(var(--rail,0px) + 5px)}
 .fb b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fb i{font-style:normal;font-size:10px;opacity:.75}
 .fb .fp{position:absolute;left:0;width:4px;border-radius:0 3px 3px 0;z-index:0}
+.fb.court{padding:1px 6px 1px 11px;display:flex;align-items:center}
+.fb.court b{font-size:10.5px;width:100%}
+.fb.court b em{font-style:normal;font-weight:400;opacity:.7;margin-left:7px}
+.fb.mini{padding:0;border-radius:5px}
 .fb:active{transform:scale(.985)}
 
 /* ---------- puces de filtre ---------- */
@@ -729,7 +733,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v49";
+const VERSION = "v50";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -774,7 +778,8 @@ let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], exp
 let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an", rev:"noms", pile:[], nodeId:null,
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
-         per:"jour", tQ:"", tCat:"", blocId:null, medId:null, trou:null, quand:null, enPlus:false};
+         per:"jour", tQ:"", tCat:"", blocId:null, medId:null, trou:null, quand:null,
+         noteFocus:false, frisZ:null, enPlus:false};
 
 /* Un seul « écran précédent » ne suffisait pas : en ouvrant un retour depuis
    un acte, il finissait par désigner l'acte lui-même, et le bouton Retour ne
@@ -2987,6 +2992,7 @@ function creuxDe(t0, t1, seuil){
 const CCOUL = {dieu:"--c-dieu", famille:"--c-famille", travail:"--c-travail",
                moi:"--c-moi", reste:"--c-reste"};
 function coulCat(id){ return "var("+(CCOUL[id]||"--c-reste")+")"; }
+const PASX = [0.7, 1.6, 3.2];
 /* ---------- la frise : la journée vue de haut ---------- */
 /* Une liste dit la suite ; elle ne dit pas l'épaisseur. Depuis qu'on mène
    plusieurs choses de front, la question « qu'est-ce qui tournait pendant
@@ -3003,18 +3009,58 @@ function vFrise(){
     .slice().sort(function(a,b){ return a.deb-b.deb; });
   if(!bs.length){ Z.html=`<p class="vide">Rien de compté ${f.nom}.</p>`; return; }
   const t0=Math.max(f.t0, bs[0].deb);
-  const PX=1, H=Math.max(180, Math.round((t1-t0)/60000*PX));
-  const y=function(t){ return Math.round((Math.max(t0, Math.min(t1, t))-t0)/60000*PX); };
-  /* Chaque bloc tombe dans la première colonne qui s'est libérée : l'ordre
-     des colonnes ne veut rien dire, seule leur simultanéité se lit. */
-  const fins=[], pose=[];
-  bs.forEach(function(b){
-    const d=Math.max(b.deb, t0), fi=Math.min(finDe(b), t1);
-    let i=0; while(i<fins.length && fins[i]>d) i++;
-    if(i===fins.length) fins.push(fi); else fins[i]=Math.max(fins[i], fi);
-    pose.push({b:b, l:i, d:d, f:fi});
+  /* La largeur ne se partage qu'entre ce qui se recouvre vraiment. Une
+     seule colonne pour toute la journée gaspillait la moitié de l'écran :
+     deux activités se croisaient dix minutes, et les douze heures qui
+     suivaient restaient à demi vides. On découpe donc la journée en
+     grappes — des suites de blocs qui se touchent de proche en proche — et
+     chaque grappe partage la largeur entre ses seules colonnes. Seule, une
+     activité prend toute la page ; et un bloc s'étend sur les colonnes
+     libres à sa droite tant que rien ne s'y oppose. */
+  const pose=bs.map(function(b){
+    return {b:b, d:Math.max(b.deb, t0), f:Math.min(finDe(b), t1), l:0, sp:1, n:1};
   });
-  const nl=Math.max(1, fins.length), w=100/nl;
+  /* Une échelle unique ne peut pas servir une journée faite d'un bloc de six
+     heures et de huit blocs de sept minutes : à l'échelle du long, les courts
+     deviennent des traits sans nom ; à l'échelle des courts, la journée fait
+     quatre écrans. On ne triche donc pas sur l'échelle — elle reste la même
+     du haut en bas — mais on la laisse se régler, et le réglage par défaut
+     est celui qui rend lisible le plus court des blocs sans que la journée
+     dépasse ce qu'un pouce parcourt (13.cc). */
+  const mins=Math.max(1, (t1-t0)/60000);
+  const court=Math.min.apply(null, pose.map(function(x){ return Math.max(1, (x.f-x.d)/60000); }));
+  let iz=S.frisZ;
+  if(iz===null || iz===undefined){
+    iz=0;
+    for(let k=0;k<PASX.length;k++){
+      if(mins*PASX[k]<=2400) iz=k;
+      if(court*PASX[k]>=14 && mins*PASX[k]<=2400){ iz=k; break; }
+    }
+  }
+  const PX=PASX[iz], H=Math.max(180, Math.round(mins*PX));
+  const y=function(t){ return Math.round((Math.max(t0, Math.min(t1, t))-t0)/60000*PX); };
+
+  const grappes=[];
+  let gr=null;
+  pose.forEach(function(x){
+    if(!gr || x.d>=gr.fin){ gr={items:[], fin:x.f}; grappes.push(gr); }
+    gr.items.push(x); if(x.f>gr.fin) gr.fin=x.f;
+  });
+  grappes.forEach(function(g){
+    const fins=[];
+    g.items.forEach(function(x){
+      let i=0; while(i<fins.length && fins[i]>x.d) i++;
+      if(i===fins.length) fins.push(x.f); else fins[i]=Math.max(fins[i], x.f);
+      x.l=i;
+    });
+    const nc=Math.max(1, fins.length);
+    g.items.forEach(function(x){
+      x.n=nc;
+      let e=x.l+1;
+      while(e<nc && !g.items.some(function(o){ return o!==x && o.l===e && o.d<x.f && o.f>x.d; })) e++;
+      x.sp=e-x.l;
+    });
+  });
 
   /* Une activité ne porte pas l'heure tout du long : elle la porte par
      morceaux, selon ce qui tournait à côté d'elle à chaque instant. Dire
@@ -3036,7 +3082,10 @@ function vFrise(){
     if(d && d[1]===a) d[1]=z; else arr.push([a, z]);
   }
 
-  let h=`<div class="block amorce" style="margin-top:16px">Une heure, un centimètre ; la couleur dit la catégorie. Le trait plein, à gauche, marque les moments où cette activité <b>portait l'heure</b> — le reste tournait à côté. Touche une barre pour la corriger, un tireté pour dire ce que c'était.</div>`;
+  let h=`<div class="puces" style="padding-top:15px">${PASX.map(function(v,k){
+      return `<button class="puce" data-friz="${k}" aria-pressed="${k===iz}">${["Serré","Normal","Large"][k]}</button>`;
+    }).join("")}</div>`;
+  h+=`<div class="block amorce">L'échelle est la même du haut en bas ; la couleur dit la catégorie. Le trait plein, à gauche, marque les moments où cette activité <b>portait l'heure</b> — le reste tournait à côté. Touche une barre pour la corriger, un tireté pour dire ce que c'était.</div>`;
   h+=`<div class="frisew"><div class="frise" style="height:${H}px">`;
   const h0=new Date(t0); h0.setMinutes(0,0,0);
   for(let t=h0.getTime(); t<=t1; t+=3600000){
@@ -3049,13 +3098,21 @@ function vFrise(){
     h+=`<div class="ftrou" style="top:${a}px;height:${e}px" data-creux="${v[0]}|${v[1]}">${
       e>=18 ? `<span>Rien de compté — ${esc(hm(v[1]-v[0]))}</span>` : ""}</div>`;
   });
+  /* Un bloc court ne peut pas porter deux lignes : les lui imposer faisait
+     déborder son texte sur le suivant. Il dit alors son nom et sa durée sur
+     une ligne ; plus court encore, il ne dit rien et se touche — la liste,
+     dessous, le nomme. On ne triche pas sur sa hauteur : elle est son temps. */
   pose.forEach(function(x){
-    const a=y(x.d), z=y(x.f), col=coulCat(tacheCat(x.b.t)), e=Math.max(16, z-a);
+    const a=y(x.d), z=y(x.f), col=coulCat(tacheCat(x.b.t)), e=Math.max(9, z-a);
+    const w=100/x.n, nom=esc(tacheNom(x.b.t)), dur=esc(hm((x.b.fin||n)-x.b.deb));
     const sp=(port[x.b.id]||[]).map(function(v){
-      const sa=Math.min(e-2, y(v[0])-a);
-      return `<span class="fp" style="top:${Math.max(0,sa)}px;height:${Math.max(3, Math.min(e-Math.max(0,sa), y(v[1])-y(v[0])))}px;background:${col}"></span>`;
+      const sa=Math.max(0, Math.min(e-2, y(v[0])-a));
+      return `<span class="fp" style="top:${sa}px;height:${Math.max(3, Math.min(e-sa, y(v[1])-y(v[0])))}px;background:${col}"></span>`;
     }).join("");
-    h+=`<div class="fb" data-bloc="${x.b.id}" style="top:${a}px;height:${e}px;left:${x.l*w}%;width:calc(${w}% - 4px);border-color:${col};color:${col};background:color-mix(in srgb, ${col} 11%, transparent)">${sp}<b>${esc(tacheNom(x.b.t))}</b><i>${esc(hm((x.b.fin||n)-x.b.deb))}</i></div>`;
+    const cl = e<13 ? " mini" : (e<30 ? " court" : "");
+    const corps = e<13 ? "" : (e<30 ? `<b>${nom}<em>${dur}</em></b>`
+                                    : `<b>${nom}</b><i>${dur}</i>`);
+    h+=`<div class="fb${cl}" data-bloc="${x.b.id}" style="top:${a}px;height:${e}px;left:${x.l*w}%;width:calc(${x.sp*w}% - 4px);border-color:${col};color:${col};background:color-mix(in srgb, ${col} 11%, transparent)">${sp}${corps}</div>`;
   });
   h+=`</div></div>`;
   Z.html=h;
@@ -3244,6 +3301,7 @@ function vBloc(){
      Texte libre pour l'instant : ce qu'on écrit librement pendant des
      semaines dira de lui-même quelles questions poser plus tard. */
   h+=titreBloc("Ce qui s'y est passé","ecart");
+  h+=`<div class="block amorce">Ce que tu écris ici se garde tout seul.</div>`;
   h+=`<div class="block"><textarea class="dicte petit" id="bNote" placeholder="Ce que tu as vu, reçu, compris, ou simplement fait…" style="min-height:84px">${esc(b.note||"")}</textarea>${micBloc("bNote")}</div>`;
   h+=titreBloc("Le début","ecart");
   h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
@@ -3264,6 +3322,15 @@ function vBloc(){
   h+=liste(ligne({titre:`<span class="rouge">Effacer ce bloc</span>`, attr:'data-act="delBlocIci"'}));
   Z.html=h;
   Z.action=bouton("Garder", 'data-act="majBloc"');
+  if(S.noteFocus){
+    S.noteFocus=false;
+    setTimeout(function(){
+      const e=document.getElementById("bNote");
+      if(!e) return;
+      e.focus();
+      try{ e.setSelectionRange(e.value.length, e.value.length); }catch(x){}
+    }, 60);
+  }
 }
 
 /* ---------- déclarer un temps passé ---------- */
@@ -3495,8 +3562,26 @@ function micBascule(id){
 }
 
 /* ---------- saisies gardées ---------- */
+/* Une note n'est pas une correction : on ne la valide pas, on l'écrit.
+   Elle ne tenait qu'au bouton « Garder », et sortir par Retour la jetait
+   sans un mot — or sortir par Retour est le geste naturel quand on vient
+   d'écrire. Elle se garde donc d'elle-même : à la frappe, en quittant le
+   champ, et en quittant l'écran (13.cd). */
+let noteT=null;
+function gardeNote(){
+  clearTimeout(noteT); noteT=null;
+  if(S.view!=="bloc") return;
+  const b=blocT(S.blocId); if(!b) return;
+  const av=b.note||"";
+  noteBloc(b);
+  if((b.note||"")!==av){ touche(b); save(); }
+}
+document.addEventListener("focusout", function(ev){
+  if(ev.target && ev.target.id==="bNote") gardeNote();
+}, true);
 document.addEventListener("input", ev=>{
   const id=ev.target.id;
+  if(id==="bNote"){ clearTimeout(noteT); noteT=setTimeout(gardeNote, 900); return; }
   if(id==="cNeuf"){ S.cTxt=ev.target.value; return; }
   if(id==="cFiltre"){
     const q=ev.target.value.trim().toLowerCase();
@@ -3587,7 +3672,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -3597,6 +3682,7 @@ document.addEventListener("click", ev=>{
     else { empile(); }
     S.view=g.go; if(g.go==="note"){S.step=0;S.draft=null;} return render(); }
   if(g.back){
+    gardeNote();
     if(S.cNeuf){ S.cNeuf=false; S.cTxt=""; S.cType=""; return render(); }
     if(S.view==="note" && S.step>0){ S.step--; return render(); }
     if(S.view==="note") S.draft=null;
@@ -3626,6 +3712,7 @@ document.addEventListener("click", ev=>{
     S.blocId=null; S.trou={deb:+p[0], fin:+p[1]};
     empile(); S.view="pointer"; return render();
   }
+  if(g.friz!==undefined){ S.frisZ=+g.friz; return render(); }
   if(g.stop){
     const b=blocT(g.stop); if(!b) return;
     const n=tacheNom(b.t);
@@ -3636,7 +3723,9 @@ document.addEventListener("click", ev=>{
   if(g.bloc){
     S.blocId=g.bloc; const b=blocT(g.bloc); if(!b) return;
     ouvreMenu([[{label:tacheNom(b.t)+" · "+hmin(new Date(b.deb))+" → "+(b.fin?hmin(new Date(b.fin)):"maintenant")}],
-      [{txt:"C'était autre chose", attr:'data-act="corrBloc"'},
+      [{txt: b.note ? "Relire ou compléter la note" : "Dire ce qui s'y est passé",
+        attr:'data-act="direBloc"'},
+       {txt:"C'était autre chose", attr:'data-act="corrBloc"'},
        {txt:"Corriger les heures", attr:'data-act="heuresBloc"'}]
         .concat(chevauche(b) ? [{txt: b.porte ? "Rendre l'heure à ce qui tournait déjà"
                                                : "C'est ça qui portait l'heure",
@@ -3762,6 +3851,9 @@ const actions={
   },
   corrBloc(){ fermeMenu(); empile(); S.view="pointer"; render(); },
   heuresBloc(){ fermeMenu(); empile(); S.view="bloc"; render(); },
+  /* Le même écran, mais le curseur déjà dans la note : la porte manquait,
+     et « Corriger les heures » ne disait à personne qu'on pouvait écrire. */
+  direBloc(){ fermeMenu(); empile(); S.view="bloc"; S.noteFocus=true; render(); },
   bCours(){
     const b=blocT(S.blocId); if(!b) return;
     /* Le début déjà tapé ne doit pas se perdre en basculant la fin. */

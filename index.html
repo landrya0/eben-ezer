@@ -610,7 +610,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v36";
+const VERSION = "v37";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -865,7 +865,17 @@ function pcent(x, tot){ return tot ? Math.round(x*100/tot) : 0; }
    Conséquence qu'il faut dire et non cacher : la fiche voyage d'un appareil
    à l'autre, le fichier non. Un média absent le dit lui-même. */
 const MED_MAX = 25*1024*1024;
-const MED_NOM = {photo:"Une photo, restée", son:"Un son, resté", video:"Une vidéo, restée"};
+/* Trois phrases entières plutôt qu'un nom qu'on recolle : à force
+   d'assembler des morceaux, on écrit « une photo, resté », et une phrase
+   bancale fait douter de tout le reste. */
+const MED_DIT = {
+  photo:{loin:"Une photo, restée sur l'appareil où on l'a prise. Relie tes appareils, et elle suivra.",
+         venir:"Une photo, pas encore arrivée ici. Elle viendra à la prochaine synchronisation."},
+  son:{loin:"Un son, resté sur l'appareil où on l'a enregistré. Relie tes appareils, et il suivra.",
+       venir:"Un son, pas encore arrivé ici. Il viendra à la prochaine synchronisation."},
+  video:{loin:"Une vidéo, restée sur l'appareil où on l'a filmée : trop lourde pour le dépôt partagé, elle ne voyage pas.",
+         venir:"Une vidéo, restée sur l'appareil où on l'a filmée : trop lourde pour le dépôt partagé, elle ne voyage pas."}
+};
 let medBase=null;
 function medOuvre(){
   if(medBase) return medBase;
@@ -974,7 +984,12 @@ function medRend(){
     const zone=el.querySelector(".medZone"); if(!zone) return;
     medPrend(id).then(function(b){
       if(!zone.isConnected) return;
-      if(!b){ zone.innerHTML = `<p class="medAbs">${MED_NOM[g]||"Un fichier, resté"} sur l'appareil où on l'a pris. Ce qui est noté voyage ; les fichiers, non.</p>`; return; }
+      if(!b){
+        const t=MED_DIT[g];
+        const dit = !t ? "Un fichier, resté sur l'appareil où on l'a pris."
+                  : ((SY.actif && MED_VOYAGE[g]) ? t.venir : t.loin);
+        zone.innerHTML = `<p class="medAbs">${dit}</p>`; return;
+      }
       let u; try{ u=URL.createObjectURL(b); }catch(e){ return; }
       medUrls.push(u);
       if(g==="photo") zone.innerHTML = `<img src="${u}" alt="">`;
@@ -2154,6 +2169,24 @@ async function dechiffreDoc(o, dk){
   const p=await crypto.subtle.decrypt({name:"AES-GCM", iv:deb64(o.i)}, k, deb64(o.c));
   return JSON.parse(new TextDecoder().decode(p));
 }
+/* Une pièce jointe se chiffre comme le document, avec la même clé, mais
+   sans passer par du texte : le base64 ferait grossir d'un tiers une chose
+   qui pèse déjà. Le vecteur est posé devant, et le serveur ne voit qu'un
+   bloc d'octets dont il ignore jusqu'à la nature — le type du fichier reste
+   dans l'archive, qui est elle-même chiffrée. */
+async function chiffreOctets(buf, dk){
+  const iv=alea(12), k=await cleDoc(dk);
+  const c=await crypto.subtle.encrypt({name:"AES-GCM", iv:iv}, k, buf);
+  const out=new Uint8Array(12+c.byteLength);
+  out.set(iv, 0); out.set(new Uint8Array(c), 12);
+  return out;
+}
+async function dechiffreOctets(oct, dk){
+  const k=await cleDoc(dk);
+  const p=await crypto.subtle.decrypt({name:"AES-GCM", iv:oct.slice(0,12)}, k, oct.slice(12));
+  return new Uint8Array(p);
+}
+
 /* Vingt caractères sans I, O, 0 ni 1 : on le recopie à la main, souvent au
    crayon, et il ne faut pas qu'on puisse confondre deux signes. Deux cent
    quarante-huit, c'est bien au-delà de ce qui se devine. */
@@ -2201,6 +2234,76 @@ async function syJeton(){
   return true;
 }
 
+/* Le dépôt des pièces ne parle pas JSON : on lui tend des octets, il en
+   rend. Même porte, mêmes jetons, autre langue. */
+async function syOctets(chemin, opt){
+  opt=opt||{};
+  const h=Object.assign({"apikey":SY.cle}, opt.headers||{});
+  if(SY.jwt) h["Authorization"]="Bearer "+SY.jwt;
+  const r=await fetch(syUrl()+chemin, {method:opt.method||"GET", headers:h,
+    body:opt.body||undefined, cache:"no-store"});
+  if(!r.ok){ const e=new Error("HTTP "+r.status); e.code=r.status; throw e; }
+  return opt.lire ? new Uint8Array(await r.arrayBuffer()) : null;
+}
+function pjChemin(id){ return "/storage/v1/object/pieces/"+encodeURIComponent(SY.uid)+"/"+encodeURIComponent(id); }
+
+/* Ce qui voyage, et ce qui ne voyage pas. Le dépôt est partagé par tous ceux
+   qui installent l'application : un gigaoctet pour tout le monde ensemble.
+   Une photo réduite y tient par milliers, une voix par centaines d'heures —
+   une seule vidéo de téléphone en mangerait le tiers, et quand le dépôt
+   déborde, c'est la synchronisation du texte qui s'arrête aussi. Les vidéos
+   restent donc sur leur appareil, et elles le disent. */
+const MED_VOYAGE = {photo:1, son:1};
+/* Deux registres, et ils sont LOCAUX : ce qui est déjà monté d'ici, et ce
+   qu'on a cherché en vain. Les mettre dans l'archive les exposerait à la
+   fusion — un appareil effacerait le compte de l'autre — alors qu'ils ne
+   disent rien d'autre que « ce que cet appareil-ci a déjà fait ». */
+const PJK="ebenezer.pieces";
+let PJ={haut:{}, abs:{}};
+try{ const r=localStorage.getItem(PJK); if(r) PJ=Object.assign({haut:{},abs:{}}, JSON.parse(r)); }catch(e){}
+function pjSave(){ try{ localStorage.setItem(PJK, JSON.stringify(PJ)); }catch(e){} }
+let pjEnCours=false;
+/* Une pièce à la fois, et on s'arrête au premier refus du réseau : le tour
+   suivant reprendra là où celui-ci s'est arrêté. Rien n'est perdu à être
+   interrompu, et rien n'est refait pour rien. */
+async function syPieces(){
+  if(!SY.actif || pjEnCours || !SY.dk || !navigator.onLine) return;
+  pjEnCours=true;
+  let venu=false;
+  try{
+    const pieces=medTout();
+    for(let i=0;i<pieces.length;i++){
+      const m=pieces[i];
+      if(!MED_VOYAGE[m.genre]) continue;
+      const ici=await medPrend(m.id);
+      if(ici){
+        if(PJ.haut[m.id]) continue;
+        await syJeton();
+        const oct=await chiffreOctets(await ici.arrayBuffer(), deb64(SY.dk));
+        await syOctets(pjChemin(m.id), {method:"POST", body:oct,
+          headers:{"Content-Type":"application/octet-stream", "x-upsert":"true"}});
+        PJ.haut[m.id]=1; pjSave();
+      } else {
+        /* Une pièce qu'on ne trouve pas là-haut n'y est peut-être pas encore :
+           l'autre appareil a posé sa fiche avant son fichier. On réessaie,
+           mais pas toutes les quinze secondes. */
+        if(PJ.abs[m.id] && Date.now()-PJ.abs[m.id] < 1800000) continue;
+        await syJeton();
+        let oct;
+        try{ oct=await syOctets(pjChemin(m.id), {lire:true}); }
+        catch(e){ if(e.code===400 || e.code===404){ PJ.abs[m.id]=Date.now(); pjSave(); continue; } throw e; }
+        const clair=await dechiffreOctets(oct, deb64(SY.dk));
+        await medPose(m.id, new Blob([clair], {type:m.mime||""}));
+        delete PJ.abs[m.id]; PJ.haut[m.id]=1; pjSave();
+        venu=true;
+      }
+    }
+  }catch(e){}
+  pjEnCours=false;
+  /* Ce qui vient d'arriver doit se voir sans qu'on ait à revenir sur l'écran. */
+  if(venu) medRend();
+}
+
 /* Un jalon est une chaîne, jamais une heure : comparer les horloges de deux
    appareils, c'est se tromper le jour où l'une retarde. On ne teste que
    l'égalité — « est-ce bien la version que j'ai vue la dernière fois ? ». */
@@ -2237,6 +2340,8 @@ async function syRejoint(r, envM){
   toast("Synchronisation en route."); render();
 }
 
+/* Les pièces passent après le document, jamais avant : c'est la fiche qui
+   dit quelles pièces chercher, et une pièce sans sa fiche ne sert à rien. */
 let sySuite=null, syEnCours=false;
 function syPlusTard(){
   if(!SY.actif) return;
@@ -2278,6 +2383,9 @@ async function syMaintenant(manuel){
     }
     SY.fait=Date.now(); sySave();
     if(manuel) toast("À jour.");
+    /* Le texte d'abord, les pièces ensuite, et sans faire attendre : une
+       photo qui monte ne doit pas retarder le mot qu'on vient d'écrire. */
+    syPieces();
     return true;
   }catch(e){
     SY.err=String(e&&e.message||e); sySave();
@@ -2573,7 +2681,17 @@ const SQL = `create table if not exists etat (
 );
 alter table etat enable row level security;
 create policy "le mien" on etat for all
-  using (auth.uid() = uid) with check (auth.uid() = uid);`;
+  using (auth.uid() = uid) with check (auth.uid() = uid);
+
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('pieces', 'pieces', false, 26214400)
+on conflict (id) do nothing;
+
+create policy "les miennes" on storage.objects for all to authenticated
+  using (bucket_id = 'pieces'
+         and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'pieces'
+         and (storage.foldername(name))[1] = auth.uid()::text);`;
 function val(id){ const e=document.getElementById(id); return e ? e.value : ""; }
 function syEtat(){
   if(!SY.actif) return "Non réglée";
@@ -2601,7 +2719,17 @@ function vSync(){
              ligne({titre:"Compte", apres:esc(SY.mail)})+
              ligne({titre:"Cet appareil", apres:esc(DEV)}));
     h+=liste(ligne({titre:"Synchroniser maintenant", attr:'data-act="syManuel"'}), "lien");
-    if(medTout().length) h+=`<div class="block amorce">Les photos, les sons et les vidéos restent sur l'appareil où on les a pris : seule leur trace voyage. Pour les retrouver ailleurs, il faut passer par un fichier.</div>`;
+    const pj=medTout();
+    if(pj.length){
+      const voy=pj.filter(function(m){ return MED_VOYAGE[m.genre]; });
+      const reste=pj.length-voy.length;
+      h+=titreBloc("Les pièces jointes","ecart");
+      h+=`<div class="block amorce">Les photos et les sons suivent, chiffrés comme le reste : personne d'autre que toi ne peut les ouvrir, pas même le serveur. ${
+        reste ? `Les vidéos, non — ${reste===1?"la tienne est trop lourde":"les tiennes sont trop lourdes"} pour un dépôt partagé, et ${reste===1?"elle reste là où elle a été filmée":"elles restent là où elles ont été filmées"}.`
+              : "Les vidéos ne suivent pas : trop lourdes pour un dépôt partagé."}</div>`;
+      h+=liste(ligne({titre:"Qui voyagent", apres:voy.length+" · "+esc(poids(voy.reduce(function(t,m){ return t+(m.taille||0); },0)))})+
+               ligne({titre:"Déjà déposées d'ici", apres:String(voy.filter(function(m){ return PJ.haut[m.id]; }).length)}));
+    }
     h+=titreBloc("Au cas où","ecart");
     h+=`<div class="block amorce">Détacher laisse l'archive intacte sur ce téléphone et le laisse simplement de côté. Tu pourras le rattacher avec le même mot de passe.</div>`;
     h+=liste(ligne({titre:`<span class="rouge">Détacher cet appareil</span>`, attr:'data-act="syDetache"'}));
@@ -3169,6 +3297,11 @@ const actions={
     if(!id || !n) return;
     n.med=(n.med||[]).filter(function(m){ return m.id!==id; });
     touche(n); save(); medEfface(id);
+    /* Retirer d'un appareil retire de partout : sinon la pièce resterait
+       au dépôt sans plus rien pour la nommer, et personne ne saurait
+       qu'elle est là. */
+    if(SY.actif) syOctets(pjChemin(id), {method:"DELETE"}).catch(function(){});
+    delete PJ.haut[id]; delete PJ.abs[id]; pjSave();
     toast("Retiré."); render();
   },
   copieSql(){ const e=document.getElementById("sql"); if(!e) return; e.select();

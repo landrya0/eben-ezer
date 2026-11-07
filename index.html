@@ -148,6 +148,14 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 .amorce{font-family:var(--sans);font-size:14.5px;line-height:1.52;color:var(--muted);margin:0}
 /* Le code de récupération : fait pour être recopié à la main, donc grand,
    espacé, et à chasse fixe pour qu'aucun signe n'en imite un autre. */
+#haut.libre, .entete{position:relative}
+#haut.libre .rouage, .entete .rouage{position:absolute;right:5px;top:4px;z-index:6;
+  width:42px;min-width:42px;height:42px;min-height:42px;
+  display:flex;align-items:center;justify-content:center;
+  padding:0;margin:0;border:0;background:none;color:var(--muted);
+  -webkit-appearance:none;-webkit-tap-highlight-color:transparent}
+#haut.libre .rouage svg, .entete .rouage svg{width:21px;height:21px}
+#haut.libre .rouage:active, .entete .rouage:active{color:var(--f7-theme-color)}
 .oeilleton{position:relative}
 .oeilleton input{padding-right:42px}
 .oeil{position:absolute;right:0;top:50%;transform:translateY(-50%);
@@ -486,7 +494,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v28";
+const VERSION = "v29";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -917,7 +925,8 @@ function render(){
   const colle = Z.haut && !Z.file;
   haut.hidden = !Z.titre && !Z.retour && !Z.fermer && !colle;
   haut.className = colle ? "libre" : "";
-  if(!haut.hidden && colle){ haut.innerHTML = Z.haut; }
+  const rouage = onglet ? `<button class="rouage" data-go="reglages" aria-label="Réglages">${ROUAGE}</button>` : "";
+  if(!haut.hidden && colle){ haut.innerHTML = rouage + Z.haut; }
   else if(!haut.hidden){
     haut.innerHTML =
       (Z.retour ? `<button data-back="1" aria-label="Revenir">${CHEV}<span>Retour</span></button>`
@@ -929,7 +938,7 @@ function render(){
   avance.hidden = !Z.avance;
   if(Z.avance) avance.firstElementChild.style.width = Math.round(Z.avance*100)+"%";
   main.className = haut.hidden ? "plat" : "";
-  main.innerHTML = (Z.haut && Z.file ? `<header class="entete">${Z.haut}</header>` : "") + Z.html;
+  main.innerHTML = (Z.haut && Z.file ? `<header class="entete">${rouage}${Z.haut}</header>` : "") + Z.html;
   barre.hidden = !Z.action;
   barre.className = (onglet?"surNav":"") + (Z.geste?" geste":"");
   if(Z.action){ barre.innerHTML = Z.action; majChrono(); }
@@ -977,6 +986,10 @@ function champ(id, ph, type, val, extra){
   return liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
     <input type="${type||"text"}" id="${id}" placeholder="${ph||""}" value="${val||""}" ${extra||""}></div></div></li>`);
 }
+/* Le rouage est sur les quatre onglets, au même endroit. Un réglage qu'on
+   cherche n'est pas un réglage : s'il n'est atteignable que depuis un écran,
+   il faut déjà savoir lequel. */
+const ROUAGE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 14.6a1.6 1.6 0 0 0 .32 1.77l.06.06a1.95 1.95 0 1 1-2.76 2.76l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-.97 1.47v.17a1.95 1.95 0 0 1-3.9 0v-.09a1.6 1.6 0 0 0-1.05-1.47 1.6 1.6 0 0 0-1.77.32l-.06.06a1.95 1.95 0 1 1-2.76-2.76l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.47-.97H3.4a1.95 1.95 0 0 1 0-3.9h.09a1.6 1.6 0 0 0 1.47-1.05 1.6 1.6 0 0 0-.32-1.77l-.06-.06a1.95 1.95 0 1 1 2.76-2.76l.06.06a1.6 1.6 0 0 0 1.77.32h.08a1.6 1.6 0 0 0 .97-1.47V3.4a1.95 1.95 0 0 1 3.9 0v.09a1.6 1.6 0 0 0 .97 1.47 1.6 1.6 0 0 0 1.77-.32l.06-.06a1.95 1.95 0 1 1 2.76 2.76l-.06.06a1.6 1.6 0 0 0-.32 1.77v.08a1.6 1.6 0 0 0 1.47.97h.17a1.95 1.95 0 0 1 0 3.9h-.09a1.6 1.6 0 0 0-1.47.97Z"/></svg>`;
 const OEIL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.2 12S5.8 5.6 12 5.6 21.8 12 21.8 12 18.2 18.4 12 18.4 2.2 12 2.2 12Z"/><circle cx="12" cy="12" r="3"/></svg>`;
 const OEIL_CLOS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.2 12S5.8 5.6 12 5.6c1.6 0 3 .37 4.2.95M19.3 8.5c1.6 1.7 2.5 3.5 2.5 3.5S18.2 18.4 12 18.4c-1.6 0-3-.37-4.2-.95"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M3.6 3.6l16.8 16.8"/></svg>`;
 /* Un mot de passe qu'on ne voit pas se tape mal, et celui-ci n'ouvre pas
@@ -1209,7 +1222,6 @@ function vRevel(){
       if(buf) h+=liste(buf);
     }
   }
-  h+=liste(ligne({titre:"Mes données", attr:'data-go="data"'}));
   Z.html=h;
 }
 function jours(a,b){
@@ -1801,7 +1813,7 @@ async function syRejoint(r, envM){
   db = (db.nodes.length || (db.temps||[]).length) ? fusionne(db, autre) : autre;
   save(true);
   SY.actif=true; SY.vu=await syEcrit(db); SY.base=db.maj||0; SY.fait=Date.now(); sySave();
-  S.syEtape=0; S.syMdp=""; S.pile=[]; S.view="data";
+  S.syEtape=0; S.syMdp=""; S.pile=[]; S.view="reglages";
   toast("Synchronisation en route."); render();
 }
 
@@ -2193,6 +2205,27 @@ function vSync(){
   Z.html=h;
 }
 
+/* ---------- réglages ---------- */
+/* La configuration n'a rien à faire en bas d'un écran de lecture : elle y
+   était, à la suite des chiffres, et personne n'irait l'y chercher. Un seul
+   endroit, atteint du même rouage depuis n'importe quel onglet. Ce qu'on
+   règle une fois et ce qu'on relit tous les jours ne se mélangent pas. */
+function vReglages(){
+  Z.titre="Réglages"; Z.retour=true;
+  const sauve = db.exp
+    ? "Dernière fois le "+new Date(db.exp).toLocaleDateString("fr-FR")
+    : "Jamais sauvegardé";
+  Z.html = `<div style="height:10px"></div>`
+    + titreBloc("Sur mes deux appareils")
+    + liste(ligne({titre:"Synchronisation", sous:esc(syEtat()), attr:'data-go="sync"'}), "lien")
+    + titreBloc("Mon archive","ecart")
+    + liste(ligne({titre:"Mes données", sous:esc(sauve), attr:'data-go="data"'}), "lien")
+    + titreBloc("Cette application","ecart")
+    + liste(ligne({titre:"Version", apres:esc(VERSION)}))
+    + liste(ligne({titre:"Chercher une mise à jour", sous:"Va voir s'il y en a une, puis recharge",
+                   attr:'data-act="maj"'}), "lien");
+}
+
 /* ---------- mes données ---------- */
 /* Rien ne part d'ici tout seul : il n'y a pas de serveur, et un journal où
    des gens sont nommés ne se dépose pas sur le premier entrepôt venu sans
@@ -2209,11 +2242,6 @@ function vData(){
     ${liste(ligne({titre:"Sortir un fichier", sous:"À envoyer dans iCloud, ou à toi-même", attr:'data-act="fichier"'})+
             ligne({titre:"Reprendre un fichier", sous:"Remplace tout par celui que tu choisis", attr:'data-act="ouvreFichier"'}), "lien")}
     <input type="file" id="fin" accept=".json,application/json,text/plain" hidden>
-    ${titreBloc("Sur mes deux appareils","ecart")}
-    ${liste(ligne({titre:"Synchronisation", sous:esc(syEtat()), attr:'data-go="sync"'}), "lien")}
-    ${titreBloc("Cette application","ecart")}
-    ${liste(ligne({titre:"Version", apres:VERSION}))}
-    ${liste(ligne({titre:"Chercher une mise à jour", sous:"Va voir s'il y en a une, puis recharge", attr:'data-act="maj"'}), "lien")}
     ${titreBloc("À la main","ecart")}
     ${liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
       <textarea id="dump" style="min-height:120px;font-size:12px">${esc(JSON.stringify(db))}</textarea></div></div></li>`)}
@@ -2226,7 +2254,7 @@ function vData(){
 function vListe(f){ return function(){ f(); if(!Z.action) gesteNoter(); }; }
 const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), actes:vListe(vActes), chemin:vChemin, faits:vFaits,
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData,
-              pointer:vPointer, temps:vMonTemps, bloc:vBloc, sync:vSync};
+              pointer:vPointer, temps:vMonTemps, bloc:vBloc, sync:vSync, reglages:vReglages};
 
 /* ---------- dictée ---------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2706,7 +2734,7 @@ const actions={
       }
     }catch(e){ toast(syDit(e)); }
   },
-  syNote(){ SY.aVoir=""; sySave(); S.syCode=""; S.syMdp=""; S.syEtape=0; S.pile=[]; S.view="data";
+  syNote(){ SY.aVoir=""; sySave(); S.syCode=""; S.syMdp=""; S.syEtape=0; S.pile=[]; S.view="reglages";
             toast("Synchronisation en route."); render(); },
   copieCode(){ const c=S.syCode||"";
     try{ navigator.clipboard.writeText(c).then(()=>toast("Copié"),()=>toast("Recopie-le à la main")); }

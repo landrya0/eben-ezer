@@ -696,7 +696,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v47";
+const VERSION = "v48";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -741,7 +741,7 @@ let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], exp
 let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an", rev:"noms", pile:[], nodeId:null,
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
-         per:"jour", tQ:"", tCat:"", blocId:null, medId:null, trou:null, enPlus:false};
+         per:"jour", tQ:"", tCat:"", blocId:null, medId:null, trou:null, quand:null, enPlus:false};
 
 /* Un seul « écran précédent » ne suffisait pas : en ouvrant un retour depuis
    un acte, il finissait par désigner l'acte lui-même, et le bouton Retour ne
@@ -2742,11 +2742,18 @@ const SANSFIN = 8640000000000;
 function finDe(b){ return (typeof b.fin==="number") ? b.fin : SANSFIN; }
 /* Deux appareils qui comptaient chacun de leur côté se chevauchent forcément :
    le téléphone croit que je travaille encore pendant que la tablette compte
-   une lecture. Compter les deux doublerait l'heure et fausserait toutes les
-   parts. On rejoue donc les blocs dans l'ordre où ils ont été déclarés, et le
-   plus récemment dit découpe ce qui était là avant — la dernière parole sur un
-   instant est celle qui vaut. Le même découpage sert quand on corrige les
-   heures à la main. */
+   la même lecture. Compter les deux doublerait l'heure et fausserait toutes
+   les parts. On rejoue donc les blocs dans l'ordre où ils ont été déclarés, et
+   le plus récemment dit découpe ce qui était là avant — la dernière parole sur
+   un instant est celle qui vaut. Le même découpage sert quand on corrige les
+   heures à la main.
+   Mais il ne vaut que pour une même activité. Tant qu'une seule chose pouvait
+   tourner, tout chevauchement était une contradiction à trancher ; depuis
+   qu'on peut en mener plusieurs de front (13.by), deux activités différentes
+   qui se recouvrent ne se contredisent pas — elles disent qu'on faisait les
+   deux. Les découper ici effacerait en silence ce qu'on vient de déclarer :
+   on prie en se lavant, on corrige une heure, et la prière est rognée. Seule
+   une activité se découpe donc elle-même (13.bz). */
 function fusionTemps(liste){
   const dits=(liste||[]).slice().sort(function(a,b){ return ((a.maj||0)-(b.maj||0)) || (a.deb-b.deb); });
   let ligne=[];
@@ -2756,7 +2763,7 @@ function fusionTemps(liste){
     const suite=[];
     ligne.forEach(function(x){
       const xd=x.deb, xf=finDe(x);
-      if(xf<=d || xd>=f){ suite.push(x); return; }
+      if(xf<=d || xd>=f || x.t!==b.t){ suite.push(x); return; }
       if(xd<d) suite.push(Object.assign({}, x, {fin:d}));
       /* La queue d'un bloc coupé en deux doit porter un identifiant que les
          deux appareils calculent pareil, sinon ils divergeraient à la
@@ -2767,10 +2774,10 @@ function fusionTemps(liste){
     ligne=suite;
   });
   ligne.sort(function(a,b){ return a.deb-b.deb; });
-  const out=[];
+  const out=[], der={};
   ligne.forEach(function(b){
     if(!(finDe(b)>b.deb)) return;
-    const p=out[out.length-1];
+    const p=der[b.t];
     /* Recollé : deux morceaux voisins de la même activité redeviennent un
        seul bloc, sinon la journée se lirait en confettis. */
     if(p && p.t===b.t && finDe(p)===b.deb){
@@ -2781,7 +2788,7 @@ function fusionTemps(liste){
       if(c && c!==a) p.note = a ? (a+"\n"+c) : c;
       return;
     }
-    out.push(b);
+    out.push(b); der[b.t]=b;
   });
   out.forEach(function(b){ if(b.fin===SANSFIN) delete b.fin; });
   return out;
@@ -2843,10 +2850,26 @@ function vPointer(){
      ici, en clair, juste sous ce qui tourne. Il ne range rien ailleurs : le
      temps écoulé reste à l'activité qu'il a servie, et ce qui suit n'est
      compté à personne — parce qu'il n'a servi personne. */
-  if(o && !corr && !trou)
+  /* Quand plusieurs choses tournent, le seul arrêt visible les arrêtait
+     toutes : on finissait de se laver et la prière s'arrêtait avec. Arrêter
+     une activité seule existait — toucher sa ligne cochée, tout en bas, dans
+     sa catégorie — mais rien ne le disait, et un geste qu'il faut devinier
+     n'existe pas. Ce qui tourne se lit donc ici, nommé, chacun avec son
+     heure et son arrêt à soi. Tout arrêter reste dessous, pour ce qu'il est :
+     un geste de plus, pas le geste par défaut. */
+  if(o && !corr && !trou){
+    if(ouv.length>1){
+      h += titreBloc("Ce qui tourne");
+      h += liste(ouv.slice().sort(function(a,b){ return a.deb-b.deb; }).map(function(b){
+        return ligne({titre:esc(tacheNom(b.t))+(b.porte?` <span class="pte">porte l'heure</span>`:""),
+          sous:"depuis "+hmin(new Date(b.deb))+" — toucher pour arrêter ça seulement",
+          apres:esc(hm(Date.now()-b.deb)), attr:'data-stop="'+b.id+'"'});
+      }).join(""));
+    }
     h += liste(ligne({titre:ouv.length>1 ? "Tout arrêter" : "Arrêter de compter",
       sous:"Le temps déjà passé reste à "+(ouv.length>1 ? "ce qui l'a reçu" : "« "+esc(tacheNom(o.t))+" »"),
       attr:'data-act="arretNet"'}), "lien");
+  }
   /* Un seul geste nouveau pour tout le parallèle : un interrupteur à deux
      positions, qui dit ce que la prochaine tape veut dire. « À la place »
      par défaut — l'app se comporte comme avant tant qu'on n'y touche pas.
@@ -2961,6 +2984,13 @@ function vMonTemps(){
   const lus=bs.slice(0,60);
   h += titreBloc(S.per==="jour" ? "La journée, bloc par bloc" : "Bloc par bloc","ecart");
   h += `<div class="block amorce">Touche un bloc pour corriger ses heures — ou pour dire ce qui s'y est passé.</div>`;
+  /* Toute une vie a précédé le compteur, et une nuit de prière ne se rattrape
+     pas en touchant un creux : avant le premier bloc d'une fenêtre, on ne
+     montre aucun creux, et c'est justement là que la nuit se trouve. Il faut
+     donc une porte qui n'attende rien de l'existant — deux heures écrites à
+     la main, puis la question habituelle : à quoi ce temps est-il allé. */
+  h += liste(ligne({titre:"Ajouter un temps passé",
+    sous:"Pour ce qui a eu lieu avant qu'on le compte", attr:'data-act="ajoutTemps"'}), "lien");
   /* Entre deux blocs, il y a parfois un creux : on s'est arrêté, et on n'a
      rien compté pendant ce temps-là. On ne fabrique pas une activité pour
      le remplir — « non comptabilisé » serait une part sur du temps qu'on
@@ -3034,10 +3064,19 @@ function valHeure(id){
   const t=new Date(e.value).getTime();
   return isNaN(t) ? null : t;
 }
+/* Le voisin n'est plus celui qui précède dans la liste : avec plusieurs
+   activités de front, l'ordre des débuts ne dit plus qui touche quoi. Est
+   voisin ce qui est collé à cette borne-là, et il peut y en avoir plusieurs
+   — tous suivent le mouvement, sinon déplacer une borne ouvrirait un trou
+   devant l'une et pas devant l'autre. */
 function voisins(b){
-  const arr=(db.temps||[]).slice().sort(function(x,y){ return x.deb-y.deb; });
-  const i=arr.findIndex(function(x){ return x.id===b.id; });
-  return {avant:arr[i-1]||null, apres:arr[i+1]||null};
+  const arr=(db.temps||[]).filter(function(x){ return x.id!==b.id; });
+  return {avant:arr.filter(function(x){ return finDe(x)===b.deb; }),
+          apres:arr.filter(function(x){ return x.deb===finDe(b); })};
+}
+function nomVoisins(arr){
+  return "<b>"+esc(tacheNom(arr[0].t))+"</b>"
+    + (arr.length>1 ? " et "+(arr.length-1)+" autre"+(arr.length>2?"s":"") : "");
 }
 /* Ce qui est tapé et pas encore gardé doit survivre à un redessin : on le
    relit du champ avant chaque geste qui redessine l'écran. */
@@ -3065,22 +3104,41 @@ function vBloc(){
   h+=titreBloc("Le début","ecart");
   h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
       <input type="datetime-local" id="bDeb" value="${dtl(b.deb)}"></div></div></li>`);
-  if(v.avant && finDe(v.avant)===b.deb)
-    h+=`<div class="block amorce">Juste avant : <b>${esc(tacheNom(v.avant.t))}</b>. Reculer ce début le prolonge d'autant ; l'avancer le raccourcit.</div>`;
+  if(v.avant.length)
+    h+=`<div class="block amorce">Juste avant : ${nomVoisins(v.avant)}. Reculer ce début le prolonge d'autant ; l'avancer le raccourcit.</div>`;
   h+=titreBloc("La fin","ecart");
   h+=liste(ligne({titre:"C'est toujours en cours",
       apres: court ? `<span class="coche">✓</span>` : "", attr:'data-act="bCours"'}));
   if(!court){
     h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
         <input type="datetime-local" id="bFin" value="${dtl(b.fin)}"></div></div></li>`);
-    if(v.apres && finDe(b)===v.apres.deb)
-      h+=`<div class="block amorce">Juste après : <b>${esc(tacheNom(v.apres.t))}</b>, qui commencera à l'heure que tu poses ici.</div>`;
+    if(v.apres.length)
+      h+=`<div class="block amorce">Juste après : ${nomVoisins(v.apres)}, qui commencera à l'heure que tu poses ici.</div>`;
   } else {
     h+=`<div class="block amorce">Le compte court encore. Pose une heure de fin pour l'arrêter à ce moment-là, même s'il est passé.</div>`;
   }
   h+=liste(ligne({titre:`<span class="rouge">Effacer ce bloc</span>`, attr:'data-act="delBlocIci"'}));
   Z.html=h;
   Z.action=bouton("Garder", 'data-act="majBloc"');
+}
+
+/* ---------- déclarer un temps passé ---------- */
+/* Rien n'est écrit tant que les deux heures ne tiennent pas : on ne pose pas
+   un bloc à moitié vrai dans l'archive pour le corriger ensuite. L'écran ne
+   fait que remplir le même creux que ceux de la liste, et c'est le chemin du
+   creux qui l'enregistre — un seul endroit sait comment un vide se comble. */
+function vQuand(){
+  const q=S.quand||{deb:Date.now()-3600000, fin:Date.now()};
+  Z.titre="Quand était-ce ?"; Z.retour=true;
+  let h=`<div class="block amorce" style="margin-top:16px">Ce qui a eu lieu avant qu'on le compte s'écrit à la main. Pose les deux heures ; tu diras ensuite à quoi ce temps est allé.</div>`;
+  h+=titreBloc("Le début");
+  h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
+      <input type="datetime-local" id="qDeb" value="${dtl(q.deb)}"></div></div></li>`);
+  h+=titreBloc("La fin","ecart");
+  h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
+      <input type="datetime-local" id="qFin" value="${dtl(q.fin)}"></div></div></li>`);
+  Z.html=h;
+  Z.action=bouton("À quoi ?", 'data-act="poseQuand"');
 }
 
 /* ---------- régler la synchronisation ---------- */
@@ -3244,7 +3302,8 @@ function vData(){
 function vListe(f){ return function(){ f(); }; }
 const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), actes:vListe(vActes), chemin:vChemin, faits:vFaits,
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData,
-              pointer:vPointer, temps:vMonTemps, bloc:vBloc, sync:vSync, reglages:vReglages};
+              pointer:vPointer, temps:vMonTemps, bloc:vBloc, quand:vQuand,
+              sync:vSync, reglages:vReglages};
 
 /* ---------- dictée ---------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -3384,7 +3443,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -3422,6 +3481,11 @@ document.addEventListener("click", ev=>{
     const p=g.creux.split("|");
     S.blocId=null; S.trou={deb:+p[0], fin:+p[1]};
     empile(); S.view="pointer"; return render();
+  }
+  if(g.stop){
+    const b=blocT(g.stop); if(!b) return;
+    const n=tacheNom(b.t);
+    arreteUn(b); toast("Arrêté : "+n); return render();
   }
   if(g.tache) return poseTache(g.tache);
   if(g.sugg){ return poseTache(tacheId(g.sugg, g.cat)); }
@@ -3483,7 +3547,9 @@ function poseTache(id){
      activité, posé d'avance, resterait dans l'archive si on repartait sans
      choisir. Et on range par heure de départ, pour que le bloc en cours —
      s'il y en a un — reste le dernier, ce dont tout le compte dépend. */
-  if(S.trou){
+  /* Un trou en attente ne doit pas détourner une correction de bloc :
+     corriger, c'est désigner un bloc, et le bloc désigné passe devant. */
+  if(S.trou && !S.blocId){
     const t=S.trou; S.trou=null;
     const b={id:uid("b"), t:id, deb:t.deb, maj:Date.now()};
     if(!t.vif) b.fin=t.fin;
@@ -3558,9 +3624,13 @@ const actions={
     const d=valHeure("bDeb");
     if(d!==null && d<=Date.now()) b.deb=d;
     noteBloc(b);
+    /* Rouvrir un bloc était refusé dès qu'un autre avait commencé après
+       lui : il n'y avait qu'une file, et la rouvrir l'aurait fait mordre
+       sur son suivant. Depuis qu'on mène plusieurs choses de front, mordre
+       n'est plus une faute — c'est le cas même qu'on voulait servir. On a
+       prié en se lavant, la toilette est finie, la prière continue : il
+       faut pouvoir le dire. */
     if(b.fin){
-      const v=voisins(b);
-      if(v.apres) return toast("Un autre bloc a commencé après celui-ci");
       delete b.fin;
     } else {
       b.fin=Math.max(Date.now(), b.deb+60000);
@@ -3583,8 +3653,8 @@ const actions={
     const v=voisins(b);
     /* Seul un voisin collé suit le mouvement : s'il y avait déjà un trou,
        c'est qu'il était voulu, et on ne le rebouche pas à sa place. */
-    if(v.avant && finDe(v.avant)===b.deb && d>v.avant.deb){ v.avant.fin=d; touche(v.avant); }
-    if(f!==null && v.apres && finDe(b)===v.apres.deb && f<finDe(v.apres)){ v.apres.deb=f; touche(v.apres); }
+    v.avant.forEach(function(x){ if(d>x.deb){ x.fin=d; touche(x); } });
+    if(f!==null) v.apres.forEach(function(x){ if(f<finDe(x)){ x.deb=f; touche(x); } });
     b.deb=d; if(f===null) delete b.fin; else b.fin=f;
     noteBloc(b);
     touche(b);
@@ -3596,6 +3666,29 @@ const actions={
     depile("temps"); render();
   },
   stopBloc(){ fermeMenu(); const b=blocT(S.blocId); arreteUn(b); S.blocId=null; toast("Arrêté."); render(); },
+  /* Les deux heures sont proposées, pas devinées : s'il y a un vide entre le
+     début de la fenêtre et le premier bloc, c'est très probablement celui-là
+     qu'on vient combler — la nuit qu'on a passée debout. */
+  ajoutTemps(){
+    const f=fenetre(), n=Date.now();
+    const bs=(db.temps||[]).filter(function(b){ return (b.fin||n)>f.t0 && b.deb<f.t1; });
+    let deb=n-3600000, fin=n;
+    if(bs.length){
+      const prem=Math.min.apply(null, bs.map(function(b){ return b.deb; }));
+      if(prem-f.t0 >= 600000){ deb=f.t0; fin=prem; }
+    }
+    S.quand={deb:deb, fin:fin}; empile(); S.view="quand"; render();
+  },
+  poseQuand(){
+    const d=valHeure("qDeb"), f=valHeure("qFin");
+    if(d===null) return toast("Pose une heure de début");
+    if(f===null) return toast("Pose une heure de fin");
+    if(f<=d) return toast("La fin doit venir après le début");
+    if(d>Date.now()) return toast("Ce début n'est pas encore arrivé");
+    S.quand=null; S.blocId=null;
+    S.trou={deb:d, fin:Math.min(f, Date.now())};
+    S.view="pointer"; render();
+  },
   /* L'app choisit par défaut celui qui tournait déjà. Elle ne sait pas
      laquelle des deux choses était vraiment l'œuvre : lui, il le sait. */
   porteBloc(){

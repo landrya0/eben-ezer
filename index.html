@@ -275,9 +275,16 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
   padding-bottom:env(safe-area-inset-bottom,0px);
   -webkit-backdrop-filter:var(--flou);backdrop-filter:var(--flou)}
 #nav[hidden]{display:none}
-#nav button{flex:1 1 0;min-height:49px;border:0;background:none;font-size:11px;
-  font-weight:500;color:var(--muted);padding:0 2px;cursor:pointer}
+#nav button{flex:1 1 0;min-height:52px;border:0;background:none;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  font-family:var(--sans);font-size:10.5px;font-weight:500;letter-spacing:.004em;
+  color:var(--muted);padding:7px 2px 6px;cursor:pointer}
+#nav button svg{display:block;width:23px;height:23px;flex:0 0 auto}
+#nav button span{display:block;white-space:nowrap}
 #nav button[aria-current="page"]{color:var(--f7-theme-color);font-weight:700}
+/* L'onglet où l'on est a le trait un peu plus appuyé : la couleur seule ne
+   suffit pas à tous les yeux. */
+#nav button[aria-current="page"] svg{stroke-width:1.8}
 
 /* ---------- ce qui revient : des cartes qui défilent ---------- */
 .carr{display:flex;gap:13px;overflow-x:auto;scroll-snap-type:x mandatory;
@@ -615,6 +622,21 @@ const CHEV = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke
 const BAS = `<svg class="ch" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>`;
 const CROIX = `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>`;
 const MICSVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg>`;
+/* Les onglets portent toute la grammaire de l'outil : le jour ; ce qui
+   descend — Ses œuvres viennent vers moi ; l'éclat de ce qu'on apprend de
+   Lui ; ce qui monte — mes actes remontent vers Lui. Deux flèches suffisent
+   à dire le dialogue, et elles le disent sans un mot. */
+function ICO(d){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`; }
+const ICONES = {
+  today:   ICO(`<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.9" fill="currentColor" stroke="none"/>`),
+  oeuvres: ICO(`<path d="M5.5 4.2v7.6M5.5 12.4 3.2 9.9M5.5 12.4l2.3-2.5"/>
+                <path d="M12 4.2v14.4M12 19.2l-2.3-2.5M12 19.2l2.3-2.5"/>
+                <path d="M18.5 4.2v10.3M18.5 15.1l-2.3-2.5M18.5 15.1l2.3-2.5"/>`),
+  revel:   ICO(`<path d="M12 2.8 14.5 9.5 21.2 12l-6.7 2.5L12 21.2 9.5 14.5 2.8 12l6.7-2.5z"/>`),
+  actes:   ICO(`<path d="M5.5 19.8v-7.6M5.5 11.6 3.2 14.1M5.5 11.6l2.3 2.5"/>
+                <path d="M12 19.8V5.4M12 4.8l-2.3 2.5M12 4.8l2.3 2.5"/>
+                <path d="M18.5 19.8V9.5M18.5 8.9l-2.3 2.5M18.5 8.9l2.3 2.5"/>`)
+};
 const ONGLETS = [["today","Aujourd'hui"],["oeuvres","Ses œuvres"],["revel","Révélations"],["actes","Mes actes"]];
 
 /* Chaque vue remplit ces zones. Une seule action principale par écran. */
@@ -650,7 +672,7 @@ function render(){
   barre.className = onglet ? "surNav" : "";
   if(Z.action) barre.innerHTML = Z.action;
   nav.hidden = !onglet;
-  if(onglet) nav.innerHTML = ONGLETS.map(([k,l])=>`<button data-go="${k}"${S.view===k?' aria-current="page"':""}>${l}</button>`).join("");
+  if(onglet) nav.innerHTML = ONGLETS.map(([k,l])=>`<button data-go="${k}"${S.view===k?' aria-current="page"':""}>${ICONES[k]||""}<span>${l}</span></button>`).join("");
   main.scrollTop=0;
   place(); requestAnimationFrame(place);
   const f=document.getElementById("cFiltre");

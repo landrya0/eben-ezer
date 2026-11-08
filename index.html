@@ -804,7 +804,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v73";
+const VERSION = "v74";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -1121,6 +1121,26 @@ function minuit(dec){ const d=new Date(); d.setHours(0,0,0,0); if(dec) d.setDate
    On balaie les bornes dans l'ordre en tenant à jour la liste de ce qui est
    ouvert : comparer chaque tranche à tous les blocs serait quadratique, et
    la fenêtre « Tout » en contient des milliers. */
+/* Une fenêtre ne garde que sa part. Un bloc commencé à 23 h 51 et fini à
+   3 h 06 a duré trois heures, mais neuf minutes seulement appartiennent à la
+   veille : les compter entières des deux côtés ferait lire la même heure
+   deux fois. La part se compte donc, et le reste se DIT — sans quoi on
+   aurait troqué un chiffre faux contre un chiffre amputé (13.da). */
+function partBloc(b, t0, t1){
+  const n=Date.now(), deb=b.deb, fin=(typeof b.fin==="number") ? b.fin : n;
+  const a=Math.max(deb, t0), z=Math.min(fin, t1);
+  return {a:a, z:z, duree:Math.max(0, z-a), tot:Math.max(0, fin-deb),
+          avant:deb<t0, apres:fin>t1, ouvert:typeof b.fin!=="number"};
+}
+/* Ce qu'un acte occupe de temps, au plus fin de ce qu'on sait de sa date :
+   un jour s'il est daté au jour, tout un mois si l'on ne se souvient que du
+   mois. On ne le range jamais plus fin que ce qu'on en sait. */
+function spanActe(n){
+  const p=parse(n && n.date); if(!p) return null;
+  if(n.prec==="a") return [new Date(p.y,0,1).getTime(), new Date(p.y+1,0,1).getTime()];
+  if(n.prec==="m") return [new Date(p.y,p.m-1,1).getTime(), new Date(p.y,p.m,1).getTime()];
+  return [new Date(p.y,p.m-1,p.d).getTime(), new Date(p.y,p.m-1,p.d+1).getTime()];
+}
 function cumul(t0, t1){
   const n=Date.now(), par={}, parCat={}, bs=[];
   (db.temps||[]).forEach(function(b){
@@ -3737,13 +3757,20 @@ function vMonTemps(){
     .sort(function(p,q){ return q.d-p.d; });
   h += liste(items.map(function(it){
     if(it.v) return ligneCreux(it.v[0], it.v[1]);
-    const b=it.b, a=it.d;
+    const b=it.b, p=partBloc(b, f.t0, f.t1);
+    /* Les heures restent celles du bloc — les rogner à minuit effacerait
+       l'heure à laquelle on s'est vraiment mis là. C'est le chiffre de
+       droite qui ne compte que la part, et une phrase qui dit le reste. */
+    const deborde = p.avant && p.apres ? "traverse "+f.nom+" de part en part"
+                  : p.avant ? "commencé avant "+f.nom
+                  : p.apres ? "se poursuit après "+f.nom : "";
     return ligne({titre:esc(tacheNom(b.t))+(b.porte?` <span class="pte">porte l'heure</span>`:""),
-      sous:(S.per==="jour"?"":jourBref(a))+hmin(new Date(a))+" → "+(b.fin?hmin(new Date(b.fin)):"maintenant")
+      sous:(S.per==="jour"?"":jourBref(b.deb))+hmin(new Date(b.deb))+" → "+(b.fin?hmin(new Date(b.fin)):"maintenant")
+        +(deborde ? " · "+esc(deborde)+", "+esc(hm(p.tot))+" en tout" : "")
         +((b.lu&&b.lu.length)?`<span class="lus">${esc(passagesTxt(b))}</span>`:"")
         +((b.pg&&b.pg.length)?`<span class="lus">${esc(passagesPgTxt(b))}</span>`:"")
         +(b.note?`<span class="medNote">${esc(b.note)}</span>`:""),
-      apres:esc(hm((b.fin||n2)-a)), attr:'data-bloc="'+b.id+'"'});
+      apres:esc(hm(p.duree)), attr:'data-bloc="'+b.id+'"'});
   }).join(""));
   if(bs.length>lus.length) h += `<p class="vide">…et ${bs.length-lus.length} blocs plus anciens.</p>`;
   }
@@ -4826,7 +4853,13 @@ function actesParDisc(t0, t1){
   (db.nodes||[]).forEach(function(n){
     if(!n.pdt || n.act!=="dieu") return;
     const x=pdtDe(n.pdt);
-    if(!x || !x.d || x.deb>=t1 || x.fin<=t0) return;
+    if(!x || !x.d) return;
+    /* La circonstance dit de quelle routine l'acte relève ; elle ne dit pas
+       quand il est arrivé. Se régler sur son étendue faisait paraître la
+       parole de ce matin sur le compte rendu d'hier, dès que l'écoute avait
+       enjambé minuit. L'acte appartient au jour où il est arrivé (13.da). */
+    const sp=spanActe(n);
+    if(!sp || sp[0]>=t1 || sp[1]<=t0) return;
     o[x.d]=(o[x.d]||0)+1;
   });
   return o;

@@ -956,3 +956,83 @@ test("13.cz — un acte prévu passe en dernier : il n'a pas eu lieu, il n'ouvre
   A.ok(t.filter(x => x.txt.includes("Il a promis") && x.cls.indexOf("rappel") === -1).length === 1,
     "la promesse se lit entière sous ce qui a eu lieu, pas sous ce qui est prévu");
 });
+
+/* ========================================================================
+   13.da — une journée ne garde que sa part
+   ======================================================================== */
+
+/* Un bloc d'écoute commencé hier à 23 h 51 et fini ce matin à 3 h 06. */
+function aCheval(a) {
+  a.db.taches = [{ id: "a1", nom: "Écoute Enseignements TA", cat: "dieu", d: "litt", maj: 1 }];
+  a.db.temps = [bloc("b1", "a1", jour(7, 23, 51), j(3, 6))];
+  return a.db.temps[0];
+}
+
+test("13.da — un bloc à cheval ne pèse sur chaque jour que ce qu'il y a duré", () => {
+  const a = app();
+  const b = aCheval(a);
+  const hier = a.f.bornes("jour", jour(7, 12, 0));
+  const auj = a.f.bornes("jour", j(12, 0));
+
+  const ph = a.f.partBloc(b, hier[0], hier[1]);
+  A.equal(ph.duree, 9 * MIN, "hier n'en garde que les neuf dernières minutes");
+  A.equal(ph.tot, 3 * H + 15 * MIN, "mais le bloc entier fait bien ses trois heures");
+  A.ok(ph.apres && !ph.avant, "hier doit dire qu'il se poursuit");
+
+  const pa = a.f.partBloc(b, auj[0], auj[1]);
+  A.equal(pa.duree, 3 * H + 6 * MIN);
+  A.ok(pa.avant && !pa.apres, "aujourd'hui doit dire qu'il a commencé avant");
+
+  A.equal(ph.duree + pa.duree, ph.tot, "les deux parts font le bloc, et rien de plus");
+});
+
+test("13.da — les deux jours comptent ensemble exactement le bloc, pas deux fois", () => {
+  const a = app();
+  aCheval(a);
+  const hier = a.f.bornes("jour", jour(7, 12, 0));
+  const auj = a.f.bornes("jour", j(12, 0));
+  const ch = a.f.cumul(hier[0], hier[1]).par.a1;
+  const ca = a.f.cumul(auj[0], auj[1]).par.a1;
+  A.equal(ch + ca, 3 * H + 15 * MIN);
+});
+
+test("13.da — un acte appartient au jour où il est arrivé, pas à l'étendue de sa circonstance", () => {
+  const a = app();
+  aCheval(a);
+  const auj = new Date(j(12, 0));
+  const d = auj.getFullYear() + "-" + String(auj.getMonth() + 1).padStart(2, "0")
+          + "-" + String(auj.getDate()).padStart(2, "0");
+  a.db.nodes.push({ id: "n1", act: "dieu", man: "parle", kind: "rhema",
+                    txt: "Il a parlé pendant l'écoute", pdt: "b1",
+                    date: d, prec: "j", etat: "fait", par: [], ts: 1, maj: 1 });
+
+  const hier = a.f.bornes("jour", jour(7, 12, 0));
+  const dj = a.f.bornes("jour", j(12, 0));
+  A.equal(a.f.actesParDisc(dj[0], dj[1]).litt, 1, "la parole est de ce matin");
+  A.equal(a.f.actesParDisc(hier[0], hier[1]).litt, undefined,
+    "elle n'a rien à faire sur le compte rendu d'hier");
+});
+
+test("13.da — une date connue au mois près se lit sur tout le mois, jamais sur un jour", () => {
+  const a = app();
+  aCheval(a);
+  const auj = new Date(j(12, 0));
+  a.db.nodes.push({ id: "n1", act: "dieu", man: "parle", kind: "rhema",
+                    txt: "Il a parlé, je ne sais plus quel jour", pdt: "b1",
+                    date: auj.getFullYear() + "-" + String(auj.getMonth() + 1).padStart(2, "0") + "-01",
+                    prec: "m", etat: "fait", par: [], ts: 1, maj: 1 });
+  const mois = a.f.bornes("mois", j(12, 0));
+  A.equal(a.f.actesParDisc(mois[0], mois[1]).litt, 1, "le mois le tient");
+});
+
+test("13.da — ce qui ne se divise pas ne se divise pas : les pages restent au jour où la lecture a commencé", () => {
+  const a = app();
+  aCheval(a);
+  a.db.temps[0].pg = [["Une voix pour le réveil", 1, 52]];
+  const hier = a.f.bornes("jour", jour(7, 12, 0));
+  const auj = a.f.bornes("jour", j(12, 0));
+  A.equal(a.f.mesureDisc("litt", hier[0], hier[1]), "52 pages",
+    "on ne coupe pas 52 pages en deux à minuit : ce serait inventer un chiffre");
+  A.equal(a.f.mesureDisc("litt", auj[0], auj[1]), "",
+    "et on ne les compte surtout pas une seconde fois");
+});

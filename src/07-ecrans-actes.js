@@ -385,9 +385,10 @@ function vActes(){
   Z.file = true;
   Z.haut = `<p class="titre-page">Mes actes</p>`;
   const cj=cumul(minuit(0), Date.now());
-  /* Deux registres se tiennent à côté du mémorial sans en être : les heures
-     données, et les sujets portés. Ils partagent donc la même porte, en haut
-     de l'écran qui dit ce qui est à moi (13.di). */
+  /* Trois registres se tiennent à côté du mémorial sans en être : les heures
+     données, les sujets portés, et l'argent qui entre et qui sort. Ils
+     partagent donc la même porte, en haut de l'écran qui dit ce qui est à moi
+     (13.di, 13.dk). */
   const nsj=(db.sujets||[]).length;
   const nex=(db.sujets||[]).filter(function(s){ return exaucesDe(s.id).length; }).length;
   Z.html = liste(ligne({titre:"Mon temps",
@@ -396,7 +397,17 @@ function vActes(){
     + ligne({titre:"Mes sujets",
       sous: nsj ? esc(sujetsTxt(nsj))+(nex?" · "+nex+" exaucé"+(nex>1?"s":""):"")
                 : "Ce que tu portes devant Lui",
-      attr:'data-go="cahier"'}), "lien")
+      attr:'data-go="cahier"'})
+    + ligne({titre:"Mon argent",
+      sous: (function(){
+        /* Le mois, pas le jour : un loyer et une dîme ne se paient pas tous
+           les matins, et « rien aujourd'hui » ne dirait rien de vrai. */
+        const ca=cumulSous(bornes("mois",Date.now())[0], Date.now()+1);
+        if(!ca.n) return "Ce qui entre, ce qui sort";
+        if(ca.sorti) return pc(ca.par["dieu"]||0, ca.sorti)+" à Dieu ce mois-ci";
+        return esc(sousTxt(ca.entre))+" entrés ce mois-ci";
+      })(),
+      attr:'data-go="argent"'}), "lien")
     + bloc("En cours", mien.filter(n=>n.etat==="encours").sort(parDate), 0,
       "Rien ne dure en ce moment. Ouvre un de tes actes et dis où il en est : il passera ici.")
     + (prevus.length

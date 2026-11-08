@@ -1,7 +1,7 @@
 /* Ében-Ézer — hors-ligne, mais jamais figé.
    La page : le réseau d'abord, le cache en secours (pour recevoir les corrections).
    Le reste (composants, icônes, police) : le cache d'abord. */
-const CACHE = "ebenezer-v85";
+const CACHE = "ebenezer-v86";
 /* L'application est en onze fichiers chargés dans l'ordre (voir
    ARCHITECTURE.md). Hors ligne, il les faut TOUS : il n'y a pas d'application
    avec dix sur onze. Le cache porte le numéro de version, et « activate »
@@ -9,7 +9,7 @@ const CACHE = "ebenezer-v85";
    d'ancien et de neuf. */
 const APP = ["01-socle", "02-dates", "03-temps", "04-medias", "05-acces",
              "06-charpente", "07-ecrans-actes", "08-sync", "09-ecrans-temps",
-             "10-ecrans-reste", "11-gestes"].map(n => "./src/" + n + ".js");
+             "10-ecrans-reste", "11-argent", "12-gestes"].map(n => "./src/" + n + ".js");
 const SOCLE = ["./", "./index.html", "./manifest.webmanifest",
                "./src/ebenezer.css"].concat(APP).concat([
                "./vendor/framework7-bundle.min.css",

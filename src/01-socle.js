@@ -9,7 +9,7 @@
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v85";
+const VERSION = "v86";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -50,12 +50,13 @@ const TACHES_SOCLE = [
   ["Attente","reste"],["Écrans","reste"]
 ];
 
-let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], periodes:[], livres:[], auteurs:[], sujets:[], exp:0, seq:1};
+let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], periodes:[], livres:[], auteurs:[], sujets:[], sous:[], dev:"EUR", exp:0, seq:1};
 let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an", rev:"noms", pile:[], nodeId:null,
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
          per:"jour", anc:null, vue:"parts", tQ:"", tCat:"", blocId:null, medId:null, trou:null, quand:null,
          noteFocus:false, frisZ:null, enPlus:false, tchId:null, sjQ:"", gQ:"", sujId:null, sjF:"attente",
+         vueA:"parts", sd:null,
          lu:null, luA:null, luZ:null, luPlein:false,
          pgL:null, pgA:null, pgZ:null, lvId:null, auId:null, perId:null};
 
@@ -88,6 +89,10 @@ function sane(v){
           livres:Array.isArray(o.livres)?o.livres:[],
           auteurs:Array.isArray(o.auteurs)?o.auteurs:[],
           sujets:Array.isArray(o.sujets)?o.sujets:[],
+          sous:Array.isArray(o.sous)?o.sous:[],
+          /* La monnaie n'est pas une donnée du mémorial, c'est un réglage :
+             on n'y garde que le code, et on ne devine aucun taux (13.dk). */
+          dev:(typeof o.dev==="string" && /^[A-Z]{3}$/.test(o.dev))?o.dev:"EUR",
           temps:Array.isArray(o.temps)?o.temps:[],
           periodes:Array.isArray(o.periodes)?o.periodes:[],
           exp:(typeof o.exp==="number")?o.exp:0,
@@ -96,7 +101,7 @@ function sane(v){
           seq:(typeof o.seq==="number"&&o.seq>0)?o.seq:1};
   /* Les fiches d'avant la synchronisation n'ont pas d'heure. On leur en donne
      la plus ancienne possible : la moindre écriture réelle les dépassera. */
-  [d.nodes,d.gens,d.noms,d.mans,d.cats,d.taches,d.temps,d.periodes,d.livres,d.auteurs,d.sujets].forEach(function(a){
+  [d.nodes,d.gens,d.noms,d.mans,d.cats,d.taches,d.temps,d.periodes,d.livres,d.auteurs,d.sujets,d.sous].forEach(function(a){
     a.forEach(function(x){ if(x && typeof x.maj!=="number") x.maj=1; });
   });
   /* Le type de champs était un réglage à part ; il devient une conséquence de
@@ -128,6 +133,12 @@ function sane(v){
   d.periodes = d.periodes.filter(x=>x && typeof x.deb==="number" && x.d)
                          .sort((a,b)=>a.deb-b.deb);
   d.periodes.forEach(x=>{ if(!x.id) x.id="p"+(d.seq++)+"-"+DEV; });
+  /* Un mouvement sans jour, sans somme ou sans poste ne dit rien : il ne
+     pèserait dans aucune part et ne se lirait nulle part. On nettoie et on
+     range une fois pour toutes, au chargement — comme les blocs. */
+  d.sous = d.sous.filter(x=>x && typeof x.t==="number" && typeof x.m==="number" && x.m && x.p)
+                 .sort((a,b)=>a.t-b.t);
+  d.sous.forEach(x=>{ if(!x.id) x.id="mv"+(d.seq++)+"-"+DEV; });
   /* La date d'un acte dit quand il est arrivé ; elle ne dit pas dans quel
      ordre on l'a gardé. Deux actes du même jour se présentaient donc dans
      l'ordre où ils dormaient en mémoire — c'est-à-dire le plus ancien

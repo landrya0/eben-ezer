@@ -412,10 +412,16 @@ function fusionne(A, B){
     livres:fusionListe(A.livres, B.livres, morts),
     auteurs:fusionListe(A.auteurs, B.auteurs, morts),
     sujets:fusionListe(A.sujets, B.sujets, morts),
+    sous:  fusionListe(A.sous,   B.sous,   morts),
     taches:fusionListe(A.taches, B.taches, morts),
     temps: fusionTemps(fusionListe(A.temps, B.temps, morts)),
     periodes: fusionListe(A.periodes, B.periodes, morts),
     morts: morts,
+    /* La monnaie est un réglage, pas un fait du mémorial : elle n'a pas de
+       date de modification et ne se réunit donc pas comme une fiche. Celui
+       des deux qui en a une l'emporte, l'archive locale d'abord ; si les
+       deux appareils divergent, un passage par Réglages tranche (13.dk). */
+    dev: A.dev || B.dev || "EUR",
     exp: Math.max(A.exp||0, B.exp||0),
     seq: Math.max(A.seq||1, B.seq||1),
     maj: Math.max(A.maj||0, B.maj||0)

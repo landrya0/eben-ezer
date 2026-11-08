@@ -1,5 +1,8 @@
 /* Ében-Ézer — gestes
    Le délégué : un seul écouteur, et le démarrage.
+   Chargé en DERNIER : son code racine appelle render(), donc tout ce qu'un
+   écran peut toucher doit déjà exister. C'est pourquoi il porte le numéro le
+   plus haut, et pourquoi un nouveau fichier d'écrans se glisse AVANT lui.
 
    Ce fichier fait partie d'une suite chargée DANS L'ORDRE (01, 02, …) par
    index.html, dans une seule portée globale. Ce ne sont pas des modules : on
@@ -61,10 +64,23 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-sou],[data-poste],[data-vuea],[data-dev]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
+  if(g.vuea){ S.vueA=g.vuea; return render(); }
+  if(g.sou){
+    const x=sou(g.sou); if(!x) return;
+    S.sd={id:x.id, t:x.t, p:x.p, q:x.q||"", mTxt:sousNu(x.m)};
+    empile(); S.view="sou"; return render();
+  }
+  /* Le poste est le seul attribut à choisir : le sens en découle (13.cn). */
+  if(g.poste){ souLit(); if(S.sd){ S.sd.p=g.poste; } return render(); }
+  if(g.dev){
+    if(!DEVISES.some(function(x){ return x[0]===g.dev; })) return;
+    if(db.dev!==g.dev){ db.dev=g.dev; db.maj=Date.now(); save(); toast("Noté : "+devNom()); }
+    return render();
+  }
   /* Un onglet est un point de départ : il vide la pile. Le reste s'empile. */
   if(g.go){ fermeMenu();
     if(ONGLETS.some(o=>o[0]===g.go)){ S.pile=[]; }
@@ -634,6 +650,35 @@ const actions={
     pr.deb=d; if(f!==null) pr.fin=f;
     notePer(pr); touche(pr); save();
     toast("Gardé."); depile("temps"); render();
+  },
+  souNeuf(){ empile(); S.sd={id:null, t:minuit(0), p:"", q:"", mTxt:""}; S.view="sou"; render(); },
+  souGarder(){
+    souLit();
+    const d=S.sd; if(!d) return;
+    const m=montantLu(d.mTxt);
+    /* Un mouvement de zéro n'a rien bougé : il ne pèserait dans aucune part
+       et encombrerait le registre d'une ligne qui ne dit rien. */
+    if(!m) return toast("Combien ?");
+    if(!d.p) return toast("Dis d'où ça vient, ou où ça va");
+    if(d.t>minuit(0)) return toast("Ce jour n'est pas encore arrivé");
+    /* Le signe ne se garde pas : c'est le poste qui dit le sens (13.cn). Un
+       montant recopié d'un relevé arrive souvent négatif — on le prend tel
+       quel et on n'en retient que la somme. */
+    const v=Math.abs(m), q=String(d.q||"").trim();
+    if(d.id){
+      const x=sou(d.id); if(!x) return;
+      x.t=d.t; x.m=v; x.p=d.p; x.q=q; touche(x);
+    } else {
+      db.sous=(db.sous||[]).concat([{id:uid("mv"), t:d.t, m:v, p:d.p, q:q, maj:Date.now()}]);
+    }
+    db.sous.sort(function(a,b){ return a.t-b.t; });
+    save(); S.sd=null; toast("Noté."); depile("argent"); render();
+  },
+  souEffacer(){
+    const d=S.sd; if(!d || !d.id) return;
+    db.sous=(db.sous||[]).filter(function(x){ return x.id!==d.id; });
+    tue(d.id); S.sd=null; save(); toast("Effacé.");
+    depile("argent"); render();
   },
   perEffacer(){
     const id=S.perId;

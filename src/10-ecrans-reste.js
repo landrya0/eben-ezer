@@ -1125,6 +1125,9 @@ function vReglages(){
   Z.html = `<div style="height:10px"></div>`
     + titreBloc("Sur mes deux appareils")
     + liste(ligne({titre:"Synchronisation", sous:esc(syEtat()), attr:'data-go="sync"'}), "lien")
+    + titreBloc("Mon argent","ecart")
+    + liste(ligne({titre:"Ma monnaie", sous:esc(devNom()+" — "+devSym()),
+                   attr:'data-go="devise"'}), "lien")
     + titreBloc("Mon archive","ecart")
     + liste(ligne({titre:"Mes données", sous:esc(sauve), attr:'data-go="data"'}), "lien")
     + titreBloc("Cette application","ecart")

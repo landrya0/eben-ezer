@@ -146,6 +146,11 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 .meta{font-family:var(--sans);font-size:12.5px;font-weight:500;letter-spacing:.015em;
   color:var(--muted);margin:13px 0 0 17px;line-height:1.5}
 .amorce{font-family:var(--sans);font-size:14.5px;line-height:1.52;color:var(--muted);margin:0}
+/* Tout l'écran de l'argent existe pour une phrase : ce qui est allé à Dieu.
+   Du même gris que le reste, elle se perdait dans l'explication (13.dk). */
+.tresor{font-family:var(--sans);font-size:16px;line-height:1.45;margin:0;
+  color:var(--f7-text-color)}
+.tresor b{font-weight:700;color:var(--f7-theme-color);font-variant-numeric:tabular-nums}
 /* Le code de récupération : fait pour être recopié à la main, donc grand,
    espacé, et à chasse fixe pour qu'aucun signe n'en imite un autre. */
 #haut.libre, .entete{position:relative}

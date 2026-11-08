@@ -211,8 +211,12 @@ const PONT = `
        gensId, gensNom, gensTxt,
        exaucesDe, exauceTxt, sujetDepuis, sujetFois, sujetHist, vActes, minuit,
        sujetDernier, seancesDe, vCahier, vSujet, vToday, rappelPer, vPeriode,
-       livre, livreId, pageLue, nbLu, chapitresTxt, pagesTxt },
-  c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY }
+       livre, livreId, pageLue, nbLu, chapitresTxt, pagesTxt,
+       sou, cumulSous, sousDans, souJour, souTitre, souLit, sousTxt, sousNu,
+       montantLu, poste, posteNom, posteSens, postesDe, partsSous,
+       devLig, devNom, devSym, devDec, jdate, jourLu,
+       vArgent, vSou, vDevise, vReglages, listePostes },
+  c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY, POSTES, DEVISES, CAT_SOCLE, ONG_ARG }
 };
 `;
 

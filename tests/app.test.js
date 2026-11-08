@@ -1744,3 +1744,235 @@ test("13.dj — la ligne dit le geste, et le geste se reprend", () => {
   a.actions.perCours();
   A.equal(a.f.perOuverte(pr), true, "une fin posée par erreur se reprend (13.cl)");
 });
+
+/* ---------- 13.dk — l'argent est le troisième registre ---------- */
+
+/* « là ou est ton trésor là sera ton coeur » : ce qui se mesure, c'est la
+   destination, et le poste la porte à lui seul. */
+function mvt(id, d, m, p, q) {
+  return { id: id, t: jour(d, 0, 0), m: m, p: p, q: q || "", maj: 1 };
+}
+function enArgent(a) {
+  a.db.sous = [
+    mvt("mv1", 2, 250000, "salaire", "Salaire d'octobre"),
+    mvt("mv2", 3, 25000, "dieu", "Dîme"),
+    mvt("mv3", 4, 90000, "moi", "Le loyer"),
+    mvt("mv4", 5, 40000, "epargne"),
+    mvt("mv5", 6, 5000, "dieu", "Offrande")
+  ];
+  return a.db.sous;
+}
+function argent(a, vue) {
+  a.S.view = "argent"; a.S.per = "mois"; a.S.anc = null;
+  if (vue) a.S.vueA = vue;
+  a.f.vArgent();
+  return a.Z.html;
+}
+
+test("13.dk — le poste porte le sens : aucun champ à tenir d'accord", () => {
+  const a = app();
+  enArgent(a);
+  /* Rien, dans une fiche, ne dit « entrée » ou « sortie » : c'est le poste
+     qui le dit, et lui seul (13.cn). */
+  a.db.sous.forEach(function (x) {
+    A.equal(x.sens, undefined, "pas de champ de sens à saisir");
+  });
+  A.equal(a.f.posteSens("salaire"), "e");
+  A.equal(a.f.posteSens("dieu"), "s");
+  A.equal(a.f.posteSens("retour"), "e", "reprendre son épargne est une entrée");
+
+  const b = a.f.bornes("mois", MIDI);
+  const c = a.f.cumulSous(b[0], b[1]);
+  A.equal(c.entre, 250000);
+  A.equal(c.sorti, 25000 + 90000 + 40000 + 5000);
+  A.equal(c.par.dieu, 30000, "deux lignes pour Dieu font une seule part");
+  A.equal(c.n, 5);
+});
+
+test("13.dk — l'heure et le franc vont aux mêmes destinataires", () => {
+  const a = app();
+  const sorties = Array.from(a.f.postesDe("s"));
+  /* Les cinq de CAT_SOCLE se retrouvent à l'identique : c'est le même cœur
+     qui répartit l'heure et le franc. */
+  Array.from(a.c.CAT_SOCLE).forEach(function (cat) {
+    A.ok(sorties.indexOf(cat[0]) !== -1, "le temps donne à « " + cat[1] + " », l'argent aussi");
+  });
+  /* Et l'argent en ajoute deux que le temps n'a pas : on n'épargne pas une
+     heure, on ne l'investit pas. */
+  A.ok(sorties.indexOf("epargne") !== -1);
+  A.ok(sorties.indexOf("invest") !== -1);
+  A.equal(sorties.length, Array.from(a.c.CAT_SOCLE).length + 2);
+});
+
+test("13.dk — les sommes se gardent en entiers, et se lisent comme on les tape", () => {
+  const a = app();
+  A.equal(a.f.montantLu("12,50"), 1250);
+  A.equal(a.f.montantLu("12.5"), 1250, "le point d'un clavier étranger vaut la virgule");
+  A.equal(a.f.montantLu("12"), 1200);
+  A.equal(a.f.montantLu("1 234,56"), 123456, "l'espace des milliers ne gêne pas");
+  A.equal(a.f.montantLu("1.234"), 123400, "mille deux cent trente-quatre, pas un euro vingt-trois");
+  A.equal(a.f.montantLu("-43,20"), -4320, "un relevé recopié arrive négatif");
+  A.equal(a.f.montantLu("12 €"), 1200);
+  A.equal(a.f.montantLu(""), null);
+  A.equal(a.f.montantLu("rien"), null);
+  /* Le centime ne se perd pas en route : 0,1 + 0,2 doit faire 0,3. */
+  A.equal(a.f.montantLu("0,10") + a.f.montantLu("0,20"), a.f.montantLu("0,30"));
+  /* Et ce qui s'affiche dans un champ se retape tel quel. */
+  A.equal(a.f.sousNu(123456), "1234,56");
+  A.equal(a.f.montantLu(a.f.sousNu(123456)), 123456);
+});
+
+test("13.dk — le signe ne se garde pas : le poste dit le sens", () => {
+  const a = app();
+  a.S.view = "argent";
+  a.actions.souNeuf();
+  a.ecrit("souM", "-43,20");
+  a.geste({ poste: "moi" });
+  A.equal(a.S.sd.mTxt, "-43,20", "choisir un poste ne perd pas ce qui est tapé (13.ct)");
+  a.actions.souGarder();
+  A.equal(a.db.sous.length, 1);
+  A.equal(a.db.sous[0].m, 4320, "on n'en retient que la somme");
+  A.equal(a.db.sous[0].p, "moi");
+  A.equal(a.S.view, "argent");
+});
+
+test("13.dk — un mouvement sans somme ou sans poste n'entre pas", () => {
+  const a = app();
+  a.actions.souNeuf();
+  a.actions.souGarder();
+  A.equal(a.db.sous.length, 0, "rien à garder");
+
+  a.ecrit("souM", "0");
+  a.actions.souGarder();
+  A.equal(a.db.sous.length, 0, "zéro n'a rien bougé");
+
+  a.ecrit("souM", "30");
+  a.actions.souGarder();
+  A.equal(a.db.sous.length, 0, "sans poste, la somme n'irait nulle part");
+
+  a.geste({ poste: "dieu" });
+  a.actions.souGarder();
+  A.equal(a.db.sous.length, 1);
+  A.equal(a.db.sous[0].m, 3000);
+});
+
+test("13.dk — un jour qui n'est pas arrivé ne se note pas", () => {
+  const a = app();
+  a.actions.souNeuf();
+  a.ecrit("souM", "30");
+  a.ecrit("souJ", "2026-12-01");
+  a.geste({ poste: "dieu" });
+  a.actions.souGarder();
+  A.equal(a.db.sous.length, 0);
+
+  a.ecrit("souJ", "2026-11-08");
+  a.actions.souGarder();
+  A.equal(a.db.sous.length, 1, "aujourd'hui passe");
+  A.equal(a.db.sous[0].t, jour(8, 0, 0));
+});
+
+test("13.dk — une fiche se corrige et s'efface, et l'effacement laisse sa pierre", () => {
+  const a = app();
+  enArgent(a);
+  a.geste({ sou: "mv3" });
+  A.equal(a.S.view, "sou");
+  A.equal(a.S.sd.mTxt, "900,00", "la somme revient telle qu'elle se retape");
+  a.ecrit("souM", "950");
+  a.actions.souGarder();
+  A.equal(a.f.sou("mv3").m, 95000);
+
+  a.geste({ sou: "mv3" });
+  a.actions.souEffacer();
+  A.equal(a.f.sou("mv3"), null);
+  /* Sans pierre tombale, la synchro le ressusciterait (13.be). */
+  A.ok(a.db.morts["mv3"], "une suppression se dit à l'autre appareil");
+});
+
+test("13.dk — l'écart n'est pas un solde, et l'écran le dit", () => {
+  const a = app();
+  enArgent(a);
+  const h = argent(a, "parts");
+  A.match(h, /Il est entré/);
+  A.match(h, /il est resté/, "entré moins sorti, nommé pour ce qu'il est");
+  A.match(h, /pas un solde de compte/, "l'application ignore ce qu'il y avait avant");
+  /* La part de Dieu se dit en une phrase : c'est la question du registre. */
+  A.match(h, /sont allés à Dieu/);
+  A.match(h, /19\u202f%/, "30 000 sur 160 000 sortis");
+  A.match(h, /Où c'est allé/);
+  A.match(h, /D'où c'est venu/);
+});
+
+test("13.dk — la part vide se dit, et mène quelque part", () => {
+  const a = app();
+  a.db.sous = [mvt("mv1", 3, 90000, "moi", "Le loyer")];
+  const h = argent(a, "parts");
+  A.match(h, /Rien n'est allé à Dieu/, "un chiffre qui accuse ne se cache pas");
+  A.match(a.Z.action, /data-act="souNeuf"/, "et jamais un reproche sans porte (13.cb)");
+});
+
+test("13.dk — les mouvements se relisent un par un, du plus récent au plus ancien", () => {
+  const a = app();
+  enArgent(a);
+  const h = argent(a, "mvts");
+  const ordre = (h.match(/data-sou="(mv\d)"/g) || []).join(" ");
+  A.equal(ordre, 'data-sou="mv5" data-sou="mv4" data-sou="mv3" data-sou="mv2" data-sou="mv1"');
+  A.match(h, /Le loyer/, "le libellé se lit, mais c'est le poste qui structure");
+  A.match(h, /− 900,00/, "une sortie se voit au signe");
+  A.match(h, /\+ 2[\s\u202f\u00a0]?500,00/, "une entrée aussi");
+});
+
+test("13.dk — un registre dont on ne peut pas dire la monnaie n'est pas un registre", () => {
+  const a = app();
+  enArgent(a);
+  A.equal(a.db.dev, "EUR");
+  A.match(a.f.sousTxt(123456), /€/);
+
+  a.S.view = "reglages"; a.f.vReglages();
+  A.match(a.Z.html, /data-go="devise"/, "le réglage a une porte (13.cl)");
+
+  a.geste({ dev: "XAF" });
+  A.equal(a.db.dev, "XAF");
+  A.match(a.f.sousTxt(1234), /FCFA/);
+  A.equal(a.f.sousTxt(1234), "1 234 FCFA".replace(" ", " "), "le franc CFA n'a pas de centimes");
+  /* Changer de monnaie ne convertit rien : aucun taux ne se devine. */
+  A.equal(a.f.sou("mv3").m, 90000, "le nombre gardé ne bouge pas");
+  a.S.view = "devise"; a.f.vDevise();
+  A.match(a.Z.html, /ne convertit rien/, "et l'écran le dit avant qu'on y touche");
+});
+
+test("13.dk — le registre survit au rechargement et à la réunion", () => {
+  const a = app();
+  enArgent(a);
+  a.db.dev = "XAF";
+  /* Les quatre points de câblage : le littéral, sane(), la boucle maj,
+     fusionne(). */
+  const r = a.f.sane(JSON.parse(JSON.stringify(a.db)));
+  A.equal(r.sous.length, 5, "le tableau traverse le rechargement");
+  A.equal(r.dev, "XAF");
+  A.equal(r.sous[0].id, "mv1", "et il est rangé du plus ancien au plus récent");
+
+  /* Un mouvement né sur l'autre appareil arrive ; celui qu'on a effacé ici
+     ne revient pas. */
+  const B = JSON.parse(JSON.stringify(r));
+  B.sous.push(mvt("mv9", 7, 10000, "dieu", "Soutien"));
+  const A2 = JSON.parse(JSON.stringify(r));
+  A2.sous = A2.sous.filter(function (x) { return x.id !== "mv2"; });
+  A2.morts = { mv2: Date.now() };
+  const d = a.f.fusionne(A2, B);
+  const ids = Array.from(d.sous).map(function (x) { return x.id; });
+  A.ok(ids.indexOf("mv9") !== -1, "ce qui est né ailleurs arrive");
+  A.equal(ids.indexOf("mv2"), -1, "ce qui est effacé ne ressuscite pas (13.be)");
+  A.equal(d.dev, "XAF");
+});
+
+test("13.dk — la porte de Mes actes dit la part de Dieu du mois", () => {
+  const a = app();
+  enArgent(a);
+  a.S.view = "actes"; a.f.vActes();
+  A.match(a.Z.html, /data-go="argent"/, "le troisième registre a sa porte (13.di)");
+  A.match(a.Z.html, /19\u202f% à Dieu ce mois-ci/);
+
+  a.db.sous = [];
+  a.f.vActes();
+  A.match(a.Z.html, /Ce qui entre, ce qui sort/, "et vide, elle invite sans accuser");
+});

@@ -111,10 +111,17 @@ Et, transversal : **rien ne part en clair** (13.bh). Le journal nomme des frère
 
 ## 5. Le code
 
-- `index.html` — **toute** l'application. JS vanilla, aucun build, `localStorage` (`ebenezer.v1`),
+- **Lire `ARCHITECTURE.md` avant de toucher au code.** L'application est en onze fichiers
+  `src/01-…` à `src/11-…`, des `<script>` classiques chargés **dans l'ordre**, une seule portée
+  globale. Ce ne sont pas des modules. L'ordre est porteur : une fonction du 09 n'existe pas
+  encore pendant le code racine du 06. JS vanilla, aucun build, `localStorage` (`ebenezer.v1`),
   CSS de Framework7 9.3.0 seulement (vendored, allégé).
 - **Chaque livraison bump les deux** : `const CACHE = "ebenezer-vNN"` dans `sw.js` **et**
-  `const VERSION = "vNN"` dans `index.html`. Sinon le service worker sert l'ancienne version.
+  `const VERSION = "vNN"` dans **`src/01-socle.js`**. Sinon le service worker sert l'ancienne
+  version.
+- **Un nouveau fichier de `src/` se déclare à deux endroits** : `index.html` et la liste `APP` de
+  `sw.js`. Le harnais de test, lui, relit l'ordre dans `index.html`.
+- **Les `url()` du CSS se résolvent depuis `src/`**, pas depuis la page.
 - **Vérifier qu'un nom de classe CSS est libre** dans `vendor/framework7-bundle.min.css` avant de
   l'employer. (`.fb` existait : les trois boutons se sont empilés au même point.)
 - **Un nouveau tableau de données se câble à quatre endroits**, sinon il ne survit ni au
@@ -122,7 +129,8 @@ Et, transversal : **rien ne part en clair** (13.bh). Le journal nomme des frère
   Une suppression passe par `tue(id)` → `db.morts`.
 - Déploiement : GitHub Pages. Attendre que `sw.js` serve bien la nouvelle version avant de le dire.
 - Patches : heredoc `python3 - <<'PYEOF'` avec un `rep(old,new)` qui vérifie `count(old)==1`,
-  écriture du fichier à la fin seulement. Puis `node --check` sur le plus gros bloc `<script>`.
+  écriture du fichier à la fin seulement. Puis `node --check src/*.js` — un fichier par fichier,
+  sans rien extraire.
 
 ---
 

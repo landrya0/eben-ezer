@@ -1,0 +1,73 @@
+# Ében-Ézer — la carte du code
+
+## Pourquoi un seul fichier, jusqu'ici
+
+Ce n'était pas la PWA. Une application web installable peut avoir autant de fichiers qu'elle veut.
+C'était **zéro build** : pas de npm, pas de bundler, pas d'étape entre l'écriture et la mise en
+ligne. `git push`, et c'est en ligne. Un seul fichier, c'était aussi une seule requête et un cache
+atomique — une mise à jour ne pouvait jamais servir un mélange d'ancien et de neuf.
+
+À 6 000 lignes, le prix a dépassé le bénéfice. On a donc découpé — **sans rien perdre de zéro
+build**.
+
+## Ce que c'est, et ce que ce n'est pas
+
+`src/01-socle.js` … `src/11-gestes.js` sont des `<script>` **classiques**, chargés dans l'ordre par
+`index.html`, dans **une seule portée globale**. Ce ne sont **pas des modules** : on ne les importe
+pas, on les empile. C'est exactement le même programme qu'avant, écrit sur onze feuilles.
+
+**L'ordre est porteur.** Les numéros ne sont pas décoratifs : une fonction déclarée dans le
+fichier 09 n'existe pas encore pendant que le code racine du fichier 06 s'exécute. Déplacer une
+balise dans `index.html` casse le démarrage. Les trois endroits qui tiennent cet ordre :
+`index.html`, `sw.js` (la liste `APP`), et `tests/harnais.js` (qui relit l'ordre **dans**
+`index.html`, pour que le harnais empile comme le navigateur et pas autrement).
+
+## La carte
+
+| fichier | ce qu'il tient | lignes |
+|---|---|---|
+| `01-socle.js` | constantes du socle, `VERSION`, rangement sur l'appareil | 171 |
+| `02-dates.js` | dire une date comme on la dit de vive voix | 35 |
+| `03-temps.js` | **les blocs** : compter, couper, réunir, les creux | 328 |
+| `04-medias.js` | ce qu'on joint à un acte | 247 |
+| `05-acces.js` | lire l'archive : actes, gens, ce qui remonte | 187 |
+| `06-charpente.js` | rail, barres, briques, menu — dessiner la page | 355 |
+| `07-ecrans-actes.js` | les écrans du mémorial, et l'assistant qui note | 779 |
+| `08-sync.js` | la copie distante, la réunion de deux appareils | 441 |
+| `09-ecrans-temps.js` | pointer, la frise, mon temps | 697 |
+| `10-ecrans-reste.js` | temps mis à part, lectures, auteurs, réglages, dictée | 1162 |
+| `11-gestes.js` | le délégué — un seul écouteur — et le démarrage | 933 |
+| `src/ebenezer.css` | la feuille de style | 753 |
+
+`index.html` ne tient plus que la charpente HTML et les douze balises : **69 lignes**.
+
+**Attention aux `url()` du CSS.** Elles se résolvent depuis `src/`, pas depuis la page : les
+polices sont donc en `../vendor/…`. C'est le piège classique d'une feuille extraite.
+
+## En vue de React Native
+
+Ce qui compte pour la bascule, ce n'est pas le nombre de fichiers : c'est **ce qui ne touche ni au
+DOM ni au HTML**. Cette partie-là se transporte telle quelle ; le reste meurt avec la page web.
+
+- **Se transporte** — `02-dates.js`, `03-temps.js`, et la moitié modèle de `05-acces.js`,
+  `08-sync.js`, `10-ecrans-reste.js` : les règles, le calcul des parts, les chemins, les périodes,
+  la fusion de deux archives. C'est ce que les 72 tests défendent, et ils n'ouvrent aucune page.
+- **Meurt à la bascule** — `06-charpente.js`, les trois `ecrans-*.js`, `11-gestes.js`,
+  `ebenezer.css` : tout ce qui fabrique du HTML ou écoute un clic.
+
+**L'étape suivante, quand la bascule commencera :** faire du noyau de vrais modules ES
+(`export` / `import`), pour que le projet React Native les importe directement au lieu de les
+recopier. Ce n'est pas fait ici, et c'est volontaire : de vrais modules demandent soit une étape
+de build, soit d'écrire à la main les imports de 359 déclarations. Les deux se décident au moment
+de la bascule, pas avant. La découpe d'aujourd'hui rend ce travail **mécanique** — les frontières
+sont déjà tracées.
+
+## La règle de livraison n'a pas changé, sauf un chemin
+
+Chaque livraison bump **les deux** :
+
+- `const CACHE = "ebenezer-vNN"` dans `sw.js`
+- `const VERSION = "vNN"` dans **`src/01-socle.js`** — plus dans `index.html`
+
+Et tout nouveau fichier de `src/` se déclare à **trois** endroits : `index.html`, la liste `APP` de
+`sw.js`, et nulle part ailleurs — le harnais, lui, relit `index.html`.

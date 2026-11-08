@@ -1,0 +1,35 @@
+/* Ében-Ézer — dates
+   Dire une date comme on la dit de vive voix.
+
+   Ce fichier fait partie d'une suite chargée DANS L'ORDRE (01, 02, …) par
+   index.html, dans une seule portée globale. Ce ne sont pas des modules : on
+   ne les importe pas, on les empile. Les sortir de l'ordre casse le
+   démarrage. Voir ARCHITECTURE.md. */
+"use strict";
+/* ---------- dates ---------- */
+function today(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function parse(s){ if(!s) return null; const p=String(s).split("-"); if(p.length<3) return null; return {y:+p[0], m:+p[1], d:+p[2]}; }
+function human(n){
+  if(n.kind==="ecriture") return n.ref || "";
+  const p=parse(n.date); if(!p) return "";
+  if(n.prec==="a") return ""+p.y;
+  if(n.prec==="m") return MOIS[p.m-1]+" "+p.y;
+  return p.d+" "+MOIS[p.m-1]+" "+p.y;
+}
+/* On ne range pas un acte plus fin que ce qu'on sait de sa date : une date
+   connue à l'année près ne peut pas entrer dans une semaine sans mentir. */
+function lundi(p){
+  const t=new Date(p.y, p.m-1, p.d);
+  t.setDate(t.getDate() - ((t.getDay()+6)%7));
+  return t;
+}
+function tranche(n, grain){
+  const p=parse(n.date); if(!p) return "Sans date";
+  if(grain==="an" || n.prec==="a") return ""+p.y;
+  if(grain==="mois" || n.prec==="m") return MOIS[p.m-1]+" "+p.y;
+  const l=lundi(p);
+  return "Semaine du "+l.getDate()+" "+MOIS[l.getMonth()]+" "+l.getFullYear();
+}
+function ansDepuis(n){ const p=parse(n.date); if(!p) return 0; return new Date().getFullYear()-p.y; }
+function manCourt(m){ const t=manTxt(m); return t ? t.replace(/^Il (a |m'a |l'a )?/,"") : ""; }
+

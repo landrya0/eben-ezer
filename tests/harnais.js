@@ -157,18 +157,31 @@ function poseHorloge(ctx, fixe) {
 
 /* ---------- le chargement ---------- */
 
-function sourceApp() {
+/* L'application est en onze fichiers, chargés dans l'ordre par index.html.
+ * Le harnais les lit EXACTEMENT comme le navigateur : même suite, même portée.
+ * L'ordre n'est pas déduit d'un tri de noms mais relu dans index.html — sinon
+ * le harnais testerait un empilement que le navigateur ne fait pas. */
+function fichiersApp() {
   const html = fs.readFileSync(PAGE, "utf8");
-  const blocs = html.match(/<script>([\s\S]*?)<\/script>/g) || [];
-  if (!blocs.length) throw new Error("aucun <script> dans index.html");
-  const plusGros = blocs
-    .map(function (b) { return b.replace(/^<script>/, "").replace(/<\/script>$/, ""); })
-    .sort(function (a, b) { return b.length - a.length; })[0];
-  if (plusGros.length < 50000) {
-    throw new Error("le bloc <script> trouvé fait " + plusGros.length +
-      " caractères — l'application est plus grosse que ça, l'extraction a raté");
+  const ordre = [];
+  const re = /<script src="(src\/[^"]+\.js)"><\/script>/g;
+  let m;
+  while ((m = re.exec(html))) ordre.push(m[1]);
+  if (!ordre.length) throw new Error("index.html ne charge aucun fichier de src/");
+  return ordre;
+}
+
+function sourceApp() {
+  const racine = path.dirname(PAGE);
+  const suite = fichiersApp().map(function (f) {
+    return "//#region " + f + "\n" + fs.readFileSync(path.join(racine, f), "utf8");
+  });
+  const tout = suite.join("\n");
+  if (tout.length < 50000) {
+    throw new Error("les fichiers de src/ font " + tout.length +
+      " caractères — l'application est plus grosse que ça, la lecture a raté");
   }
-  return plusGros;
+  return tout;
 }
 
 /* Les déclarations `let` et `const` du script ne deviennent pas des

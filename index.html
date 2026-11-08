@@ -246,8 +246,9 @@ body.avecRail .entete .rouage{top:calc(var(--rail,0px) + 5px)}
 .rien{color:var(--muted);font-style:italic;font-weight:400}
 
 /* Un chemin : un filet vertical, et des pastilles qui disent qui a parlé.
-   Aucun trait n'est tracé entre les actes — les convergences se lisent
-   dans le « après : … », pas dans un dessin (14.5-bis.b). */
+   Là où plusieurs choses ont mené au même acte, le filet se divise : une
+   liste à plat mentirait sur l'ordre, puisqu'elle rangerait côte à côte des
+   causes qui n'ont rien à voir l'une avec l'autre (13.cz). */
 .fil{position:relative;margin:14px 16px 4px;padding-left:25px}
 .fil::before{content:"";position:absolute;left:5px;top:14px;bottom:14px;
   width:1px;background:var(--filet)}
@@ -321,6 +322,17 @@ body.avecRail .entete .rouage{top:calc(var(--rail,0px) + 5px)}
 .pas.cadre .dit{font-size:14.5px;font-weight:600;color:var(--muted)}
 .pas.prevu::before{background:transparent;border:2px dashed var(--muted)}
 .pas.prevu .dit{color:var(--muted)}
+/* Une branche : son propre filet, raccordé à celui dont elle sort. */
+.ramif{position:relative;padding-left:25px}
+.ramif::before{content:"";position:absolute;left:5px;top:22px;bottom:12px;
+  width:1px;background:var(--filet)}
+.ramif::after{content:"";position:absolute;left:-20px;top:22px;width:14px;height:1px;
+  background:var(--filet)}
+/* Un acte déjà posé plus haut ne se relit pas : on dit seulement qu'il est
+   là, et la convergence des deux fils se voit. */
+.pas.rappel::before{background:transparent;border:1px dashed var(--muted)}
+.pas.rappel{padding:9px 0}
+.pas.rappel .dit{font-size:14px;font-weight:500;color:var(--muted);font-style:italic}
 .etiq{display:inline-block;font-family:var(--sans);font-size:10.5px;font-weight:700;
   letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
   border:1px solid var(--filet);border-radius:9px;padding:1px 7px;margin-right:7px;
@@ -792,7 +804,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v72";
+const VERSION = "v73";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -2389,46 +2401,76 @@ function vChemin(){
   const suite=cheminDe(S.cheminId);
   if(!suite){ S.view="revel"; return render(); }
   Z.titre="Un chemin"; Z.retour=true;
-  /* Un acte prévu n'est pas un acte : le mêler au passé laisserait croire
-     qu'il a eu lieu. On le garde dans le chemin — c'est bien une promesse de
-     ce chemin-là — mais au-dessus d'une coupure. Le fil descendant, le
-     prévu est ce qu'il y a de plus récent : il ouvre la lecture. */
-  const faits=suite.filter(n=>n.etat!=="prevu"), prevus=suite.filter(n=>n.etat==="prevu");
-  const ordre=prevus.concat(faits);
-  const pos={}; ordre.forEach((n,i)=>{ pos[n.id]=i; });
-  /* L'en-tête porte déjà le nom de l'écran : le dire deux fois ne dit rien. */
-  let h=`<div class="block amorce" style="margin-top:20px">Ce n'est pas une ligne :
-      plusieurs fils se rejoignent ici. On descend vers ce qui a précédé.</div>
-    <div class="fil">`;
-  ordre.forEach((n,i)=>{
-    if(prevus.length && i===0) h+=`<div class="coupure">Ce qui est prévu</div>`;
-    if(prevus.length && i===prevus.length) h+=`<div class="coupure">Ce qui a eu lieu</div>`;
-    const cls = (n.act==="dieu" ? "dieu" : (n.act==="gens" ? "gens" : "moi"))
-              + (n.etat==="prevu" ? " prevu" : "");
-    /* La cause est maintenant en dessous : c'est elle qu'on ne redit pas. */
-    const prec=(n.par||[]).map(node).filter(Boolean).filter(p=>pos[p.id]!==i+1);
-    let apres="";
-    /* Rappeler d'où ça vient, pas le relire en entier. */
-    const court=t=>{ t=String(t); return t.length>46 ? esc(t.slice(0,45).replace(/\s+\S*$/,""))+"…" : esc(t); };
-    if(prec.length) apres=`après : ${prec.map(p=>court(p.txt)).join(" · ")}`;
-    else if(i<ordre.length-1 && !(n.par||[]).length) apres="un autre fil commence ici";
-    h+=`<a class="pas ${cls}" data-node="${n.id}">
+  const dans={}; suite.forEach(function(n){ dans[n.id]=n; });
+  /* Les pointes : ce qui ne mène à rien d'autre dans ce chemin. C'est d'elles
+     qu'on part, puisque le fil descend vers ce qui a précédé. Un acte prévu
+     en est une — il garde son point creux et son étiquette, et c'est tout ce
+     qu'il faut : une coupure mentirait sur l'arbre. Mais il passe en dernier :
+     en tête, il mettrait ce qui n'a pas eu lieu au-dessus de ce qui a eu lieu,
+     et réduirait le vrai fil à un renvoi. */
+  const pointes=suite.filter(function(n){
+    return !enfants(n.id).some(function(e){ return dans[e.id]; });
+  }).sort(function(a,b){
+    return (a.etat==="prevu"?1:0)-(b.etat==="prevu"?1:0) || parDate(a,b);
+  });
+  const vu={}, vuc={};
+  const court=function(t){ t=String(t||"");
+    return t.length>46 ? esc(t.slice(0,45).replace(/\s+\S*$/,""))+"…" : esc(t); };
+
+  function pasActe(n){
+    const cls=(n.act==="dieu" ? "dieu" : (n.act==="gens" ? "gens" : "moi"))
+            + (n.etat==="prevu" ? " prevu" : "");
+    return `<a class="pas ${cls}" data-node="${n.id}">
         <span class="dit">${cite(n)}</span>
         <span class="sous">${n.etat&&n.etat!=="fait"?`<span class="etiq">${ETAT[n.etat]}</span>`:""}${esc(acteurTxt(n))}${human(n)?" · "+human(n):""}</span>
-        ${apres?`<span class="apres">${apres}</span>`:""}
       </a>`;
-  });
-  circonstancesDe(suite).forEach(function(x){
-    h+=`<a class="pas cadre" ${x.kind==="periode"?'data-prd="':'data-vbloc="'}${x.id}">
+  }
+  function pasCadre(x){
+    return `<a class="pas cadre" ${x.kind==="periode"?'data-prd="':'data-vbloc="'}${x.id}">
         <span class="dit">${esc(x.nom)}</span>
         <span class="sous">${x.kind==="periode"?"un temps mis à part":"ce que tu donnais"} · ${esc(x.quand)}</span>
       </a>`;
-  });
+  }
+  function pasRappel(n){
+    return `<a class="pas rappel" data-node="${n.id}">
+        <span class="dit">${court(n.txt)}</span>
+        <span class="sous">déjà plus haut — deux fils s'y rejoignent</span>
+      </a>`;
+  }
+  /* Descendre un acte, puis ce qui l'a précédé : ses causes, et la
+     circonstance pendant laquelle il est arrivé (13.cy). */
+  function descends(n){
+    if(vu[n.id]) return pasRappel(n);
+    vu[n.id]=1;
+    const x = (n.pdt && !vuc[n.pdt]) ? pdtDe(n.pdt) : null;
+    if(x) vuc[n.pdt]=1;
+    const causes=(n.par||[]).map(node).filter(Boolean)
+      .filter(function(p){ return dans[p.id]; }).sort(parDate);
+    const sous=causes.map(descends);
+    if(x) sous.push(pasCadre(x));
+    if(!sous.length) return pasActe(n);
+    /* Une seule chose a précédé : c'est la même ligne qui continue, et la
+       décaler inventerait une fourche. Plusieurs : la fourche est réelle. */
+    if(sous.length===1) return pasActe(n)+sous[0];
+    return pasActe(n)+sous.map(function(b){ return '<div class="ramif">'+b+'</div>'; }).join("");
+  }
+
+  /* L'en-tête porte déjà le nom de l'écran : le dire deux fois ne dit rien. */
+  let intro="On descend vers ce qui a précédé. Là où le fil se divise, "
+          + "plusieurs choses ont mené au même acte.";
+  if(suite.some(function(n){ return n.etat==="prevu"; }))
+    intro+=" Ce qui n'a pas encore eu lieu garde un point creux.";
+  let h=`<div class="block amorce" style="margin-top:20px">${intro}</div>
+    <div class="fil">`;
+  /* Plusieurs pointes : autant de fils, posés l'un après l'autre sur le même
+     filet. Les décaler en ferait des branches d'un acte qui n'existe pas —
+     c'est plus bas qu'ils se rejoignent, et le renvoi le dit. */
+  h += pointes.map(descends).join("");
   h+=`</div>`;
   /* Une chaîne qui s'arrête sur un acte de Lui pose une question, et laisse
      le droit de ne pas répondre (14.5-bis.e). */
-  const fin=faits[0];
-  if(fin && fin.act!=="moi" && !enfants(fin.id).length){
+  const fin=pointes.filter(function(n){ return n.etat!=="prevu"; })[0];
+  if(fin && fin.act!=="moi"){
     h+=`<div class="block amorce" style="margin-top:18px">Qu'est-ce qui est sorti de ceci ?
       <span class="rien">Tu as le droit de ne pas répondre.</span></div>`;
     Z.action=bouton("Dire ce qui a suivi", 'data-attach="'+fin.id+'"');

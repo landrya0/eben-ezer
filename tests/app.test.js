@@ -833,3 +833,126 @@ test("13.cy — une circonstance effacée ne retient plus rien", () => {
     "le lien ne mène plus nulle part : l'acte reste, le chemin non");
   A.equal(a.f.circonstancesDe([a.f.node("n1")]).length, 0);
 });
+
+/* ========================================================================
+   13.cz — un chemin se ramifie
+   ======================================================================== */
+
+function moi(a, id, txt, par, ts, extra) {
+  const n = { id: id, act: "moi", txt: txt, par: par || [], date: "2026-11-08",
+              prec: "j", etat: "fait", ts: ts || 1, maj: 1 };
+  Object.assign(n, extra || {});
+  a.db.nodes.push(n);
+  return n;
+}
+
+/* Lit l'arbre rendu par vChemin : un pas par ligne, avec sa profondeur de
+   branche, sa classe et son texte. On n'inspecte que le fil. */
+function arbre(a, id) {
+  a.S.cheminId = id;
+  a.f.vChemin();
+  const html = a.Z.html;
+  const i = html.indexOf('<div class="fil">');
+  A.ok(i !== -1, "le fil n'a pas été rendu");
+  const fil = html.slice(i + '<div class="fil">'.length);
+  const re = /<div class="ramif">|<\/div>|<a class="pas ([^"]+)"[\s\S]*?<\/a>/g;
+  const out = [];
+  let prof = 0, m;
+  while ((m = re.exec(fil))) {
+    if (m[0] === '<div class="ramif">') prof++;
+    else if (m[0] === "</div>") prof--;
+    else out.push({
+      prof: prof,
+      cls: m[1],
+      txt: m[0].replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
+    });
+  }
+  return out;
+}
+
+test("13.cz — deux causes pour un même acte : deux branches, pas une liste", () => {
+  const a = app();
+  moi(a, "n1", "J'ai jeûné", [], 1);
+  moi(a, "n2", "J'ai demandé conseil", [], 2);
+  dieu(a, "n3", "Il a répondu", null, ["n1", "n2"]).ts = 3;
+
+  const t = arbre(a, "n3");
+  A.equal(t.length, 3);
+  A.equal(t[0].prof, 0, "l'acte est le tronc");
+  A.ok(t[0].txt.includes("Il a répondu"));
+  A.equal(t[1].prof, 1, "sa première cause est une branche");
+  A.equal(t[2].prof, 1, "sa seconde cause en est une autre, pas sa suite");
+  A.ok(t.some(x => x.txt.includes("J'ai jeûné")) && t.some(x => x.txt.includes("conseil")),
+    "les deux causes se lisent entières");
+});
+
+test("13.cz — une seule cause ne décale rien : c'est la même ligne qui continue", () => {
+  const a = app();
+  moi(a, "n1", "J'ai cherché", [], 1);
+  dieu(a, "n2", "Il a parlé", null, ["n1"]).ts = 2;
+
+  const t = arbre(a, "n2");
+  A.equal(t.length, 2);
+  A.equal(t[0].prof, 0);
+  A.equal(t[1].prof, 0, "inventer une fourche là où il n'y en a pas serait un mensonge");
+});
+
+test("13.cz — un acte déjà posé plus haut se rappelle au lieu de se relire", () => {
+  const a = app();
+  dieu(a, "n1", "La promesse de départ").ts = 1;
+  moi(a, "n2", "Première réponse", ["n1"], 2);
+  moi(a, "n3", "Seconde réponse", ["n1"], 3);
+  dieu(a, "n4", "Il a tout noué", null, ["n2", "n3"]).ts = 4;
+
+  const t = arbre(a, "n4");
+  const pleins = t.filter(x => x.txt.includes("La promesse de départ") && x.cls.indexOf("rappel") === -1);
+  const rappels = t.filter(x => x.cls.indexOf("rappel") !== -1);
+  A.equal(pleins.length, 1, "la promesse ne se lit qu'une fois");
+  A.equal(rappels.length, 1, "l'autre fil dit seulement qu'elle est là");
+  A.ok(rappels[0].txt.includes("La promesse de départ"),
+    "le rappel nomme bien l'acte où les deux fils se rejoignent");
+});
+
+test("13.cz — la circonstance se lit sous l'acte qu'elle a porté, pas au bas du chemin", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Enseignements de TA", cat: "dieu", d: "litt", maj: 1 }];
+  a.db.temps = [bloc("b1", "a1", j(9, 0), j(11, 0))];
+  moi(a, "n1", "J'ai ouvert Ésaïe", [], 1);
+  dieu(a, "n2", "Reprends Ésaïe 43", "b1", ["n1"]).ts = 2;
+
+  const t = arbre(a, "n2");
+  const cadre = t.filter(x => x.cls.indexOf("cadre") !== -1)[0];
+  A.ok(cadre, "la circonstance est dans le fil");
+  A.equal(cadre.prof, 1, "elle est une branche de l'acte qu'elle a porté");
+  A.equal(t[0].prof, 0);
+  A.ok(t[0].txt.includes("Reprends"), "l'acte reçu reste le tronc");
+});
+
+test("13.cz — deux pointes : deux fils posés sur le même filet, aucun branche de l'autre", () => {
+  const a = app();
+  moi(a, "n1", "La racine commune", [], 1);
+  dieu(a, "n2", "Un premier fruit", null, ["n1"]).ts = 2;
+  dieu(a, "n3", "Un second fruit", null, ["n1"]).ts = 3;
+
+  const t = arbre(a, "n2");
+  A.equal(t.filter(x => x.prof > 0).length, 0,
+    "décaler l'un sous l'autre en ferait la branche d'un acte qui n'existe pas");
+  A.equal(t.filter(x => x.cls.indexOf("rappel") === -1).length, 3);
+  A.equal(t.filter(x => x.cls.indexOf("rappel") !== -1).length, 1,
+    "la racine se lit une fois, et l'autre fil renvoie à elle");
+});
+
+test("13.cz — un acte prévu passe en dernier : il n'a pas eu lieu, il n'ouvre pas la lecture", () => {
+  const a = app();
+  dieu(a, "n1", "Il a promis").ts = 1;
+  moi(a, "n2", "J'ai obéi", ["n1"], 2);
+  moi(a, "n3", "Jeûner encore une semaine", ["n1"], 3, { etat: "prevu" });
+
+  const t = arbre(a, "n1");
+  A.ok(t[0].txt.includes("J'ai obéi"), "ce qui a eu lieu tient la tête");
+  A.ok(t[0].cls.indexOf("prevu") === -1);
+  const iPrevu = t.findIndex(x => x.cls.indexOf("prevu") !== -1);
+  A.ok(iPrevu > 0, "le prévu vient après");
+  A.ok(t.filter(x => x.txt.includes("Il a promis") && x.cls.indexOf("rappel") === -1).length === 1,
+    "la promesse se lit entière sous ce qui a eu lieu, pas sous ce qui est prévu");
+});

@@ -178,6 +178,7 @@ const PONT = `
 ;globalThis.__eben = {
   get db(){ return db; }, set db(v){ db = v; },
   get S(){ return S; },
+  get Z(){ return Z; },
   actions: actions,
   f: { hm, hmin, dtl, valHeure, cumul, couvert, fusionTemps, fusionne, fusionListe,
        bornes, decale, fenetre, nomFen, courtFen, memeAn,
@@ -186,7 +187,7 @@ const PONT = `
        disc, discNom, discDeNom, discTache, parDisc, mesureDisc, mesureProposee,
        auteur, auteurId, auteurNom, auteursConnus, recuDe, recuTxt,
        pdtDe, pdtCandidats, actesPdt, actesParDisc, node, enfants,
-       chemins, cheminDe, circonstancesDe, nomChemin,
+       chemins, cheminDe, circonstancesDe, nomChemin, vChemin,
        periode, perOuverte, finPer, perOuvertes, perDans, perDisc, perDiscTxt,
        dureePer, quandPer,
        perTxt, cumulPer, parDisc,

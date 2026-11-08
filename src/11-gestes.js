@@ -61,7 +61,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -76,6 +76,24 @@ document.addEventListener("click", ev=>{
     if(S.view==="note" && S.step>0){ S.step--; return render(); }
     if(S.view==="note") S.draft=null;
     depile(S.view==="lier"||S.view==="edit" ? "node" : "today"); return render();
+  }
+  /* Un raccourci : s'il tourne, on l'arrête — et l'arrêt demande ce que sa
+     routine commande ; sinon il part. Le même geste pour les deux, parce que
+     c'est la même ligne (13.dc). */
+  if(g.ep){
+    const b=ouverts().filter(function(x){ return x.t===g.ep; })[0];
+    if(b){ arreteUn(b); S.pile=[]; S.view="today";
+           toast("Arrêté : "+tacheNom(g.ep)); apresArret([b]); return render(); }
+    pointe(g.ep, !!S.enPlus); S.pile=[]; S.view="today";
+    toast("On compte : "+tacheNom(g.ep)); return render();
+  }
+  /* Épingler, c'est une date : elle dit aussi dans quel ordre les lignes se
+     rangent. Zéro, et non « absent », pour qu'un décochage voyage à la
+     synchronisation au lieu de se faire écraser par l'autre appareil. */
+  if(g.eptog){
+    const t=tache(g.eptog);
+    if(t){ t.ep = t.ep ? 0 : Date.now(); touche(t); save(); }
+    return render();
   }
   if(g.medsup){
     S.medId=g.medsup;

@@ -1116,3 +1116,71 @@ test("13.db — reprendre ne vaut que pour le geste qu'on vient de faire", () =>
   a.f.poseTache("a3");
   A.equal(a.db.temps.filter(x => x.t === "a3")[0].deb, j(8, 0));
 });
+
+/* ========================================================================
+   13.dc — un raccourci, c'est une activité épinglée
+   ======================================================================== */
+
+function troisTaches(a) {
+  a.db.taches = [
+    { id: "t1", nom: "Lecture de la Parole", cat: "dieu", d: "parole", maj: 1 },
+    { id: "t2", nom: "Lecture Littérature Chrétienne", cat: "dieu", d: "litt", maj: 1 },
+    { id: "t3", nom: "Prière", cat: "dieu", d: "priere", maj: 1 }
+  ];
+  return a.db.taches;
+}
+
+test("13.dc — tant que rien n'est épinglé, ce qui était là reste là", () => {
+  const a = app();
+  troisTaches(a);
+  /* `Array.from` ramène le tableau dans NOTRE royaume : deepEqual refuse de
+     comparer un tableau né dans le bac à sable, même identique. */
+  const e = Array.from(a.f.epingles(), t => t.id).sort();
+  A.deepEqual(e, ["t1", "t2"],
+    "la Parole et le livre en cours se montrent d'eux-mêmes, comme avant");
+});
+
+test("13.dc — dès qu'une activité est épinglée, c'est la liste du disciple qui vaut", () => {
+  const a = app();
+  const ts = troisTaches(a);
+  ts[2].ep = 1000;
+  A.deepEqual(Array.from(a.f.epingles(), t => t.id), ["t3"],
+    "prier a été choisi : les deux lignes d'office s'effacent");
+});
+
+test("13.dc — l'ordre des lignes suit l'ordre où on les a épinglées", () => {
+  const a = app();
+  const ts = troisTaches(a);
+  ts[2].ep = 3000; ts[0].ep = 1000; ts[1].ep = 2000;
+  A.deepEqual(Array.from(a.f.epingles(), t => t.id), ["t1", "t2", "t3"]);
+});
+
+test("13.dc — décocher voyage à la synchronisation au lieu de se faire écraser", () => {
+  const a = app();
+  const ici = { taches: [{ id: "t1", nom: "Prière", cat: "dieu", ep: 1000, maj: 5 }],
+                nodes: [], gens: [], noms: [], mans: [], cats: [], livres: [], auteurs: [],
+                temps: [], periodes: [], morts: {}, seq: 1, maj: 5 };
+  const ailleurs = JSON.parse(JSON.stringify(ici));
+  ailleurs.taches[0].ep = 0;
+  ailleurs.taches[0].maj = 9;
+  const r = a.f.fusionne(a.f.sane(ici), a.f.sane(ailleurs));
+  A.equal(r.taches[0].ep, 0,
+    "le décochage est une écriture, pas une absence : la dernière parole vaut (13.bd)");
+});
+
+test("13.dc — ce qu'on demandera à l'arrêt vient de la routine, pas du raccourci", () => {
+  const a = app();
+  const ts = troisTaches(a);
+  ts.forEach(t => { t.ep = 1000 + ts.indexOf(t); });
+  A.ok(a.f.raccourciArret(ts[0]).includes("jusqu'où"), "la Parole demande les chapitres");
+  A.ok(a.f.raccourciArret(ts[1]).includes("quelle page"), "la littérature demande les pages");
+  A.equal(a.f.raccourciArret(ts[2]), "", "la prière ne compte que le temps");
+});
+
+test("13.dc — une activité qui refuse la mesure de sa routine ne demande rien de plus", () => {
+  const a = app();
+  const ts = troisTaches(a);
+  ts[1].m = 0;               /* un enseignement en vidéo : pas de pages (13.cq) */
+  A.equal(a.f.raccourciArret(ts[1]), "");
+  A.equal(a.f.raccourciSous(ts[1]), "Le compteur part");
+});

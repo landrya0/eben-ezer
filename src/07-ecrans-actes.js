@@ -607,39 +607,57 @@ function etapes(d){
    cinquième réponse à une question qu'elle ne répond pas. */
 /* Le bouton du milieu est là sur les quatre onglets : c'est le seul endroit
    que le pouce trouve sans réfléchir. Ce qu'on fait tous les jours doit donc
-   y être, en clair, à une place qui ne bouge jamais — une roue de pastilles
-   autour du bouton ne raccourcirait rien (deux gestes dans les deux cas) et
-   dirait l'accent d'une autre application. La lecture de la Parole y gagne
-   sa ligne, et cette ligne dit déjà où l'on reprendra : une information qui
-   se lit sans ouvrir est une information gratuite (13.cg). */
-function porteLecture(){
-  const id=tacheBible();
-  const o=id ? ouverts().filter(function(b){ return b.t===id; })[0] : null;
-  if(o) return ligne({titre:"Arrêter la lecture",
-    sous:esc(hm(Date.now()-o.deb))+" — tu diras jusqu'où tu es allé",
-    attr:'data-act="bibleStop"'});
-  return ligne({titre:"Lire la Bible",
-    sous:"Le compteur part, à "+esc(nomPlat(debutPlat())),
-    attr:'data-act="bibleGo"'});
+   y être, en clair, à une place qui ne bouge jamais.
+
+   Il y avait là deux lignes écrites en dur — la Parole, et le livre en cours.
+   Deux fois le même geste, et deux fois le disciple n'avait pas son mot à
+   dire : ni sur ce qui figure là, ni sur ce qu'on y reprend. Or « continuer
+   la littérature chrétienne » n'est pas forcément continuer CE livre-là, et
+   prier ou méditer méritent autant leur ligne.
+
+   Un raccourci, c'est donc une activité épinglée, et rien d'autre. Le titre
+   nomme l'activité — pas le livre, qui n'est qu'un détail de l'endroit où
+   l'on reprend. Et les champs demandés à l'arrêt ne sont pas un second
+   réglage : ils découlent de la routine de l'activité, comme partout
+   ailleurs (13.cn, 13.cq). Épingler ne demande donc qu'une chose. */
+function epingles(){
+  const ts=(db.taches||[]).filter(function(t){ return t.ep; })
+    .sort(function(a,b){ return a.ep-b.ep; });
+  if(ts.length) return ts;
+  /* Tant que rien n'est épinglé, on garde ce qui était là : la Parole et le
+     livre en cours. Une liste vide ne doit pas faire disparaître sans
+     prévenir ce que le disciple avait sous le pouce. */
+  return [tacheBible(), tacheLivre()].filter(Boolean).map(tache).filter(Boolean);
 }
-/* Un livre entamé se reprend ; la ligne dit lequel et à quelle page, pour
-   qu'on sache avant d'ouvrir. Elle n'existe que si une activité porte ce
-   type-là : l'app ne va pas inventer une activité dont elle ignore la
-   catégorie — c'est au disciple de dire si sa lecture est pour Dieu, pour
-   lui, ou pour son travail. */
-function porteLivre(){
-  const id=tacheLivre();
-  if(!id) return "";
-  const o=ouverts().filter(function(b){ return b.t===id; })[0];
-  if(o) return ligne({titre:"Arrêter la lecture",
-    sous:esc(hm(Date.now()-o.deb))+" — tu diras jusqu'à quelle page",
-    attr:'data-act="livreStop"'});
-  const l=livre(dernierLivre());
-  const pg=l ? pageLue(l.id) : 0;
-  return ligne({titre: l ? "Continuer « "+esc(l.nom)+" »" : "Lire un livre",
-    sous: (l && pg) ? "Le compteur part, à la page "+(pg+1) : "Le compteur part",
-    attr:'data-act="livreGo"'});
+/* Où l'on reprendra — une information qui se lit sans ouvrir est une
+   information gratuite (13.cg). C'est la routine qui sait quoi dire. */
+function raccourciSous(t){
+  const sp=spTache(t.id);
+  if(sp==="bible") return "Le compteur part, à "+nomPlat(debutPlat());
+  if(sp==="livre"){
+    const l=livre(dernierLivre()), pg=l ? pageLue(l.id) : 0;
+    if(l) return "Le compteur part, « "+l.nom+" » à la page "+(pg+1);
+  }
+  return "Le compteur part";
 }
+function raccourciArret(t){
+  const sp=spTache(t.id);
+  if(sp==="bible") return " — tu diras jusqu'où tu es allé";
+  if(sp==="livre") return " — tu diras jusqu'à quelle page";
+  return "";
+}
+function porteRaccourci(t){
+  const o=ouverts().filter(function(b){ return b.t===t.id; })[0];
+  if(o) return ligne({titre:"Arrêter « "+esc(tacheNom(t.id))+" »",
+    sous:esc(hm(Date.now()-o.deb))+esc(raccourciArret(t)),
+    attr:'data-ep="'+t.id+'"'});
+  return ligne({titre:esc(tacheNom(t.id)), sous:esc(raccourciSous(t)),
+    attr:'data-ep="'+t.id+'"'});
+}
+/* Les quatre lignes du dessus répondent toutes à « qu'est-ce que tu
+   gardes ? », et pointer n'est pas garder : un titre l'en sépare, pour qu'on
+   ne le lise pas comme une cinquième réponse à une question qu'il ne répond
+   pas. */
 function portePointage(){
   const o=ouvert();
   return titreBloc("Ou bien","ecart") + liste(ligne(o
@@ -648,8 +666,42 @@ function portePointage(){
        attr:'data-go="pointer"'}
     : {titre:"Compter mon temps", sous:"Dire à quoi va ton temps",
        attr:'data-go="pointer"'})
-    + porteLecture() + porteLivre(), "lien");
+    + epingles().map(porteRaccourci).join("")
+    + ligne({titre:"Choisir ce qui est ici",
+             sous:"Les activités que tu veux sous le pouce",
+             attr:'data-go="epingles"'}), "lien");
 }
+/* Piloter la liste, c'est répondre à une seule question : qu'est-ce que je
+   veux sous le pouce ? Donc une liste de toutes les activités, une coche, et
+   rien d'autre — pas de second réglage sur ce qu'elles demanderont, puisque
+   cela découle déjà de leur routine (13.cn). Les activités sans routine sont
+   acceptées : elles ne compteront que le temps, et la ligne le dit. */
+function vEpingles(){
+  Z.titre="Ce qui est ici"; Z.retour=true;
+  const ts=(db.taches||[]).slice().sort(function(a,b){
+    return (b.ep?1:0)-(a.ep?1:0) || String(a.nom||"").localeCompare(String(b.nom||""));
+  });
+  let h=`<div class="block amorce" style="margin-top:20px">Ce que tu coches apparaît sous le bouton du milieu, prêt à partir d'une tape. Ce qu'on te demandera à l'arrêt vient de la routine de l'activité — tu n'as rien d'autre à régler.</div>`;
+  if(!ts.length){
+    h+=`<p class="vide">Aucune activité pour l'instant. Compte un premier temps, et reviens choisir.</p>`;
+    Z.html=h; return;
+  }
+  h+=liste(ts.map(function(t){
+    const d=discTache(t.id), sp=spTache(t.id);
+    const quoi = sp==="bible" ? "demandera les chapitres"
+               : sp==="livre" ? "demandera les pages" : "comptera le temps seulement";
+    return ligne({titre:esc(tacheNom(t.id)),
+      sous:esc((d ? discNom(d)+" · " : "")+quoi),
+      apres: t.ep ? `<span class="coche">✓</span>` : "",
+      attr:'data-eptog="'+t.id+'"'});
+  }).join(""));
+  /* Tant que rien n'est coché, deux lignes se montrent d'elles-mêmes : il
+     faut le dire, sinon on croit que la liste ne marche pas. */
+  if(!ts.some(function(t){ return t.ep; }))
+    h+=`<div class="block amorce">Rien n'est coché : la Parole et le livre en cours se montrent alors d'eux-mêmes, comme avant. Dès que tu coches quelque chose, c'est ta liste qui vaut.</div>`;
+  Z.html=h;
+}
+
 function vNote(){
   const d=S.draft||(S.draft=neuf(null));
   const et=etapes(d);

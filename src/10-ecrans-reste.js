@@ -1019,7 +1019,7 @@ const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), acte
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData,
               pointer:vPointer, temps:vMonTemps, bloc:vBloc, quand:vQuand, frise:vFrise,
               tache:vTache, lecture:vLecture, pages:vPages, livre:vLivre, auteur:vAuteur,
-              perNeuf:vPerNeuf, periode:vPeriode,
+              perNeuf:vPerNeuf, periode:vPeriode, epingles:vEpingles,
               sync:vSync, reglages:vReglages};
 
 /* ---------- dictée ---------- */

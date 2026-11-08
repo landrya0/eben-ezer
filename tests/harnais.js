@@ -198,6 +198,7 @@ const PONT = `
        finDe, voisins, touche, tue, sane, uid, cap, capNom,
        tache, tacheId, tacheNom, tacheCat, blocT, ouverts, fermeBloc,
        pointe, arrete, poseTache, creuxVif,
+       epingles, raccourciSous, raccourciArret,
        disc, discNom, discDeNom, discTache, parDisc, mesureDisc, mesureProposee,
        spanActe,
        auteur, auteurId, auteurNom, auteursConnus, recuDe, recuTxt,

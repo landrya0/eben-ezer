@@ -740,3 +740,96 @@ test("13.cw — une période close se dit au passé ; plusieurs se comptent", ()
   a.db.periodes.push({ id: "p3", d: "jeune", deb: jour(8, 6, 0), maj: 1 });
   A.equal(a.f.perDiscTxt(a.f.perDisc("jeune", mois[0], mois[1])), "3 fois, dont une en cours");
 });
+
+/* ========================================================================
+   13.cy — la circonstance entre dans le chemin
+   ======================================================================== */
+
+function dieu(a, id, txt, pdt, par) {
+  const n = { id: id, act: "dieu", man: "parle", kind: "rhema", txt: txt,
+              par: par || [], date: "2026-11-08", prec: "j", etat: "fait", ts: +id.slice(1), maj: 1 };
+  if (pdt) n.pdt = pdt;
+  a.db.nodes.push(n);
+  return n;
+}
+
+test("13.cy — un acte de Dieu reçu pendant quelque chose fait un chemin à lui seul", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Enseignements de TA", cat: "dieu", d: "litt", maj: 1 }];
+  a.db.temps = [bloc("b1", "a1", j(9, 0), j(11, 0))];
+  dieu(a, "n1", "Reprends Ésaïe 43", "b1");
+
+  const ch = a.f.chemins();
+  A.equal(ch.length, 1, "il n'est pas isolé : on sait d'où il vient");
+  A.equal(ch[0].length, 1);
+  const cs = a.f.circonstancesDe(ch[0]);
+  A.equal(cs.length, 1);
+  A.equal(cs[0].nom, "Enseignements de TA");
+});
+
+test("13.cy — un acte sans cause et sans circonstance ne fait toujours pas de chemin", () => {
+  const a = app();
+  dieu(a, "n1", "Une parole, et rien autour");
+  A.equal(a.f.chemins().length, 0, "il n'y a rien à retracer");
+});
+
+test("13.cy — deux actes reçus pendant la même chose tiennent au même fil", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Enseignements de TA", cat: "dieu", d: "litt", maj: 1 }];
+  a.db.temps = [bloc("b1", "a1", j(9, 0), j(11, 0))];
+  dieu(a, "n1", "Première parole", "b1");
+  dieu(a, "n2", "Seconde parole", "b1");
+
+  const ch = a.f.chemins();
+  A.equal(ch.length, 1, "la circonstance relie comme une cause relie");
+  A.equal(ch[0].length, 2);
+});
+
+test("13.cy — une période encadre un chemin comme un bloc", () => {
+  const a = app();
+  a.db.periodes = [{ id: "p1", d: "retraite", deb: jour(7, 7, 0), maj: 1 }];
+  dieu(a, "n1", "Pendant la retraite", "p1");
+  const ch = a.f.chemins();
+  A.equal(ch.length, 1);
+  const cs = a.f.circonstancesDe(ch[0]);
+  A.equal(cs[0].kind, "periode");
+  A.equal(cs[0].nom, "Retraites pour le progrès spirituel");
+});
+
+test("13.cy — un chemin se nomme par l'acte de Dieu le plus récent, pas par son dernier pas", () => {
+  const a = app();
+  const demande = { id: "n1", act: "moi", txt: "Je lui ai demandé", par: [], date: "2026-11-05",
+                    prec: "j", etat: "fait", ts: 1, maj: 1 };
+  a.db.nodes.push(demande);
+  dieu(a, "n2", "Il a pourvu", null, ["n1"]).date = "2026-11-06";
+  a.db.nodes.push({ id: "n3", act: "moi", txt: "J'ai remercié", par: ["n2"], date: "2026-11-07",
+                    prec: "j", etat: "fait", ts: 3, maj: 1 });
+
+  const ch = a.f.chemins();
+  A.equal(ch.length, 1);
+  A.equal(ch[0][0].id, "n3", "la tête reste le pas le plus récent");
+  A.equal(a.f.nomChemin(ch[0]).id, "n2", "mais c'est Son acte qui nomme le chemin");
+});
+
+test("13.cy — un chemin sans acte de Dieu garde sa tête pour nom", () => {
+  const a = app();
+  a.db.nodes.push({ id: "n1", act: "moi", txt: "J'ai donné", par: [], date: "2026-11-05",
+                    prec: "j", etat: "fait", ts: 1, maj: 1 });
+  a.db.nodes.push({ id: "n2", act: "gens", txt: "Il a rendu", par: ["n1"], date: "2026-11-06",
+                    prec: "j", etat: "fait", ts: 2, maj: 1 });
+  const ch = a.f.chemins();
+  A.equal(a.f.nomChemin(ch[0]).id, ch[0][0].id);
+});
+
+test("13.cy — une circonstance effacée ne retient plus rien", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Enseignements de TA", cat: "dieu", d: "litt", maj: 1 }];
+  a.db.temps = [bloc("b1", "a1", j(9, 0), j(11, 0))];
+  dieu(a, "n1", "Une parole", "b1");
+  A.equal(a.f.chemins().length, 1);
+
+  a.db.temps = [];
+  A.equal(a.f.chemins().length, 0,
+    "le lien ne mène plus nulle part : l'acte reste, le chemin non");
+  A.equal(a.f.circonstancesDe([a.f.node("n1")]).length, 0);
+});

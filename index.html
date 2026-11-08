@@ -315,6 +315,10 @@ body.avecRail .entete .rouage{top:calc(var(--rail,0px) + 5px)}
   color:var(--muted);margin-top:4px;font-style:italic}
 /* Ce qui est prévu n'a pas encore eu lieu : le point reste creux et pointillé,
    le texte se retire d'un cran, et une étiquette le dit en toutes lettres. */
+/* La circonstance n'est pas un acte : son point est creux et carré, pour
+   qu'on ne la lise pas comme une chose qu'on a faite ou reçue. */
+.pas.cadre::before{background:transparent;border:2px solid var(--muted);border-radius:3px}
+.pas.cadre .dit{font-size:14.5px;font-weight:600;color:var(--muted)}
 .pas.prevu::before{background:transparent;border:2px dashed var(--muted)}
 .pas.prevu .dit{color:var(--muted)}
 .etiq{display:inline-block;font-family:var(--sans);font-size:10.5px;font-weight:700;
@@ -788,7 +792,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v71";
+const VERSION = "v72";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -1517,18 +1521,30 @@ function dessous(id){
 /* Un chemin, c'est un morceau du graphe où tout se tient : on part d'un acte,
    on suit les liens dans les deux sens, et on ramasse tout ce qui est relié.
    Ce n'est donc ni une branche ni une ligne — c'est ce qui se répond. */
+/* Dieu parle le plus souvent PENDANT que quelque chose se fait. Un acte reçu
+   au milieu d'un enseignement suivi ou d'une retraite n'est donc pas isolé :
+   il a un amont, et cet amont est une circonstance (13.cy). Elle relie comme
+   une cause relie — deux actes reçus pendant la même chose tiennent au même
+   fil — et elle suffit à faire un chemin à elle seule, parce qu'un chemin
+   d'un seul acte n'est un chemin que si l'on sait d'où il vient. */
 function chemins(){
   const grp={}, vu={};
   db.nodes.forEach(n=>{ grp[n.id]=n.id; vu[n.id]=true; });
+  const circ={};
+  db.nodes.forEach(n=>{ if(n.pdt && pdtDe(n.pdt)) circ[n.id]=n.pdt; });
   function racine(x){ while(grp[x]!==x){ grp[x]=grp[grp[x]]; x=grp[x]; } return x; }
-  db.nodes.forEach(n=>(n.par||[]).forEach(p=>{
-    if(!vu[p]) return;
-    const a=racine(n.id), b=racine(p); if(a!==b) grp[a]=b;
-  }));
+  function unir(x,y){ const a=racine(x), b=racine(y); if(a!==b) grp[a]=b; }
+  db.nodes.forEach(n=>(n.par||[]).forEach(p=>{ if(vu[p]) unir(n.id, p); }));
+  /* Les actes qui partagent une circonstance se rejoignent par elle. */
+  const parCirc={};
+  Object.keys(circ).forEach(function(id){ (parCirc[circ[id]]=parCirc[circ[id]]||[]).push(id); });
+  Object.keys(parCirc).forEach(function(c){
+    parCirc[c].forEach(function(id){ unir(id, parCirc[c][0]); });
+  });
   const paquets={};
   db.nodes.forEach(n=>{ const r=racine(n.id); (paquets[r]=paquets[r]||[]).push(n); });
   return Object.keys(paquets).map(k=>paquets[k])
-    .filter(a=>a.length>1)
+    .filter(a=>a.length>1 || (a.length===1 && circ[a[0].id]))
     /* Du plus récent au plus ancien, comme partout ailleurs dans
        l'application : on arrive par ce qui vient de se passer, et on
        descend vers ce qui l'a causé. Lire à l'endroit demandait de
@@ -1539,6 +1555,24 @@ function chemins(){
     .sort((a,b)=>parDate(a[0],b[0]) || b.length-a.length);
 }
 function cheminDe(id){ if(!id) return null; return chemins().filter(a=>a.some(n=>n.id===id))[0]||null; }
+/* Ce pendant quoi le chemin s'est joué — le plus ancien en premier, puisque
+   le fil descend vers ce qui a précédé. */
+function circonstancesDe(suite){
+  const vus={}, out=[];
+  (suite||[]).forEach(function(n){
+    if(!n.pdt || vus[n.pdt]) return;
+    const x=pdtDe(n.pdt); if(!x) return;
+    vus[n.pdt]=1; out.push(x);
+  });
+  return out.sort(function(a,b){ return a.deb-b.deb; });
+}
+/* Un chemin ne se nomme pas par son dernier pas. Il existe parce que Dieu a
+   répondu quelque chose : c'est Son acte le plus récent qui le nomme, et à
+   défaut la tête, comme avant (13.cy). */
+function nomChemin(suite){
+  const d=(suite||[]).filter(function(n){ return n.act==="dieu"; })[0];
+  return d || (suite||[])[0];
+}
 /* La romaine est réservée à ce qui est CITÉ, jamais à ce qui est raconté au
    sujet d'une parole. « Dieu m'a parlé pendant la croisade » n'est pas une
    parole : c'est un récit. Le texte lui-même le dit, par ses guillemets, et
@@ -2160,8 +2194,11 @@ function vRevel(){
     else h+=liste(ch.map(a=>{
       const an=a.map(n=>parse(n.date)).filter(Boolean).map(p=>p.y).sort();
       const sp=an.length ? (an[0]===an[an.length-1] ? ""+an[0] : an[0]+" → "+an[an.length-1]) : "";
-      return ligne({titre:cite(a[0]),
-        sous:a.length+" actes"+(sp?" · "+sp:""), attr:'data-chemin="'+a[0].id+'"'});
+      const cs=circonstancesDe(a), tete=nomChemin(a);
+      const sous=[a.length+" acte"+(a.length>1?"s":""), sp,
+                  cs.length===1 ? "pendant "+cs[0].nom : (cs.length?cs.length+" circonstances":"")]
+                 .filter(Boolean).join(" · ");
+      return ligne({titre:cite(tete), sous:esc(sous), attr:'data-chemin="'+a[0].id+'"'});
     }).join(""));
   } else if(S.rev==="gens"){
     if(!db.gens.length) h+=`<p class="vide">Personne encore.</p>`;
@@ -2379,6 +2416,12 @@ function vChemin(){
         <span class="dit">${cite(n)}</span>
         <span class="sous">${n.etat&&n.etat!=="fait"?`<span class="etiq">${ETAT[n.etat]}</span>`:""}${esc(acteurTxt(n))}${human(n)?" · "+human(n):""}</span>
         ${apres?`<span class="apres">${apres}</span>`:""}
+      </a>`;
+  });
+  circonstancesDe(suite).forEach(function(x){
+    h+=`<a class="pas cadre" ${x.kind==="periode"?'data-prd="':'data-vbloc="'}${x.id}">
+        <span class="dit">${esc(x.nom)}</span>
+        <span class="sous">${x.kind==="periode"?"un temps mis à part":"ce que tu donnais"} · ${esc(x.quand)}</span>
       </a>`;
   });
   h+=`</div>`;

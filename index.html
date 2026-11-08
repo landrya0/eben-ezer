@@ -768,7 +768,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v64";
+const VERSION = "v65";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -813,7 +813,7 @@ let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], liv
 let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an", rev:"noms", pile:[], nodeId:null,
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
-         per:"jour", anc:null, tQ:"", tCat:"", blocId:null, medId:null, trou:null, quand:null,
+         per:"jour", anc:null, vue:"parts", tQ:"", tCat:"", blocId:null, medId:null, trou:null, quand:null,
          noteFocus:false, frisZ:null, enPlus:false, tchId:null,
          lu:null, luA:null, luZ:null, luPlein:false,
          pgL:null, pgA:null, pgZ:null, lvId:null};
@@ -1121,6 +1121,7 @@ function cumul(t0, t1){
    fenêtres du calendrier, qui se parcourent : le jour, la semaine, le mois,
    l'année. Les pastilles ne disent plus que le grain ; c'est la barre en
    dessous qui dit laquelle on regarde. */
+const ONG_TEMPS = [["parts","Les parts"],["routines","Les routines"],["blocs","Les blocs"]];
 const PERIODES = [["jour","Jour"],["sem","Semaine"],["mois","Mois"],["an","Année"],["tout","Tout"]];
 /* Les bornes se calculent toujours sur un objet Date, jamais en ajoutant des
    millisecondes : l'heure d'hiver fait des journées de vingt-cinq heures, et
@@ -1668,7 +1669,7 @@ function render(){
   if(S.view!=="pages" && S.view!=="livre"){ S.pgL=null; S.pgA=null; S.pgZ=null; }
   /* On ne rouvre jamais l'application sur une fenêtre passée : revenir à un
      onglet ramène au présent, comme on ouvre toujours sur Aujourd'hui. */
-  if(ONGLETS.some(function(o){ return o[0]===S.view; })) S.anc=null;
+  if(ONGLETS.some(function(o){ return o[0]===S.view; })){ S.anc=null; S.vue="parts"; }
   (VUES[S.view]||vToday)();
   const onglet = ONGLETS.some(o=>o[0]===S.view);
   const colle = Z.haut && !Z.file;
@@ -3363,8 +3364,17 @@ function vFrise(){
    serait, au sens strict, une louange empruntée. */
 function vMonTemps(){
   Z.titre="Mon temps"; Z.retour=true;
-  const f=fenetre(), c=cumul(f.t0, f.t1);
-  let h = `<div class="puces fines" style="padding-top:15px">${PERIODES.map(p=>`<button class="puce" data-per="${p[0]}" aria-pressed="${S.per===p[0]}">${p[1]}</button>`).join("")}</div>`;
+  const f=fenetre(), c=cumul(f.t0, f.t1), v=S.vue||"parts";
+  /* L'écran disait tout à la fois — les parts, les seize routines, les
+     lectures, activité par activité, puis la journée bloc par bloc — et neuf
+     sections d'affilée ne se lisent pas, elles se traversent. Ce sont trois
+     questions distinctes, et chacune a sa vue : où est passé le temps, ce que
+     chaque routine a reçu, et ce qui s'est passé heure par heure (13.cs).
+     La fenêtre, elle, vaut pour les trois : elle reste au-dessus. */
+  let h = `<div class="puces" style="padding-top:15px">${ONG_TEMPS.map(function(o){
+      return `<button class="puce" data-vue="${o[0]}" aria-pressed="${v===o[0]}">${o[1]}</button>`;
+    }).join("")}</div>`;
+  h += `<div class="puces fines suite">${PERIODES.map(p=>`<button class="puce" data-per="${p[0]}" aria-pressed="${S.per===p[0]}">${p[1]}</button>`).join("")}</div>`;
   h += barreFen(f);
   if(!c.tot){
     h += `<p class="vide">Rien de compté ${f.nom}. Touche le compteur, en bas, et dis à quoi tu es.</p>`;
@@ -3376,10 +3386,14 @@ function vMonTemps(){
      activités peut dépasser la journée dès que plusieurs tournent ensemble,
      et sans explication ce serait lu comme une faute de calcul. */
   const porte=c.porte>c.tot ? c.porte : 0;
+  /* Cette phrase explique les parts — elle n'a donc rien à faire ailleurs :
+     la barre de fenêtre dit déjà, sur les trois vues, ce qu'on regarde. */
+  if(v==="parts")
   h += `<div class="block amorce"><b>${esc(hm(c.tot))}</b> comptés sur <b>${esc(hm(ecoule))}</b> ${f.nom}. Les parts se lisent sur le temps entier : ce qu'on n'a pas compté, on le tient pour n'ayant pas été pour Lui.${
     porte ? ` Et ces ${esc(hm(c.tot))} ont porté <b>${esc(hm(porte))}</b> d'activités menées de front — <b>×${String(Math.round(porte*10/c.tot)/10).replace(".", ",")}</b>.` : ""}</div>`;
 
   const parCat=c.parCat;
+  if(v==="parts"){
   const vus=CATS().filter(x=>parCat[x.id]).sort((a,b)=>parCat[b.id]-parCat[a.id]);
   h += titreBloc("La part de chacun");
   h += `<div class="tps">`+vus.map(function(x){
@@ -3403,6 +3417,7 @@ function vMonTemps(){
       sous: cx.length>1 ? cx.length+" plages — on commence par la dernière"
                         : "Une plage de "+esc(hm(cx[0][1]-cx[0][0])),
       attr:'data-act="comblerDer"'}), "lien");
+  }
 
   /* Ici, chaque activité compte tout son temps, et les pourcentages n'ont
      plus leur place : ils ne se rapporteraient à aucun total commun. Les
@@ -3415,7 +3430,7 @@ function vMonTemps(){
      Il reste honnête parce qu'il est dit en toutes lettres : ce tiret compte
      le temps, et une routine vécue en actes attend encore son autre face. */
   const pd=parDisc(c.par);
-  if(routineDite()){
+  if(v==="routines" && routineDite()){
     h += titreBloc("Les routines","ecart");
     h += liste(DISC.map(function(x){
       const o={titre:esc(x[1]), apres: pd[x[0]] ? esc(hm(pd[x[0]])) : "—"};
@@ -3427,7 +3442,7 @@ function vMonTemps(){
   }
 
   const pf=pagesFen(f.t0, f.t1);
-  if(pf.pg || (db.livres||[]).length){
+  if(v==="routines" && (pf.pg || (db.livres||[]).length)){
     h += titreBloc("Mes lectures","ecart");
     h += liste(ligne({titre:"Pages lues",
         sous: pf.p ? "En "+pf.p+" passage"+(pf.p>1?"s":"")+" "+f.nom : "Rien de lu "+f.nom,
@@ -3448,6 +3463,7 @@ function vMonTemps(){
   }
 
   const tids=Object.keys(c.par).sort((a,b)=>c.par[b]-c.par[a]);
+  if(v==="parts"){
   h += titreBloc("Activité par activité","ecart");
   if(porte) h += `<div class="block amorce">Chacune compte tout son temps. Quand plusieurs sont menées de front, leur somme dépasse la journée — c'est voulu : la journée, elle, est au-dessus.</div>`;
   /* Le rangement d'abord — c'est lui qui fait les parts — et la routine
@@ -3459,6 +3475,7 @@ function vMonTemps(){
       sous:esc(catNom(tacheCat(tid))) + (dd ? " · "+esc(discNom(dd)) : ""),
       apres:esc(hm(c.par[tid])), attr:'data-tch="'+tid+'"'});
   }).join(""));
+  }
 
   /* Le temps dit la fidélité, pas le chemin. Deux heures dans la Parole
      peuvent être dix chapitres ou un seul relu dix fois : les deux sont
@@ -3466,7 +3483,7 @@ function vMonTemps(){
      part — les chapitres lus sur la fenêtre, et le terrain parcouru depuis
      le début, qui lui ne grandit qu'une fois par chapitre. */
   const lf=chapFen(f.t0, f.t1), lt=chapDistincts(null);
-  if(lf.ch || lt){
+  if(v==="routines" && (lf.ch || lt)){
     h += titreBloc("La Parole","ecart");
     h += liste(ligne({titre:"Chapitres lus",
         sous: lf.p ? "En "+lf.p+" passage"+(lf.p>1?"s":"")+" "+f.nom : "Rien de lu "+f.nom,
@@ -3484,6 +3501,7 @@ function vMonTemps(){
   const n2=Date.now();
   const bs=(db.temps||[]).filter(b=>(b.fin||n2)>f.t0 && b.deb<f.t1).slice().reverse();
   const lus=bs.slice(0,60);
+  if(v==="blocs"){
   /* La frise n'a de sens que sur un jour : c'est la seule fenêtre qu'un
      regard embrasse à la même échelle. */
   if(S.per==="jour")
@@ -3538,6 +3556,11 @@ function vMonTemps(){
       apres:esc(hm((b.fin||n2)-a)), attr:'data-bloc="'+b.id+'"'});
   }).join(""));
   if(bs.length>lus.length) h += `<p class="vide">…et ${bs.length-lus.length} blocs plus anciens.</p>`;
+  }
+  /* Une vue qui n'a rien à montrer le dit, plutôt que de laisser la page
+     s'arrêter sur ses pastilles sans un mot. */
+  if(v==="routines" && !routineDite() && !pf.pg && !lf.ch && !lt)
+    h += `<p class="vide">Rien à montrer ici tant qu'aucune activité n'a dit de quelle routine elle est la mise en œuvre. Touche-en une dans « Les parts », puis choisis sa routine.</p>`;
   Z.html=h;
 }
 
@@ -4635,7 +4658,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-fdec]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-fdec]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -4667,6 +4690,7 @@ document.addEventListener("click", ev=>{
     S.draft=neuf("moi"); S.draft.fige=true; S.draft.par=[g.attach];
     S.step=0; empile(); S.view="note"; return render();
   }
+  if(g.vue){ S.vue=g.vue; return render(); }
   if(g.per){
     /* Changer de grain garde la date qu'on regardait — passer de « octobre »
        à « Semaine » reste en octobre — sauf si le nouveau grain contient

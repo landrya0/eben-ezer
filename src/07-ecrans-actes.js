@@ -645,6 +645,7 @@ function raccourciArret(t){
   if(sp==="bible") return " — tu diras jusqu'où tu es allé";
   if(sp==="livre") return " — tu diras jusqu'à quelle page";
   if(sp==="sujets") return " — tu diras ce que tu as nommé";
+  if(sp==="gens") return " — tu diras à qui tu as annoncé";
   return "";
 }
 function porteRaccourci(t){

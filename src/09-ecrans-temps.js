@@ -531,6 +531,7 @@ function vMonTemps(){
         +((b.lu&&b.lu.length)?`<span class="lus">${esc(passagesTxt(b))}</span>`:"")
         +((b.pg&&b.pg.length)?`<span class="lus">${esc(passagesPgTxt(b))}</span>`:"")
       +((b.sj&&b.sj.length)?`<span class="lus">${esc(sujetsTxt(b.sj.length))}</span>`:"")
+      +((b.qui&&b.qui.length)?`<span class="lus">${esc(gensTxt(b.qui.length))}</span>`:"")
         +(lectureAilleurs(b, f.t0, f.t1)
           ? `<span class="lus ailleurs">Cette lecture compte au ${esc(dateJour(b.deb))}</span>` : "")
         +(b.note?`<span class="medNote">${esc(b.note)}</span>`:""),
@@ -683,16 +684,19 @@ const DISC = [
    activité se met à lire des pages. */
 function mesureDisc(id, t0, t1){
   let n=0;
+  const m=mesureProposee(id);
   (db.temps||[]).forEach(function(b){
     if(b.deb<t0 || b.deb>=t1 || discTache(b.t)!==id) return;
     if(id==="parole") (b.lu||[]).forEach(function(r){ n+=nbLu(r); });
     else if(id==="litt") (b.pg||[]).forEach(function(r){ n+=r[2]-r[1]+1; });
-    else n+=(b.sj||[]).length;
+    else if(m==="sujets") n+=(b.sj||[]).length;
+    else if(m==="gens") n+=(b.qui||[]).length;
   });
   if(!n) return "";
   if(id==="parole") return chapitresTxt(n);
   if(id==="litt") return pagesTxt(n);
-  if(mesureProposee(id)==="sujets") return sujetsTxt(n);
+  if(m==="sujets") return sujetsTxt(n);
+  if(m==="gens") return gensTxt(n);
   return "";
 }
 /* Une activité déclare-t-elle une routine ? C'est ce qui ouvre le compte

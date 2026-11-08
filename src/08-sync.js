@@ -431,6 +431,14 @@ function fusionne(A, B){
      dit plus rien — et le nombre compterait du vide. */
   const sj={}; d.sujets.forEach(function(s){ sj[s.id]=1; });
   d.temps.forEach(function(b){ if(b.sj) b.sj=b.sj.filter(function(x){ return sj[x]; }); });
+  /* Une personne effacée ailleurs ne retire pas la personne du compte : on
+     a bien annoncé l'Évangile à quelqu'un, et c'est ce quelqu'un qu'on perd,
+     pas le fait. La ligne reste, sans nom — comme toutes celles qu'on n'a
+     jamais nommées (13.df). */
+  const gn={}; d.gens.forEach(function(g){ gn[g.id]=1; });
+  d.temps.forEach(function(b){
+    if(b.qui) b.qui=b.qui.map(function(x){ return gn[x] ? x : ""; });
+  });
   /* Et un « pendant » qui ne mène plus à rien : le bloc ou la période a pu
      être effacé sur l'autre appareil. L'acte reste, il perd sa circonstance
      — jamais l'inverse (13.cx). */

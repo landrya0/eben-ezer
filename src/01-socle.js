@@ -9,7 +9,7 @@
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v80";
+const VERSION = "v81";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -55,7 +55,7 @@ let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an"
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
          per:"jour", anc:null, vue:"parts", tQ:"", tCat:"", blocId:null, medId:null, trou:null, quand:null,
-         noteFocus:false, frisZ:null, enPlus:false, tchId:null, sjQ:"",
+         noteFocus:false, frisZ:null, enPlus:false, tchId:null, sjQ:"", gQ:"",
          lu:null, luA:null, luZ:null, luPlein:false,
          pgL:null, pgA:null, pgZ:null, lvId:null, auId:null, perId:null};
 

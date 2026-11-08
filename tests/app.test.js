@@ -1376,3 +1376,73 @@ test("13.de — un sujet effacé ailleurs ne laisse pas une ligne vide qui compt
   A.deepEqual(Array.from(d.temps[0].sj), [s1]);
   A.equal(d.sujets.length, 1);
 });
+
+/* ---------- 13.df — compter les personnes ---------- */
+
+function annoncant(a) {
+  a.db.taches = [{ id: "e1", nom: "Évangélisation", cat: "dieu", d: "ames", maj: 1 }];
+  a.db.temps = [bloc("e1b", "e1", j(15, 0), j(17, 0))];
+  a.S.view = "annonce"; a.S.blocId = "e1b";
+  return a.db.temps[0];
+}
+
+test("13.df — la conquête des âmes se compte en personnes", () => {
+  const a = app();
+  A.equal(a.f.mesureProposee("ames"), "gens");
+  const b = annoncant(a);
+  a.geste({ qadd: a.f.gensId("Jean-Jacques") });
+  a.geste({ qadd: a.f.gensId("Félix") });
+  A.equal(a.f.mesureDisc("ames", jour(8, 0), jour(9, 0)), "2 personnes");
+  a.geste({ qadd: a.f.gensId("félix") });
+  A.equal(b.qui.length, 2, "la même personne nommée deux fois reste une personne");
+});
+
+test("13.df — une ligne sans nom compte quand même", () => {
+  const a = app();
+  const b = annoncant(a);
+  a.geste({ qadd: a.f.gensId("Jean-Jacques") });
+  a.actions.qAnon();
+  a.actions.qAnon();
+  A.equal(b.qui.length, 3, "on prêche à des foules qu'on ne nomme pas");
+  A.deepEqual(Array.from(b.qui).map(x => (x ? "nommé" : "")), ["nommé", "", ""]);
+  A.equal(a.f.mesureDisc("ames", jour(8, 0), jour(9, 0)), "3 personnes");
+  A.equal(a.db.gens.length, 1, "un anonyme n'entre pas dans le registre des gens");
+});
+
+test("13.df — nommer quelqu'un le relie au mémorial, pas à ce seul bloc", () => {
+  const a = app();
+  a.db.gens = [{ id: "g9", nom: "Félix", maj: 5 }];
+  const b = annoncant(a);
+  a.S.gQ = "Félix";
+  a.actions.qAdd();
+  A.deepEqual(Array.from(b.qui), ["g9"], "c'est la personne déjà connue, pas une deuxième fiche");
+  A.equal(a.db.gens.length, 1);
+  A.equal(a.S.gQ, "");
+});
+
+test("13.df — arrêter une évangélisation demande à qui on a annoncé", () => {
+  const a = app();
+  annoncant(a);
+  a.db.temps = [bloc("e1b", "e1", j(15, 0))];
+  a.S.view = "today";
+  a.maintenant(j(17, 0));
+  a.actions.arretNet();
+  A.equal(a.S.view, "annonce");
+  A.equal(a.S.blocId, "e1b");
+});
+
+test("13.df — une personne effacée ailleurs laisse la ligne, sans nom", () => {
+  const a = app();
+  const ici = {
+    gens: [{ id: "g1", nom: "Jean-Jacques", maj: 10 }, { id: "g2", nom: "Félix", maj: 10 }],
+    taches: [{ id: "e1", nom: "Évangélisation", cat: "dieu", d: "ames", maj: 1 }],
+    temps: [bloc("e1b", "e1", j(15, 0), j(17, 0), { qui: ["g1", "g2", ""] })],
+    morts: {}, maj: 10, seq: 50
+  };
+  const ailleurs = JSON.parse(JSON.stringify(ici));
+  ailleurs.gens = ailleurs.gens.filter(g => g.id !== "g2");
+  ailleurs.morts.g2 = 20; ailleurs.maj = 20;
+  const d = a.f.fusionne(a.f.sane(ici), a.f.sane(ailleurs));
+  A.deepEqual(Array.from(d.temps[0].qui), ["g1", "", ""],
+    "on perd le nom, jamais le fait d'avoir annoncé");
+});

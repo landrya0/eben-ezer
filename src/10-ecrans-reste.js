@@ -110,8 +110,13 @@ function mesureProposee(d){
      le nombre est le nombre de lignes, il tombe tout seul, et chaque ligne
      garde la matière au lieu de la réduire à un chiffre (13.de). */
   if(d==="priere" || d==="rdqd" || d==="ensemble") return "sujets";
+  /* Et la conquête des âmes ne se compte ni en chapitres, ni en pages, ni en
+     sujets : elle se compte en personnes. « À combien de personnes j'ai
+     prêché l'Évangile » est la question, et elle a sa propre unité (13.df). */
+  if(d==="ames") return "gens";
   return "";
 }
+function gensTxt(n){ return n+" personne"+(n>1?"s":""); }
 /* Un sujet n'appartient pas à une séance : il revient. « Merci pour le
    travail » est écrit dix fois dans le cahier, et c'est sa répétition qui se
    lit. On le retrouve donc au lieu de le recréer — à la casse et aux espaces
@@ -249,16 +254,17 @@ function passagesDe(a, z){
 function apresArret(bs, repli){
   const b=(bs||[]).filter(function(x){
     const sp=x ? spTache(x.t) : "";
-    return x && blocT(x.id) && (sp==="bible" || sp==="livre" || sp==="sujets");
+    return x && blocT(x.id) && (sp==="bible" || sp==="livre" || sp==="sujets" || sp==="gens");
   })[0];
   if(!b) return false;
   S.pile=[]; S.view=repli||"today"; empile();
   S.blocId=b.id;
   S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false;
   S.pgL=null; S.pgA=null; S.pgZ=null;
-  S.sjQ="";
+  S.sjQ=""; S.gQ="";
   const sp=spTache(b.t);
-  S.view = sp==="livre" ? "pages" : sp==="sujets" ? "sujets" : "lecture";
+  S.view = sp==="livre" ? "pages" : sp==="sujets" ? "sujets"
+         : sp==="gens" ? "annonce" : "lecture";
   return true;
 }
 function debutPlat(){
@@ -607,6 +613,49 @@ function vSujets(){
   Z.action=bouton("Terminé", 'data-back="1"');
 }
 
+/* Le même cahier, une autre unité. Mais une différence qui commande tout :
+   on prêche à des foules, et on ne peut pas nommer une foule. Une ligne sans
+   nom est donc une ligne entière — quelqu'un a entendu l'Évangile, et c'est
+   le fait qui compte, pas le fichier. Le nom, quand on l'a, relie cette
+   annonce au reste du mémorial : à la personne, et aux actes de Dieu sur
+   elle (13.df). */
+function listeQui(b){
+  return liste((b.qui||[]).map(function(id,i){
+    const n = id ? gensNom(id) : "";
+    return ligne({titre: n ? esc(n) : `<span class="amorce">Quelqu'un que tu n'as pas nommé</span>`,
+      apres:`<span class="rouge">Retirer</span>`, attr:'data-qsup="'+i+'"'});
+  }).join(""));
+}
+function ligneQui(g){
+  return ligne({titre:esc(g.nom), attr:'data-qadd="'+g.id+'" data-gn="'+esc(String(g.nom).toLowerCase())+'"'});
+}
+function vAnnonce(){
+  const b=blocT(S.blocId);
+  if(!b){ depile("temps"); return render(); }
+  Z.titre="À qui tu as annoncé"; Z.retour=true;
+  const sur=(b.qui||[]), pris={};
+  sur.forEach(function(id){ if(id) pris[id]=1; });
+  let h=`<div class="block amorce" style="margin-top:16px">Une ligne par personne. Celles que tu peux nommer, nomme-les ; les autres comptent quand même.</div>`;
+  if(sur.length){
+    h+=titreBloc("Ici — "+gensTxt(sur.length));
+    h+=listeQui(b);
+  }
+  h+=titreBloc(sur.length ? "En ajouter" : "Les compter", "ecart");
+  h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
+    <input type="text" id="gQ" placeholder="Chercher, ou nommer quelqu'un" value="${esc(S.gQ||"")}" autocomplete="off" autocapitalize="words"></div></div></li>`);
+  h+=`<div class="list list-strong list-outline list-dividers inset" id="gNeuf" hidden><ul>${
+      ligne({titre:`<span class="qn"></span>`, attr:'data-act="qAdd"'})}</ul></div>`;
+  h+=liste(ligne({titre:"Quelqu'un que je ne nomme pas",
+      sous:"Une personne de plus, sans nom", attr:'data-act="qAnon"'}), "lien");
+  const connus=(db.gens||[]).filter(function(g){ return !pris[g.id]; })
+    .sort(function(a,b2){ return (b2.maj||0)-(a.maj||0); });
+  if(connus.length)
+    h+=`<div class="ggrp">`+titreBloc("Déjà dans ton mémorial","ecart")
+      + liste(connus.map(ligneQui).join(""))+`</div>`;
+  Z.html=h;
+  Z.action=bouton("Terminé", 'data-back="1"');
+}
+
 /* Une seule liste, comme pour l'Écriture : le départ est le signet, et la
    seule question est jusqu'où. Les autres livres entamés sont là, en
    pastilles — changer de livre reste un geste, pas un écran. */
@@ -761,6 +810,12 @@ function vBloc(){
     if((b.sj||[]).length) h+=listeSj(b);
     h+=liste(ligne({titre:(b.sj||[]).length ? "En nommer un autre" : "Dire ce que tu as nommé",
         sous:"Les sujets, un par ligne", attr:'data-act="direSj"'}), "lien");
+  }
+  if(spTache(b.t)==="gens"){
+    h+=titreBloc("À qui tu as annoncé","ecart");
+    if((b.qui||[]).length) h+=listeQui(b);
+    h+=liste(ligne({titre:(b.qui||[]).length ? "En ajouter" : "Dire à qui tu as annoncé",
+        sous:"Une ligne par personne", attr:'data-act="direQui"'}), "lien");
   }
   h+=titreBloc("Le début","ecart");
   h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
@@ -1111,7 +1166,7 @@ const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), acte
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData,
               pointer:vPointer, temps:vMonTemps, bloc:vBloc, quand:vQuand, frise:vFrise,
               tache:vTache, lecture:vLecture, pages:vPages, livre:vLivre, auteur:vAuteur,
-              sujets:vSujets,
+              sujets:vSujets, annonce:vAnnonce,
               perNeuf:vPerNeuf, periode:vPeriode, epingles:vEpingles,
               sync:vSync, reglages:vReglages};
 
@@ -1268,6 +1323,26 @@ document.addEventListener("input", ev=>{
       nf.hidden = !q || exact;
       const bq=nf.querySelector(".qn");
       if(bq) bq.textContent="Nommer « "+cap(ev.target.value.trim())+" »";
+    }
+    return;
+  }
+  if(id==="gQ"){
+    const q=ev.target.value.trim().toLowerCase();
+    S.gQ=ev.target.value;
+    let exact=false;
+    [].forEach.call(document.querySelectorAll("[data-gn]"), el=>{
+      const li=el.closest("li")||el, nom=el.getAttribute("data-gn")||"";
+      const ok = !q || nom.indexOf(q)!==-1;
+      li.hidden=!ok; if(nom===q) exact=true;
+    });
+    [].forEach.call(document.querySelectorAll(".ggrp"), g=>{
+      g.hidden = !g.querySelectorAll("li:not([hidden])").length;
+    });
+    const nf=document.getElementById("gNeuf");
+    if(nf){
+      nf.hidden = !q || exact;
+      const bq=nf.querySelector(".qn");
+      if(bq) bq.textContent="Compter « "+capNom(ev.target.value.trim())+" »";
     }
     return;
   }

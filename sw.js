@@ -1,7 +1,7 @@
 /* Ében-Ézer — hors-ligne, mais jamais figé.
    La page : le réseau d'abord, le cache en secours (pour recevoir les corrections).
    Le reste (composants, icônes, police) : le cache d'abord. */
-const CACHE = "ebenezer-v80";
+const CACHE = "ebenezer-v81";
 /* L'application est en onze fichiers chargés dans l'ordre (voir
    ARCHITECTURE.md). Hors ligne, il les faut TOUS : il n'y a pas d'application
    avec dix sur onze. Le cache porte le numéro de version, et « activate »

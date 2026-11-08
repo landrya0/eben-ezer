@@ -61,7 +61,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup],[data-qadd],[data-qsup]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -108,6 +108,19 @@ document.addEventListener("click", ev=>{
     const b=blocT(S.blocId); if(!b) return;
     const i=+g.sjsup;
     b.sj=(b.sj||[]).filter(function(x,k){ return k!==i; });
+    touche(b); save(); return render();
+  }
+  if(g.qadd){
+    const b=blocT(S.blocId); if(!b) return;
+    b.qui=(b.qui||[]);
+    if(b.qui.indexOf(g.qadd)<0) b.qui.push(g.qadd);
+    touche(db.gens.filter(function(x){ return x.id===g.qadd; })[0]);
+    touche(b); S.gQ=""; save(); return render();
+  }
+  if(g.qsup){
+    const b=blocT(S.blocId); if(!b) return;
+    const i=+g.qsup;
+    b.qui=(b.qui||[]).filter(function(x,k){ return k!==i; });
     touche(b); save(); return render();
   }
   if(g.eptog){
@@ -217,6 +230,9 @@ document.addEventListener("click", ev=>{
         .concat(spTache(b.t)==="sujets" ? [{txt:(b.sj&&b.sj.length) ? "Corriger ce que tu as nommé"
                                                                      : "Dire ce que tu as nommé",
                                             attr:'data-act="direSj"'}] : [])
+        .concat(spTache(b.t)==="gens" ? [{txt:(b.qui&&b.qui.length) ? "Corriger à qui tu as annoncé"
+                                                                    : "Dire à qui tu as annoncé",
+                                          attr:'data-act="direQui"'}] : [])
         .concat(chevauche(b) ? [{txt: b.porte ? "Rendre l'heure à ce qui tournait déjà"
                                                : "C'est ça qui portait l'heure",
                                   attr:'data-act="porteBloc"'}] : [])
@@ -383,6 +399,24 @@ const actions={
   direPg(){ fermeMenu(); empile(); S.pgL=null; S.pgA=null; S.pgZ=null;
     S.view="pages"; render(); },
   direSj(){ fermeMenu(); empile(); S.sjQ=""; S.view="sujets"; render(); },
+  direQui(){ fermeMenu(); empile(); S.gQ=""; S.view="annonce"; render(); },
+  qAdd(){
+    const b=blocT(S.blocId); if(!b) return;
+    const e=document.getElementById("gQ");
+    const v=((e&&e.value)||S.gQ||"").trim();
+    if(!v) return;
+    const id=gensId(v); if(!id) return;
+    b.qui=(b.qui||[]);
+    if(b.qui.indexOf(id)<0) b.qui.push(id);
+    touche(b); S.gQ=""; save(); render();
+  },
+  /* Une foule ne se nomme pas, et le fait ne dépend pas du nom : la ligne
+     entre sans lui (13.df). */
+  qAnon(){
+    const b=blocT(S.blocId); if(!b) return;
+    b.qui=(b.qui||[]); b.qui.push("");
+    touche(b); save(); render();
+  },
   /* On garde ce qui est écrit, pas ce qui est choisi : le champ sert à la
      fois à chercher et à nommer, et ce qu'il contient au moment du geste est
      ce que le disciple vient de dire. */

@@ -643,22 +643,42 @@ body.avecRail .entete .rouage{top:calc(var(--rail,0px) + 5px)}
 .puce[aria-pressed="true"]{background:var(--f7-theme-color);color:#FBFAF8;
   border-color:var(--f7-theme-color)}
 .dark .puce[aria-pressed="true"]{color:#13100E}
-/* Cinq grains au lieu de quatre : on resserre plutôt que de laisser « Tout »
-   dépasser du bord, où il passerait pour inexistant. */
-.puces.fines .puce{padding:0 11px}
 
-/* Le navigateur de fenêtre : deux chevrons et le nom de la fenêtre au
-   milieu. Le nom se touche pour revenir au présent — il ne prend la
-   couleur du thème que lorsqu'il mène quelque part, c'est-à-dire
-   lorsqu'on s'est éloigné. */
-.fnav{display:flex;align-items:center;gap:4px;padding:4px 10px 0}
-.fnav .fnp{flex:0 0 auto;width:38px;min-height:38px;border:0;border-radius:19px;
+/* ---------- onglets de vue, et la ligne de fenêtre ----------
+   Les trois vues et le grain avaient la même forme : trois rangs de
+   pastilles identiques, où rien ne disait lequel changeait quoi. Or ce ne
+   sont pas deux réglages du même ordre. Les vues sont trois lectures du
+   temps : on en habite une. Le grain et la position sont un filtre : ils
+   disent seulement la portion regardée, et valent pour les trois.
+   Les vues prennent donc la forme d'onglets — un soulignement, pas une
+   pastille - et le filtre se replie sur une seule ligne. */
+.ongt{display:flex;align-items:stretch;margin:15px 16px 0;border-bottom:1px solid var(--filet)}
+.ongt button{flex:1 1 0;min-width:0;min-height:42px;padding:0 2px;position:relative;
+  border:0;background:transparent;cursor:pointer;font-family:var(--sans);
+  font-size:13.5px;font-weight:600;letter-spacing:.005em;color:var(--muted)}
+.ongt button[aria-selected="true"]{color:var(--f7-text-color)}
+.ongt button[aria-selected="true"]::after{content:"";position:absolute;
+  left:7px;right:7px;bottom:-1px;height:2px;border-radius:2px;
+  background:var(--f7-theme-color)}
+.ongt button:active{opacity:.6}
+
+/* La ligne de fenêtre : deux chevrons pour avancer d'un cran, et au milieu
+   le nom de ce qu'on regarde, qui s'ouvre sur le choix du grain — et sur le
+   retour au présent quand on s'en est éloigné. Le grain n'occupe donc plus
+   un rang de pastilles à lui seul : il vit dans la ligne qu'il qualifie. */
+.fnav{display:flex;align-items:center;gap:2px;padding:1px 10px 0}
+.fnav .fnp{flex:0 0 auto;width:40px;min-height:40px;border:0;border-radius:20px;
   background:transparent;color:var(--muted);font-size:21px;line-height:1;cursor:pointer}
 .fnav .fnp:disabled{opacity:.22;cursor:default}
-.fnav .fnt{flex:1;min-height:38px;border:0;background:transparent;cursor:pointer;
-  font-family:var(--sans);font-size:15px;font-weight:600;letter-spacing:.01em;
-  color:var(--f7-theme-color)}
-.fnav .fnt:disabled{color:var(--f7-text-color);cursor:default}
+.fnav .fnt{flex:1;min-height:40px;display:inline-flex;align-items:center;
+  justify-content:center;gap:5px;border:0;background:transparent;cursor:pointer;
+  font-family:var(--sans);font-size:14.5px;font-weight:600;letter-spacing:.01em;
+  color:var(--f7-text-color)}
+.fnav .fnt .ch{color:var(--muted);flex:0 0 auto}
+/* Quand on s'est éloigné du present, le nom le dit déjà ; la couleur le
+   confirme, pour qu'on ne lise pas un total d'octobre comme celui du jour. */
+.fnav .fnt.loin{color:var(--f7-theme-color)}
+.fnav .fnt.loin .ch{color:var(--f7-theme-color);opacity:.7}
 
 /* ---------- saisie ---------- */
 textarea.dicte{width:100%;min-height:120px;border:0;background:transparent;resize:none;
@@ -768,7 +788,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v66";
+const VERSION = "v67";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -1204,11 +1224,20 @@ function fenetre(){
           avant: !!prem && prem.deb < b[0],
           apres: !ici};
 }
+/* Le nom du retour suit le grain : on ne revient pas « à aujourd'hui »
+   quand on lit des années. */
+function retourTxt(per){
+  if(per==="sem") return "Revenir à cette semaine";
+  if(per==="mois") return "Revenir à ce mois-ci";
+  if(per==="an") return "Revenir à cette année";
+  return "Revenir à aujourd'hui";
+}
+/* La ligne reste même sur « Tout », où les chevrons n'ont rien à faire :
+   elle est la seule porte vers le grain, et une porte ne se retire pas. */
 function barreFen(f){
-  if(S.per==="tout") return "";
   return `<div class="fnav">
     <button class="fnp" data-fdec="-1" aria-label="Avant"${f.avant?"":" disabled"}>&lsaquo;</button>
-    <button class="fnt"${f.ici?" disabled":' data-act="fenIci"'}>${esc(f.court)}</button>
+    <button class="fnt${f.ici?"":" loin"}" data-act="fenGrain" aria-haspopup="true">${esc(f.court)}${BAS}</button>
     <button class="fnp" data-fdec="1" aria-label="Après"${f.apres?"":" disabled"}>&rsaquo;</button>
   </div>`;
 }
@@ -3371,11 +3400,14 @@ function vMonTemps(){
      sections d'affilée ne se lisent pas, elles se traversent. Ce sont trois
      questions distinctes, et chacune a sa vue : où est passé le temps, ce que
      chaque routine a reçu, et ce qui s'est passé heure par heure (13.cs).
-     La fenêtre, elle, vaut pour les trois : elle reste au-dessus. */
-  let h = `<div class="puces" style="padding-top:15px">${ONG_TEMPS.map(function(o){
-      return `<button class="puce" data-vue="${o[0]}" aria-pressed="${v===o[0]}">${o[1]}</button>`;
+     La fenêtre, elle, vaut pour les trois : elle reste au-dessus, et sous
+     une forme qui dit qu'elle filtre au lieu de choisir (13.cu). */
+  /* Les vues sont des onglets, le grain est un filtre : deux ordres de
+     choses, donc deux formes. Trois rangs de pastilles identiques les
+     donnaient pour équivalents, et on cherchait lequel changeait quoi. */
+  let h = `<div class="ongt" role="tablist">${ONG_TEMPS.map(function(o){
+      return `<button role="tab" data-vue="${o[0]}" aria-selected="${v===o[0]}">${o[1]}</button>`;
     }).join("")}</div>`;
-  h += `<div class="puces fines suite">${PERIODES.map(p=>`<button class="puce" data-per="${p[0]}" aria-pressed="${S.per===p[0]}">${p[1]}</button>`).join("")}</div>`;
   h += barreFen(f);
   if(!c.tot){
     h += `<p class="vide">Rien de compté ${f.nom}. Touche le compteur, en bas, et dis à quoi tu es.</p>`;
@@ -4768,6 +4800,7 @@ document.addEventListener("click", ev=>{
   }
   if(g.vue){ S.vue=g.vue; return render(); }
   if(g.per){
+    fermeMenu();
     /* Changer de grain garde la date qu'on regardait — passer de « octobre »
        à « Semaine » reste en octobre — sauf si le nouveau grain contient
        déjà le présent. */
@@ -5125,7 +5158,19 @@ const actions={
   /* Les deux heures sont proposées, pas devinées : s'il y a un vide entre le
      début de la fenêtre et le premier bloc, c'est très probablement celui-là
      qu'on vient combler — la nuit qu'on a passée debout. */
-  fenIci(){ S.anc=null; render(); },
+  fenIci(){ fermeMenu(); S.anc=null; render(); },
+  /* Le grain et le retour au présent tiennent dans la même feuille : ils
+     répondent tous deux à la question « quelle portion ? ». */
+  fenGrain(){
+    const f=fenetre();
+    const grains=PERIODES.map(function(x){
+      return {txt: x[1] + (S.per===x[0] ? "   \u2713" : ""), attr:'data-per="'+x[0]+'"'};
+    });
+    const g=[[{label:"La portion qu'on regarde"}].concat(grains)];
+    if(!f.ici) g.push([{txt:retourTxt(S.per), attr:'data-act="fenIci"'}]);
+    g.push([{txt:"Annuler", attr:'data-act="fermeMenu"'}]);
+    ouvreMenu(g);
+  },
   ajoutTemps(){
     const f=fenetre(), n=Date.now();
     const bs=(db.temps||[]).filter(function(b){ return (b.fin||n)>f.t0 && b.deb<f.t1; });

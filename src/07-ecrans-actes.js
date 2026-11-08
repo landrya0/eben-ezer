@@ -345,6 +345,22 @@ function vActes(){
     return h;
   };
   const faits=mien.filter(n=>n.etat==="fait").sort(parDate);
+  /* « Planifié » rangeait tout par date croissante : le plus ancien d'abord,
+     parce que ce qui est prévu se lit vers l'avant. C'était juste pour la
+     moitié de la liste et faux pour l'autre — un acte noté ce matin passait
+     sous tous ceux dont le jour était déjà passé, et le disciple l'a cherché
+     en vain : « cet acte n'apparaît pas […] ça aurait dû être le dernier en
+     haut ».
+     Deux choses se tenaient dans une seule liste. Ce dont le jour est venu
+     ou vient, et ce dont le jour est passé : ce n'est pas le même ordre de
+     chose, donc pas la même forme (13.cu). Et l'app ne tient aucune série à
+     ne pas casser : ce qui regarde en avant passe devant, ce qui attend se
+     dit plus bas, sans reproche et avec sa porte (13.cb, 13.dh). */
+  const t0=minuit(0);
+  const passe=function(n){ const sp=spanActe(n); return !!sp && sp[1]<=t0; };
+  const prevus=mien.filter(n=>n.etat==="prevu");
+  const avenir=prevus.filter(n=>!passe(n)).sort(parDateAsc);
+  const attend=prevus.filter(passe).sort(parDateAsc);
   Z.file = true;
   Z.haut = `<p class="titre-page">Mes actes</p>`;
   const cj=cumul(minuit(0), Date.now());
@@ -353,8 +369,14 @@ function vActes(){
       attr:'data-go="temps"'}), "lien")
     + bloc("En cours", mien.filter(n=>n.etat==="encours").sort(parDate), 0,
       "Rien ne dure en ce moment. Ouvre un de tes actes et dis où il en est : il passera ici.")
-    + bloc("Planifié", mien.filter(n=>n.etat==="prevu").sort(parDateAsc), 0,
-      "Rien de prévu. « Je vais faire… », au moment de noter.")
+    + (prevus.length
+        ? bloc("À venir", avenir, 0, "Rien pour les jours qui viennent.")
+          + (attend.length
+              ? bloc("Ce qui attend", attend, 0)
+                + `<div class="block amorce">Tu avais dit ce jour-là. Ouvre-les pour dire où ça en est — ou pour y renoncer.</div>`
+              : "")
+        : bloc("Planifié", [], 0,
+            "Rien de prévu. « Je vais faire… », au moment de noter."))
     + bloc("Fait", faits.slice(0,12), faits.length-12);
 }
 

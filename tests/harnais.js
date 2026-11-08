@@ -209,7 +209,7 @@ const PONT = `
        perTxt, cumulPer, parDisc,
        sujet, sujetId, sujetTxt, sujetsTxt, sujetsDerniers, apresArret, spTache,
        gensId, gensNom, gensTxt,
-       exaucesDe, exauceTxt, sujetDepuis, sujetFois, sujetHist,
+       exaucesDe, exauceTxt, sujetDepuis, sujetFois, sujetHist, vActes, minuit,
        livre, livreId, pageLue, nbLu, chapitresTxt, pagesTxt },
   c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY }
 };

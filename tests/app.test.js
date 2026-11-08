@@ -1537,3 +1537,67 @@ test("13.dg — un sujet effacé ailleurs laisse l'acte, jamais l'inverse", () =
   A.equal(d.nodes.length, 1, "l'acte reste");
   A.deepEqual(Array.from(d.nodes[0].suj), [], "il perd seulement ce qu'il exauçait");
 });
+
+/* ---------- 13.dh — ce qui vient, et ce qui attend ---------- */
+
+function prevu(id, date, txt, prec) {
+  return { id: id, act: "moi", dest: "dieu", txt: txt, man: "", kind: "acte",
+           date: date, prec: prec || "j", etat: "prevu", par: [], ts: 1, maj: 1 };
+}
+/* Les titres des blocs de « Mes actes », dans l'ordre où ils sont rendus,
+   chacun avec les actes qu'il contient. */
+function sections(a) {
+  a.S.view = "actes";
+  a.f.vActes();
+  const out = [];
+  a.Z.html.split(/<div class="block-title/).slice(1).forEach(function (bout) {
+    const t = (bout.match(/>([^<]+)<\/div>/) || [])[1] || "";
+    const ids = (bout.split('<div class="block-title')[0].match(/data-node="([^"]+)"/g) || [])
+      .map(function (m) { return m.slice(11, -1); });
+    out.push({ titre: t, ids: ids });
+  });
+  return out;
+}
+
+test("13.dh — un acte noté aujourd'hui passe devant ceux dont le jour est passé", () => {
+  const a = app();
+  a.db.nodes = [
+    prevu("vieux", "2026-11-07", "Recenser ce que TA attend"),
+    prevu("vieux2", "2026-11-07", "Évaluer ce que mes dirigeants attendent"),
+    prevu("neuf", "2026-11-08", "Faire mon compte rendu financier"),
+    prevu("loin", "2026-11-20", "Travailler sur le livre")
+  ];
+  const s = sections(a);
+  const av = s.filter(x => x.titre === "À venir")[0];
+  const at = s.filter(x => x.titre === "Ce qui attend")[0];
+  A.ok(av, "une section pour ce qui vient");
+  A.deepEqual(av.ids, ["neuf", "loin"], "aujourd'hui d'abord, puis le plus proche");
+  A.deepEqual(at.ids, ["vieux", "vieux2"], "ce dont le jour est passé se dit plus bas");
+  A.ok(s.indexOf(av) < s.indexOf(at), "ce qui regarde en avant passe devant");
+});
+
+test("13.dh — sans retard, une seule section ; sans rien, l'ancienne amorce", () => {
+  const a = app();
+  a.db.nodes = [prevu("neuf", "2026-11-08", "Faire mon compte rendu")];
+  let s = sections(a);
+  A.ok(s.some(x => x.titre === "À venir"));
+  A.ok(!s.some(x => x.titre === "Ce qui attend"), "pas de section vide qui accuse de rien");
+
+  a.db.nodes = [];
+  s = sections(a);
+  A.ok(s.some(x => x.titre === "Planifié"));
+  A.match(a.Z.html, /Rien de prévu/);
+});
+
+test("13.dh — un acte prévu « en novembre » n'est pas en retard avant décembre", () => {
+  const a = app();
+  a.db.nodes = [
+    prevu("mois", "2026-11-01", "Jeûner un jour ce mois-ci", "m"),
+    prevu("jour", "2026-11-01", "Appeler le frère", "j")
+  ];
+  const s = sections(a);
+  A.deepEqual(s.filter(x => x.titre === "À venir")[0].ids, ["mois"],
+    "le mois court encore : rien n'est en retard");
+  A.deepEqual(s.filter(x => x.titre === "Ce qui attend")[0].ids, ["jour"],
+    "le jour, lui, est passé");
+});

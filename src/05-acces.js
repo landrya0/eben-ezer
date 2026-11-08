@@ -48,7 +48,15 @@ function chemins(){
   const paquets={};
   db.nodes.forEach(n=>{ const r=racine(n.id); (paquets[r]=paquets[r]||[]).push(n); });
   return Object.keys(paquets).map(k=>paquets[k])
-    .filter(a=>a.length>1 || (a.length===1 && circ[a[0].id]))
+    /* Un acte seul fait chemin dès qu'il a quelque chose dessous : une
+       circonstance, ou un sujet qu'il exauce — car un sujet nommé puis
+       exaucé EST un chemin de deux pas, c'est même le seul que le cahier de
+       prière du disciple ait jamais tenu (13.dg).
+       Ce qu'on ne fait pas : réunir deux actes parce qu'ils exaucent le même
+       sujet. Une circonstance est un moment, elle ne rassemble que ce qui
+       était là ; un sujet se redit cent fois, et « merci pour le travail »
+       finirait par tout coudre ensemble. */
+    .filter(a=>a.length>1 || (a.length===1 && (circ[a[0].id] || (a[0].suj||[]).length)))
     /* Du plus récent au plus ancien, comme partout ailleurs dans
        l'application : on arrive par ce qui vient de se passer, et on
        descend vers ce qui l'a causé. Lire à l'endroit demandait de

@@ -379,7 +379,7 @@ function vChemin(){
   }).sort(function(a,b){
     return (a.etat==="prevu"?1:0)-(b.etat==="prevu"?1:0) || parDate(a,b);
   });
-  const vu={}, vuc={};
+  const vu={}, vuc={}, vus={};
   const court=function(t){ t=String(t||"");
     return t.length>46 ? esc(t.slice(0,45).replace(/\s+\S*$/,""))+"…" : esc(t); };
 
@@ -395,6 +395,12 @@ function vChemin(){
     return `<a class="pas cadre" ${x.kind==="periode"?'data-prd="':'data-vbloc="'}${x.id}">
         <span class="dit">${esc(x.nom)}</span>
         <span class="sous">${x.kind==="periode"?"un temps mis à part":"ce que tu donnais"} · ${esc(x.quand)}</span>
+      </a>`;
+  }
+  function pasSujet(sid){
+    return `<a class="pas sujet">
+        <span class="dit">${court(sujetTxt(sid))}</span>
+        <span class="sous">un sujet que tu as nommé${sujetHist(sid)?" · "+esc(sujetHist(sid)):""}</span>
       </a>`;
   }
   function pasRappel(n){
@@ -413,6 +419,7 @@ function vChemin(){
     const causes=(n.par||[]).map(node).filter(Boolean)
       .filter(function(p){ return dans[p.id]; }).sort(parDate);
     const sous=causes.map(descends);
+    (n.suj||[]).forEach(function(s){ if(sujet(s) && !vus[s]){ vus[s]=1; sous.push(pasSujet(s)); } });
     if(x) sous.push(pasCadre(x));
     if(!sous.length) return pasActe(n);
     /* Une seule chose a précédé : c'est la même ligne qui continue, et la
@@ -476,10 +483,12 @@ function vNode(){
     h+=liste(ligne({titre:esc(px.nom), sous:esc(px.quand),
       attr:(px.kind==="periode" ? 'data-prd="' : 'data-vbloc="')+px.id+'"'}));
   }
+  const sj=(n.suj||[]).filter(function(s){ return !!sujet(s); });
   h+=titreBloc("En réponse à", (n.act==="moi"||px)?"ecart":"");
   h+=liste(
-    (par.length ? par.map(p=>ligneActe(p,{attr:'data-node="'+p.id+'"'})).join("")
-      : ligne({titre:`<span class="rien">Rien, pour l'instant</span>`}))
+    (par.length ? par.map(p=>ligneActe(p,{attr:'data-node="'+p.id+'"'})).join("") : "")
+    + sj.map(function(s){ return ligne({titre:esc(sujetTxt(s)), sous:esc(sujetHist(s))}); }).join("")
+    + ((par.length||sj.length) ? "" : ligne({titre:`<span class="rien">Rien, pour l'instant</span>`}))
     + ligne({titre:`<span class="coche">Dire ce qui a précédé</span>`, attr:'data-lierview="'+n.id+'"'}));
   /* « Mes retours » était faux une fois sur deux : ce qui suit peut être Sa
      réponse autant que la mienne. Le titre ne présume plus de l'acteur. */
@@ -528,7 +537,24 @@ const NEUFS = [
   ["moi",      "Quelque chose que j'ai fait",  "une prière, un jeûne, une démarche", false],
   ["dieu",     "Quelque chose qu'Il a fait",   "", false]
 ];
-function choixCause(sel, exclus){
+/* « En réponse à quoi ? » est la colonne MANIÈRE D'EXAUCEMENT du cahier de
+   prière : on la remplit quand la réponse vient, pas avant. Le sujet est
+   donc candidat au même titre qu'un acte gardé — c'est bien quelque chose
+   qui a précédé. Mais il n'en porte pas la forme : un sujet n'est pas un
+   acte, il n'a ni acteur ni manière, et le confondre avec un acte ferait
+   entrer dans le mémorial trente-cinq lignes par matinée (13.dg). */
+function choixSujets(sujSel){
+  const suj=(db.sujets||[]).slice().sort(function(a,b){ return (b.maj||0)-(a.maj||0); });
+  if(!suj.length) return "";
+  return `<div class="cands">`+titreBloc("Ou un sujet que tu as nommé")
+    + liste(suj.map(function(s){
+        const pris=(sujSel||[]).indexOf(s.id)!==-1;
+        return ligne({titre:esc(s.txt), sous:esc(sujetHist(s.id)),
+          apres:pris?`<span class="coche">✓</span>`:"",
+          attr:'data-sujp="'+s.id+'"'+(pris?' data-sel="1"':"")});
+      }).join(""))+`</div>`;
+}
+function choixCause(sel, exclus, sujSel){
   /* Deuxième mode : on écrit la cause qui manque. La liste disparaît. */
   if(S.cNeuf){
     return `<div class="block" style="margin-top:18px">
@@ -552,6 +578,9 @@ function choixCause(sel, exclus){
     + (cands.length
         ? liste(cands.map(x=>ligneActe(x,{coche:sel.indexOf(x.id)!==-1,
             attr:'data-par="'+x.id+'"'+(sel.indexOf(x.id)!==-1?' data-sel="1"':"")})).join(""), "cands")
+        : "")
+    + choixSujets(sujSel)
+    + ((cands.length || (db.sujets||[]).length) ? ""
         : `<p class="vide">Rien d'autre dans ta mémoire pour l'instant.</p>`)
     + `<p class="vide" id="attente" hidden>Écris un mot : ce que tu as déjà gardé apparaîtra.</p>`
     + `<p class="vide" id="rien" hidden>Rien ne correspond. Touche « Ajouter quelque chose de nouveau ».</p>`;
@@ -565,13 +594,13 @@ function vLier(){
       <p class="grand ${estParole(n)?"voix":""}" style="font-size:21px">${esc(n.txt)}</p>
       <p class="meta">${S.cNeuf ? "Ce qui a précédé n'était pas encore gardé. Écris-le ici."
         : "Une parole, une prière, un bienfait d'avant."}</p></div>`
-    + choixCause(n.par||[], dessous(n.id));
+    + choixCause(n.par||[], dessous(n.id), n.suj||[]);
   Z.action = S.cNeuf ? bouton("Ajouter et lier", 'data-act="ajoute"')
                      : bouton("Terminer", 'data-back="1"');
 }
 
 /* ---------- l'assistant : noter, et attacher une réponse ---------- */
-function neuf(act){ return {act:act,gid:null,dest:"dieu",dgid:null,txt:"",desc:"",man:"",par:[],pdt:null,etat:"fait",date:today(),prec:"j",fige:false}; }
+function neuf(act){ return {act:act,gid:null,dest:"dieu",dgid:null,txt:"",desc:"",man:"",par:[],suj:[],pdt:null,etat:"fait",date:today(),prec:"j",fige:false}; }
 /* La phrase courte est ce qui se relit ; la description est ce qu'on y ajoute
    quand on a le temps. Elle reste pliée tant qu'elle est vide, pour ne pas
    peser sur la capture — c'est la capture qui doit être rapide (P2). */
@@ -800,7 +829,7 @@ function vNote(){
         ? "Ce qui a précédé n'était pas encore gardé. Écris-le ici."
         : "Une parole, une prière, un bienfait d'avant. Autant de liens que nécessaire."}</div>`
       + (S.cNeuf ? "" : choixPendant(d))
-      + choixCause(d.par, []);
+      + choixCause(d.par, [], d.suj||[]);
     if(S.cNeuf){ Z.action = bouton("Ajouter et lier", 'data-act="ajoute"'); }
     else {
       const der = S.step===etapes(d).length-1;

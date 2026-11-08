@@ -117,6 +117,41 @@ function mesureProposee(d){
   return "";
 }
 function gensTxt(n){ return n+" personne"+(n>1?"s":""); }
+/* Un sujet ne sait pas qu'il a été exaucé : c'est l'acte qui le dit, comme
+   un acte dit ses causes et jamais l'inverse. On lit donc à l'envers, à la
+   demande — rien à tenir à jour, rien qui puisse se désaccorder le jour où
+   l'on corrige un acte (13.dg). */
+function exaucesDe(sid){
+  return (db.nodes||[]).filter(function(n){ return (n.suj||[]).indexOf(sid)!==-1; }).sort(parDate);
+}
+function exauceTxt(sid){
+  const ns=exaucesDe(sid);
+  if(!ns.length) return "";
+  const n=ns[ns.length-1];
+  return ["Exaucé", human(n), (n.man && n.kind!=="rhema") ? manCourt(n.man) : ""]
+         .filter(Boolean).join(" · ");
+}
+/* Les deux premières colonnes du cahier — le numéro et la date de première
+   prière — ne se saisissent pas : elles sont déjà dans l'archive, puisque
+   chaque séance dit ce qu'elle a nommé. */
+function sujetDepuis(sid){
+  let d=null;
+  (db.temps||[]).forEach(function(b){
+    if((b.sj||[]).indexOf(sid)===-1) return;
+    if(d===null || b.deb<d) d=b.deb;
+  });
+  return d;
+}
+function sujetFois(sid){
+  let n=0;
+  (db.temps||[]).forEach(function(b){ if((b.sj||[]).indexOf(sid)!==-1) n++; });
+  return n;
+}
+function sujetHist(sid){
+  const d=sujetDepuis(sid), f=sujetFois(sid);
+  if(!d) return "";
+  return f>1 ? "nommé "+f+" fois, depuis le "+dateJour(d) : "nommé le "+dateJour(d);
+}
 /* Un sujet n'appartient pas à une séance : il revient. « Merci pour le
    travail » est écrit dix fois dans le cahier, et c'est sa répétition qui se
    lit. On le retrouve donc au lieu de le recréer — à la casse et aux espaces
@@ -572,13 +607,16 @@ function listePg(b){
 
 function listeSj(b){
   return liste((b.sj||[]).map(function(id,i){
+    const ex=exauceTxt(id);
     return ligne({titre:esc(sujetTxt(id)),
+      sous:ex?`<span class="exauce">${esc(ex)}</span>`:"",
       apres:`<span class="rouge">Retirer</span>`, attr:'data-sjsup="'+i+'"'});
   }).join(""));
 }
 function ligneSj(id){
-  const t=sujetTxt(id);
-  return ligne({titre:esc(t), attr:'data-sjadd="'+id+'" data-sjn="'+esc(t.toLowerCase())+'"'});
+  const t=sujetTxt(id), ex=exauceTxt(id);
+  return ligne({titre:esc(t), sous:ex?`<span class="exauce">${esc(ex)}</span>`:"",
+    attr:'data-sjadd="'+id+'" data-sjn="'+esc(t.toLowerCase())+'"'});
 }
 /* L'écran du cahier. Il ne se referme pas sur un ajout : une séance en nomme
    trente, et refermer à chaque fois ferait trente allers-retours. On écrit,
@@ -1267,16 +1305,20 @@ document.addEventListener("input", ev=>{
     const q=ev.target.value.trim().toLowerCase();
     S.cQ=ev.target.value;
     let vus=0;
-    [].forEach.call(document.querySelectorAll("[data-par]"), el=>{
+    [].forEach.call(document.querySelectorAll("[data-par],[data-sujp]"), el=>{
       const li=el.closest("li")||el;
       const ok = el.getAttribute("data-sel")==="1"
               || (!!q && el.textContent.toLowerCase().indexOf(q)!==-1);
       li.hidden = !ok; if(ok) vus++;
     });
-    const bloc=document.querySelector(".cands"),
-          rien=document.getElementById("rien"),
+    const rien=document.getElementById("rien"),
           att=document.getElementById("attente");
-    if(bloc) bloc.hidden = !vus;
+    /* Deux listes se cherchent du même mot — les actes gardés, et les sujets
+       nommés — et chacune se replie sur son propre compte : un bloc vide
+       avec son titre dirait qu'on n'a rien, alors que l'autre a répondu. */
+    [].forEach.call(document.querySelectorAll(".cands"), function(bl){
+      bl.hidden = !bl.querySelectorAll("li:not([hidden])").length;
+    });
     if(rien) rien.hidden = !(q && !vus);
     if(att)  att.hidden  = !!q || !!vus;
     return;

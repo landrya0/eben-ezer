@@ -61,7 +61,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup],[data-qadd],[data-qsup]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup],[data-qadd],[data-qsup],[data-sujp]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -273,6 +273,15 @@ document.addEventListener("click", ev=>{
     if(S.view==="lier"){ const n=node(S.nodeId); if(!n) return; n.par=n.par||[];
       const i=n.par.indexOf(g.par); i===-1?n.par.push(g.par):n.par.splice(i,1); touche(n); save(); }
     else if(S.draft){ const i=S.draft.par.indexOf(g.par); i===-1?S.draft.par.push(g.par):S.draft.par.splice(i,1); }
+    return render();
+  }
+  /* Le même geste que pour une cause gardée — il ne va pas dans la même
+     liste, parce qu'un sujet n'est pas un acte (13.dg). */
+  if(g.sujp){
+    if(S.view==="lier"){ const n=node(S.nodeId); if(!n) return; n.suj=n.suj||[];
+      const i=n.suj.indexOf(g.sujp); i===-1?n.suj.push(g.sujp):n.suj.splice(i,1); touche(n); save(); }
+    else if(S.draft){ S.draft.suj=S.draft.suj||[];
+      const i=S.draft.suj.indexOf(g.sujp); i===-1?S.draft.suj.push(g.sujp):S.draft.suj.splice(i,1); }
     return render();
   }
   if(g.fait){ fermeMenu(); const n=node(g.fait); if(n){ n.etat="fait"; n.prevuLe=n.date; n.date=today(); n.prec="j"; touche(n); save(); toast("Fait."); } return render(); }
@@ -724,6 +733,7 @@ const actions={
     const n={id:nid(),act:d.act,gid:d.gid,dest:d.act==="moi"?d.dest:null,dgid:d.dgid,txt:d.txt.trim(),desc:(d.desc||"").trim(),man:d.man,
       kind:(d.act==="dieu"&&d.man==="parle")?"rhema":"acte",
       date:valDate("nDate", d.date),prec:d.prec||"j",etat:d.act==="moi"?(d.etat||"fait"):"fait",par:d.par.slice(),ts:ts(),maj:Date.now()};
+    if((d.suj||[]).length) n.suj=d.suj.slice();
     if(d.pdt && pdtDe(d.pdt)) n.pdt=d.pdt;
     db.nodes.push(n); save();
     /* On repart là où l'acte est désormais rangé : le disciple le voit,

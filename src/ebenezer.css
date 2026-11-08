@@ -324,6 +324,13 @@ body.avecRail .entete .rouage{top:calc(var(--rail,0px) + 5px)}
 /* Ce qui se compte un autre jour se dit, mais en retrait : c'est un repère,
    pas une lecture de plus (13.da). */
 .lus.ailleurs{font-style:italic;opacity:.75}
+/* Un exaucement se lit sous le sujet comme la colonne de droite du cahier :
+   il ne crie pas, il atteste (13.dg). */
+.item-subtitle .exauce{display:block;margin-top:3px;font-weight:600;color:var(--f7-theme-color)}
+/* Un sujet n'est pas un acte : son point est creux et sa voix plus basse —
+   on ne doit jamais le prendre pour une chose que Dieu a faite. */
+.pas.sujet::before{background:transparent;border:2px dotted var(--muted);border-radius:50%}
+.pas.sujet .dit{font-size:14.5px;font-weight:600;color:var(--muted)}
 .etiq{display:inline-block;font-family:var(--sans);font-size:10.5px;font-weight:700;
   letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
   border:1px solid var(--filet);border-radius:9px;padding:1px 7px;margin-right:7px;

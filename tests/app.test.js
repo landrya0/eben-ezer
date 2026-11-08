@@ -1446,3 +1446,94 @@ test("13.df — une personne effacée ailleurs laisse la ligne, sans nom", () =>
   A.deepEqual(Array.from(d.temps[0].qui), ["g1", "", ""],
     "on perd le nom, jamais le fait d'avoir annoncé");
 });
+
+/* ---------- 13.dg — un sujet relié à l'acte qui l'exauce ---------- */
+
+function cahier(a) {
+  a.db.taches = [{ id: "p1", nom: "Prière", cat: "dieu", d: "priere", maj: 1 }];
+  const s = a.f.sujetId("Le projet de Qualitas");
+  a.db.temps = [
+    bloc("c1", "p1", jour(1, 6, 0), jour(1, 6, 30), { sj: [s] }),
+    bloc("c2", "p1", jour(5, 6, 0), jour(5, 6, 30), { sj: [s] }),
+    bloc("c3", "p1", j(6, 0), j(6, 30), { sj: [s] })
+  ];
+  a.db.nodes = [{ id: "n1", act: "dieu", txt: "Le contrat est signé", man: "pourvu",
+                  kind: "acte", date: "2026-11-08", prec: "j", etat: "fait", par: [], ts: 1, maj: 1 }];
+  return s;
+}
+
+test("13.dg — l'acte dit ce qu'il exauce, et le sujet se lit à l'envers", () => {
+  const a = app();
+  const s = cahier(a);
+  A.deepEqual(Array.from(a.f.exaucesDe(s)), [], "rien tant que le lien n'est pas posé");
+  a.db.nodes[0].suj = [s];
+  A.deepEqual(Array.from(a.f.exaucesDe(s), n => n.id), ["n1"]);
+  A.match(a.f.exauceTxt(s), /^Exaucé/);
+  A.match(a.f.exauceTxt(s), /pourvu/i, "la manière vient de l'acte, pas d'un second champ");
+});
+
+test("13.dg — l'histoire d'un sujet se déduit des séances, elle ne se saisit pas", () => {
+  const a = app();
+  const s = cahier(a);
+  A.equal(a.f.sujetFois(s), 3);
+  A.equal(a.f.sujetDepuis(s), jour(1, 6, 0), "la première prière est la plus ancienne séance");
+  A.match(a.f.sujetHist(s), /3 fois/);
+  A.match(a.f.sujetHist(s), /1er novembre/);
+});
+
+test("13.dg — poser puis retirer le lien depuis « ce qui a précédé »", () => {
+  const a = app();
+  const s = cahier(a);
+  a.S.view = "lier"; a.S.nodeId = "n1";
+  a.geste({ sujp: s });
+  A.deepEqual(Array.from(a.db.nodes[0].suj), [s]);
+  A.deepEqual(Array.from(a.db.nodes[0].par), [], "un sujet n'entre pas dans les causes");
+  a.S.view = "lier"; a.S.nodeId = "n1";
+  a.geste({ sujp: s });
+  A.deepEqual(Array.from(a.db.nodes[0].suj), [], "le même geste le retire");
+});
+
+test("13.dg — le lien posé pendant la saisie arrive sur l'acte gardé", () => {
+  const a = app();
+  const s = cahier(a);
+  a.S.draft = { act: "dieu", gid: null, dest: null, dgid: null, txt: "Le contrat est signé",
+                desc: "", man: "pourvu", par: [], suj: [], pdt: null, etat: "fait",
+                date: "2026-11-08", prec: "j", fige: false };
+  a.S.view = "note";
+  a.geste({ sujp: s });
+  A.deepEqual(Array.from(a.S.draft.suj), [s]);
+  a.actions.saveNote();
+  const n = a.db.nodes.filter(x => x.id !== "n1")[0];
+  A.deepEqual(Array.from(n.suj), [s]);
+  A.deepEqual(Array.from(a.f.exaucesDe(s), x => x.id), [n.id]);
+});
+
+test("13.dg — le chemin montre le sujet sous l'acte qui l'a exaucé", () => {
+  const a = app();
+  const s = cahier(a);
+  a.db.nodes[0].suj = [s];
+  a.S.cheminId = a.db.nodes[0].id;
+  a.f.vChemin();
+  A.match(a.Z.html, /un sujet que tu as nommé/);
+  A.match(a.Z.html, /Le projet de Qualitas/);
+});
+
+test("13.dg — un sujet effacé ailleurs laisse l'acte, jamais l'inverse", () => {
+  const a = app();
+  const s = cahier(a);
+  a.db.nodes[0].suj = [s];
+  const ici = JSON.parse(JSON.stringify({
+    sujets: a.db.sujets, taches: a.db.taches, temps: a.db.temps, nodes: a.db.nodes,
+    morts: {}, maj: 10, seq: 90
+  }));
+  /* Une pierre tombale ne l'emporte que sur une écriture plus ancienne : le
+     sujet date d'avant sa suppression, sinon c'est lui qui gagne (13.be). */
+  ici.sujets.forEach(x => { x.maj = 10; });
+  const ailleurs = JSON.parse(JSON.stringify(ici));
+  ailleurs.sujets = [];
+  ailleurs.temps.forEach(b => { b.sj = []; });
+  ailleurs.morts[s] = 20; ailleurs.maj = 20;
+  const d = a.f.fusionne(a.f.sane(ici), a.f.sane(ailleurs));
+  A.equal(d.nodes.length, 1, "l'acte reste");
+  A.deepEqual(Array.from(d.nodes[0].suj), [], "il perd seulement ce qu'il exauçait");
+});

@@ -424,6 +424,10 @@ function fusionne(A, B){
      l'activité a disparu n'a plus de part où se ranger. */
   const vivants={}; d.nodes.forEach(function(n){ vivants[n.id]=1; });
   d.nodes.forEach(function(n){ if(n.par) n.par=n.par.filter(function(p){ return vivants[p]; }); });
+  /* Un sujet effacé ailleurs : l'acte reste, il perd ce qu'il exauçait —
+     jamais l'inverse, comme pour la circonstance (13.cx). */
+  const sv={}; d.sujets.forEach(function(s){ sv[s.id]=1; });
+  d.nodes.forEach(function(n){ if(n.suj) n.suj=n.suj.filter(function(s){ return sv[s]; }); });
   d.noms.forEach(function(nm){ if(nm.nodes) nm.nodes=nm.nodes.filter(function(p){ return vivants[p]; }); });
   const ta={}; d.taches.forEach(function(t){ ta[t.id]=1; });
   d.temps=d.temps.filter(function(b){ return ta[b.t]; });

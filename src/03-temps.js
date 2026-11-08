@@ -160,8 +160,11 @@ function lectureAilleurs(b, t0, t1){
   if(!b || (b.deb>=t0 && b.deb<t1)) return false;
   return !!(((b.lu||[]).length) || ((b.pg||[]).length));
 }
+/* « le 1 novembre » n'est pas du français. Le premier du mois est le seul
+   qui porte son rang. */
 function dateJour(ms){
-  return new Date(ms).toLocaleDateString("fr-FR",{day:"numeric",month:"long"});
+  const d=new Date(ms), q=d.getDate();
+  return (q===1 ? "1er" : q)+" "+MOIS[d.getMonth()];
 }
 /* Ce qu'un acte occupe de temps, au plus fin de ce qu'on sait de sa date :
    un jour s'il est daté au jour, tout un mois si l'on ne se souvient que du

@@ -1,0 +1,244 @@
+/* Le harnais : il charge la vraie application.
+ *
+ * Pas de build, pas de dépendance — c'est la règle de ce dépôt, et elle vaut
+ * aussi pour les tests. On extrait le gros bloc <script> de index.html, on lui
+ * donne un navigateur de carton, et on l'exécute dans un bac à sable.
+ *
+ * Il n'y a donc jamais de copie du code à tenir à jour : ce qui est testé est
+ * exactement ce qui est livré. Si une fonction est renommée, le test casse —
+ * c'est voulu.
+ */
+"use strict";
+const fs = require("fs");
+const path = require("path");
+const vm = require("vm");
+
+const RACINE = path.join(__dirname, "..");
+const PAGE = path.join(RACINE, "index.html");
+
+/* ---------- le navigateur de carton ---------- */
+
+function elem() {
+  const o = {
+    tagName: "DIV", id: "", className: "", innerHTML: "", outerHTML: "",
+    textContent: "", value: "", hidden: false, disabled: false, checked: false,
+    dataset: {}, children: [], childNodes: [], files: [],
+    style: {
+      setProperty() {}, removeProperty() {}, getPropertyValue() { return ""; }
+    },
+    offsetHeight: 0, offsetWidth: 0, scrollTop: 0, scrollHeight: 0,
+    clientHeight: 0, clientWidth: 0, selectionStart: 0, selectionEnd: 0,
+    classList: {
+      add() {}, remove() {}, toggle() {}, contains() { return false; }
+    },
+    appendChild(x) { return x; }, removeChild(x) { return x; }, remove() {},
+    insertBefore(x) { return x; }, insertAdjacentHTML() {}, cloneNode() { return elem(); },
+    addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; },
+    setAttribute() {}, getAttribute() { return null; }, removeAttribute() {},
+    hasAttribute() { return false; },
+    focus() {}, blur() {}, click() {}, select() {}, scrollIntoView() {},
+    scrollTo() {}, animate() { return { cancel() {}, finished: Promise.resolve() }; },
+    querySelector() { return null; }, querySelectorAll() { return []; },
+    closest() { return null; },
+    getBoundingClientRect() {
+      return { top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0 };
+    }
+  };
+  /* Tout nom de méthode qu'on n'a pas prévu rend une fonction inoffensive :
+     le harnais ne doit pas tomber parce que l'app a appelé un geste de plus.
+     Les propriétés, elles, restent indéfinies comme dans un vrai navigateur. */
+  return new Proxy(o, {
+    get(cible, cle) {
+      if (cle in cible) return cible[cle];
+      if (typeof cle !== "string") return undefined;
+      if (/^(on|[a-z]+[A-Z])/.test(cle)) return function () {};
+      return undefined;
+    }
+  });
+}
+
+function faitContexte(opts) {
+  const sto = new Map();
+  const elements = Object.create(null);
+  const posees = (opts && opts.stockage) || {};
+  Object.keys(posees).forEach(function (k) { sto.set(k, posees[k]); });
+
+  const localStorage = {
+    getItem(k) { return sto.has(k) ? sto.get(k) : null; },
+    setItem(k, v) { sto.set(k, String(v)); },
+    removeItem(k) { sto.delete(k); },
+    clear() { sto.clear(); },
+    key(i) { return Array.from(sto.keys())[i] || null; },
+    get length() { return sto.size; }
+  };
+
+  const document = {
+    hidden: false, title: "", cookie: "", readyState: "complete",
+    body: elem(), head: elem(), documentElement: elem(), activeElement: null,
+    getElementById(id) {
+      if (!elements[id]) elements[id] = elem();
+      return elements[id];
+    },
+    createElement() { return elem(); },
+    createTextNode() { return elem(); },
+    createDocumentFragment() { return elem(); },
+    querySelector() { return null; },
+    querySelectorAll() { return []; },
+    addEventListener() {}, removeEventListener() {},
+    execCommand() { return false; }
+  };
+
+  class FauxEvent {
+    constructor(type, init) { this.type = type; Object.assign(this, init || {}); }
+    preventDefault() {} stopPropagation() {}
+  }
+  class FauxFileReader {
+    readAsText() {} readAsDataURL() {} readAsArrayBuffer() {} abort() {}
+  }
+
+  const ctx = {
+    document, localStorage, sessionStorage: localStorage,
+    navigator: {
+      onLine: true, language: "fr-FR", userAgent: "harnais",
+      storage: {}, clipboard: {}, mediaDevices: {}
+    },
+    screen: { width: 375, height: 812, orientation: {} },
+    location: { href: "http://localhost/", hash: "", reload() {}, assign() {} },
+    history: { pushState() {}, replaceState() {}, back() {} },
+    console,
+    Event: FauxEvent, CustomEvent: FauxEvent, FileReader: FauxFileReader,
+    Blob: class { constructor(p) { this.parts = p; } },
+    URL: { createObjectURL() { return "blob:x"; }, revokeObjectURL() {} },
+    crypto: require("crypto").webcrypto,
+    TextEncoder, TextDecoder, btoa, atob, performance, Intl,
+    fetch() { return Promise.reject(new Error("pas de réseau dans les tests")); },
+    setTimeout() { return 0; }, clearTimeout() {},
+    setInterval() { return 0; }, clearInterval() {},
+    requestAnimationFrame() { return 0; }, cancelAnimationFrame() {},
+    addEventListener() {}, removeEventListener() {},
+    alert() {}, confirm() { return false; }, prompt() { return null; },
+    getComputedStyle() { return { getPropertyValue() { return ""; } }; }
+  };
+  ctx.window = ctx;
+  ctx.globalThis = ctx;
+  ctx.self = ctx;
+  return ctx;
+}
+
+/* ---------- le temps, tenu immobile ----------
+ * Une fenêtre, un cumul, « hier » : tout cela se lit contre l'heure qu'il est.
+ * Un test qui dépend de l'heure réelle passe le matin et casse à minuit. On
+ * fige donc l'horloge du bac à sable, et chaque test dit à quelle heure il se
+ * place. */
+function poseHorloge(ctx, fixe) {
+  const Vrai = Date;
+  class D extends Vrai {
+    constructor(...a) {
+      if (a.length === 0) super(D.now());
+      else super(...a);
+    }
+    static now() { return fixe.ms === null ? Vrai.now() : fixe.ms; }
+    static parse(...a) { return Vrai.parse(...a); }
+    static UTC(...a) { return Vrai.UTC(...a); }
+  }
+  ctx.Date = D;
+}
+
+/* ---------- le chargement ---------- */
+
+function sourceApp() {
+  const html = fs.readFileSync(PAGE, "utf8");
+  const blocs = html.match(/<script>([\s\S]*?)<\/script>/g) || [];
+  if (!blocs.length) throw new Error("aucun <script> dans index.html");
+  const plusGros = blocs
+    .map(function (b) { return b.replace(/^<script>/, "").replace(/<\/script>$/, ""); })
+    .sort(function (a, b) { return b.length - a.length; })[0];
+  if (plusGros.length < 50000) {
+    throw new Error("le bloc <script> trouvé fait " + plusGros.length +
+      " caractères — l'application est plus grosse que ça, l'extraction a raté");
+  }
+  return plusGros;
+}
+
+/* Les déclarations `let` et `const` du script ne deviennent pas des
+ * propriétés du bac à sable : on ajoute donc, à la fin du source, une ligne
+ * qui tend la main. Elle vit dans la même portée et voit tout. */
+const PONT = `
+;globalThis.__eben = {
+  get db(){ return db; }, set db(v){ db = v; },
+  get S(){ return S; },
+  actions: actions,
+  f: { hm, hmin, dtl, valHeure, cumul, couvert, fusionTemps, fusionne, fusionListe,
+       bornes, decale, fenetre, nomFen, courtFen, memeAn,
+       finDe, voisins, touche, tue, sane, uid, cap, capNom,
+       tache, tacheId, tacheNom, tacheCat, blocT, ouverts, fermeBloc,
+       disc, discNom, discDeNom, discTache, parDisc, mesureDisc, mesureProposee,
+       auteur, auteurId, auteurNom, auteursConnus, recuDe, recuTxt,
+       livre, livreId, pageLue, nbLu, chapitresTxt, pagesTxt },
+  c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY }
+};
+`;
+
+/* Charge l'application dans un bac à sable neuf.
+ *
+ *   const app = charge();
+ *   app.db = { ...une archive de test... };
+ *   app.actions.majBloc();
+ *   app.f.cumul(t0, t1);
+ *
+ * `app.maintenant(ms)` fige l'horloge ; `app.maintenant(null)` la relâche.
+ */
+function charge(opts) {
+  const ctx = faitContexte(opts);
+  const fixe = { ms: (opts && typeof opts.maintenant === "number") ? opts.maintenant : null };
+  poseHorloge(ctx, fixe);
+  vm.createContext(ctx);
+  try {
+    new vm.Script(sourceApp() + PONT, { filename: "index.html" }).runInContext(ctx);
+  } catch (e) {
+    e.message = "l'application n'a pas pu se charger dans le harnais : " + e.message;
+    throw e;
+  }
+  const app = ctx.__eben;
+  if (!app) throw new Error("le pont n'a pas été posé — une fonction attendue a-t-elle été renommée ?");
+  app.maintenant = function (ms) { fixe.ms = (ms === undefined ? null : ms); };
+  app.ctx = ctx;
+  /* Une archive nue, pour partir de rien à chaque test. */
+  app.vide = function () {
+    app.db = app.f.sane({});
+    return app.db;
+  };
+  /* Écrire dans un champ d'heure comme le ferait le doigt : au format du
+     téléphone, à la minute. */
+  app.poseHeure = function (id, ms) {
+    ctx.document.getElementById(id).value = (ms === null ? "" : app.f.dtl(ms));
+  };
+  /* Ouvrir l'écran de correction d'un bloc, champs remplis comme à
+     l'ouverture — c'est l'état d'où part toute correction réelle. */
+  app.ouvreBloc = function (b) {
+    app.S.blocId = b.id;
+    app.poseHeure("bDeb", b.deb);
+    app.poseHeure("bFin", typeof b.fin === "number" ? b.fin : null);
+    ctx.document.getElementById("bNote").value = b.note || "";
+  };
+  return app;
+}
+
+/* ---------- petites commodités d'écriture ---------- */
+
+const MIN = 60000;
+const H = 3600000;
+
+/* Un instant du 8 novembre 2026, heure locale. */
+function j(h, m) { return new Date(2026, 10, 8, h, m || 0, 0, 0).getTime(); }
+/* Le même, un autre jour du même mois. */
+function jour(d, h, m) { return new Date(2026, 10, d, h, m || 0, 0, 0).getTime(); }
+
+/* Un bloc de temps prêt à poser dans db.temps. */
+function bloc(id, t, deb, fin, extra) {
+  const b = { id: id, t: t, deb: deb, maj: deb };
+  if (typeof fin === "number") b.fin = fin;
+  return Object.assign(b, extra || {});
+}
+
+module.exports = { charge, MIN, H, j, jour, bloc };

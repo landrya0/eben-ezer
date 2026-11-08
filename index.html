@@ -788,7 +788,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v67";
+const VERSION = "v68";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -3616,8 +3616,8 @@ function ligneCreux(d, f){
 /* ---------- corriger un bloc de temps ---------- */
 /* On pointe toujours en retard : on prie vingt minutes avant d'y penser, on
    referme l'ordinateur sans le dire. Les deux bornes doivent donc s'écrire à
-   la main. Déplacer une borne déplace celle du voisin collé à elle : la
-   journée reste sans trou, et c'est tout l'intérêt d'un compte permanent. */
+   la main — et elles n'engagent que leur bloc (13.cv). Le voisin reste ou il
+   est : ce qu'on lui rend devient un creux, et le creux se montre. */
 function dtl(ms){
   const d=new Date(ms), p=function(n){ return String(n).padStart(2,"0"); };
   return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes());
@@ -3639,11 +3639,9 @@ function valHeure(id, origine){
   const t=new Date(e.value).getTime();
   return isNaN(t) ? null : t;
 }
-/* Le voisin n'est plus celui qui précède dans la liste : avec plusieurs
-   activités de front, l'ordre des débuts ne dit plus qui touche quoi. Est
-   voisin ce qui est collé à cette borne-là, et il peut y en avoir plusieurs
-   — tous suivent le mouvement, sinon déplacer une borne ouvrirait un trou
-   devant l'une et pas devant l'autre. */
+/* Le voisin ne suit plus le mouvement (13.cv) : on le nomme seulement, pour
+   que le disciple sache contre quoi sa borne vient buter, et ce qu'il laisse
+   derrière lui en la déplaçant. */
 function voisins(b){
   const arr=(db.temps||[]).filter(function(x){ return x.id!==b.id; });
   return {avant:arr.filter(function(x){ return finDe(x)===b.deb; }),
@@ -4370,7 +4368,7 @@ function vBloc(){
   h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
       <input type="datetime-local" id="bDeb" value="${dtl(b.deb)}"></div></div></li>`);
   if(v.avant.length)
-    h+=`<div class="block amorce">Juste avant : ${nomVoisins(v.avant)}. Reculer ce début le prolonge d'autant ; l'avancer le raccourcit.</div>`;
+    h+=`<div class="block amorce">Juste avant : ${nomVoisins(v.avant)}. Ce bloc-là ne bougera pas : reculer ce début mène les deux de front, l'avancer laisse un creux — que tu pourras combler.</div>`;
   h+=titreBloc("La fin","ecart");
   h+=liste(ligne({titre:"C'est toujours en cours",
       apres: court ? `<span class="coche">✓</span>` : "", attr:'data-act="bCours"'}));
@@ -4378,7 +4376,7 @@ function vBloc(){
     h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
         <input type="datetime-local" id="bFin" value="${dtl(b.fin)}"></div></div></li>`);
     if(v.apres.length)
-      h+=`<div class="block amorce">Juste après : ${nomVoisins(v.apres)}, qui commencera à l'heure que tu poses ici.</div>`;
+      h+=`<div class="block amorce">Juste après : ${nomVoisins(v.apres)}. Ce bloc-là ne bougera pas non plus : prolonger cette fin mène les deux de front, l'écourter laisse un creux.</div>`;
   } else {
     h+=`<div class="block amorce">Le compte court encore. Pose une heure de fin pour l'arrêter à ce moment-là, même s'il est passé.</div>`;
   }
@@ -5138,11 +5136,11 @@ const actions={
     if(b.fin && f===null) return toast("Pose une heure de fin");
     if(f!==null && f<=d) return toast("La fin doit venir après le début");
     if(d>Date.now()) return toast("Ce début n'est pas encore arrivé");
-    const v=voisins(b);
-    /* Seul un voisin collé suit le mouvement : s'il y avait déjà un trou,
-       c'est qu'il était voulu, et on ne le rebouche pas à sa place. */
-    v.avant.forEach(function(x){ if(d>x.deb){ x.fin=d; touche(x); } });
-    if(f!==null) v.apres.forEach(function(x){ if(f<finDe(x)){ x.deb=f; touche(x); } });
+    /* Corriger un bloc ne corrige que ce bloc (13.cv). On a longtemps
+       entraîné le voisin collé, pour que la journée reste sans trou ; mais
+       raccourcir une prière rallongeait d'autant la lecture d'avant, et
+       inscrivait à l'archive des minutes que personne n'avait données. Le
+       creux, lui, existe et se montre pour ce qu'il est. */
     b.deb=d; if(f===null) delete b.fin; else b.fin=f;
     noteBloc(b);
     touche(b);

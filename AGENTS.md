@@ -90,6 +90,16 @@ Et, transversal : **rien ne part en clair** (13.bh). Le journal nomme des frère
 
 ## 4. La méthode
 
+- **Avant de livrer, faire passer la batterie :**
+  ```
+  node --test "tests/*.test.js"
+  ```
+  Elle charge le **vrai** `index.html` dans un bac à sable — aucune copie du code à tenir à jour,
+  aucune dépendance à installer. Chaque test porte le numéro de la règle qu'il défend. Un test qui
+  casse renvoie d'abord à la spec : ou le code a dérivé, ou la règle a changé et le test change
+  avec elle, **jamais en silence**.
+- **Une correction de bug commence par un test qui échoue.** C'est ce qui prouve qu'on a bien
+  trouvé la cause, et non un symptôme voisin.
 - **Une idée = une version**, vérifiée dans le navigateur (375 px) avant de passer à la suivante.
 - **Toute règle fonctionnelle s'écrit dans la spec au fur et à mesure** :
   `../SPEC-EBEN-EZER.md` — **hors dépôt, jamais commitée**. Une règle `13.xx` (les plus récentes

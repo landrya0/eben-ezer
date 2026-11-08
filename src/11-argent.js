@@ -163,6 +163,7 @@ function vArgent(){
   if(!c.n){
     h += `<p class="vide">Rien de noté ${esc(f.nom)}.</p>`;
     h += `<div class="block amorce">« Là où est ton trésor, là aussi sera ton cœur. » Ce registre ne juge pas, il montre : note ce qui entre et ce qui sort, et les parts diront d'elles-mêmes à qui va ton cœur.</div>`;
+    h += porteCharger();
     Z.html=h;
     Z.action=bouton("Noter un mouvement", 'data-act="souNeuf"');
     return;
@@ -197,8 +198,17 @@ function vArgent(){
         attr:'data-sou="'+x.id+'"'});
     }).join(""), "lien");
   }
+  h += porteCharger();
   Z.html=h;
   Z.action=bouton("Noter un mouvement", 'data-act="souNeuf"');
+}
+/* Le geste de tous les jours est en bas, en bouton ; celui qu'on fait une fois
+   par mois est une ligne. La forme dit laquelle est laquelle (13.cu). */
+function porteCharger(){
+  return titreBloc("D'un coup","ecart")
+    + liste(ligne({titre:"Charger un relevé",
+        sous:"Prétravaillé par Claude, collé ici",
+        attr:'data-go="charger"'}), "lien");
 }
 
 /* Choisir un poste redessine l'écran. Si on ne ramasse pas d'abord ce qui est
@@ -282,6 +292,160 @@ function vDevise(){
     + (n ? `<div class="block amorce">Changer de monnaie ne convertit rien : les <b>${n}</b> montant${n>1?"s":""} déjà noté${n>1?"s":""} garde${n>1?"nt":""} leur nombre et se liront dans la nouvelle. Aucun taux n'est deviné.</div>` : "");
 }
 
+/* ---------- charger un relevé prétravaillé ---------- */
+/* La seconde moitié de la demande : « je vais prétravailler mes relevés grace
+   à claude pour ressortir les infos clés à partir de mes comptes et charger
+   dans ebenezer ».
+
+   Donc une porte qui AJOUTE. « Reprendre un fichier » remplace toute
+   l'archive ; ici on verse dans un registre déjà vivant, et rien ne doit s'y
+   perdre (13.dl).
+
+   Et le format est fixé par ce qui doit en sortir : le poste, pas une phrase.
+   Un relevé rendu en texte libre serait à ressaisir ; rendu en colonnes, il
+   entre tel quel. C'est pourquoi l'écran donne d'abord la consigne — le
+   travail commence chez Claude, pas ici. */
+const CONSIGNE = [
+  "Voici un relevé de compte. Sors-m'en une ligne par mouvement, dans ce format",
+  "exact, et rien d'autre dans ta réponse :",
+  "",
+  "jour | poste | montant | à qui, à quoi",
+  "",
+  "- jour : AAAA-MM-JJ",
+  "- poste, un seul mot parmi :",
+  "    ce qui sort — dieu, famille, travail, moi, epargne, invest, reste",
+  "    ce qui entre — salaire, recu, retour, ereste",
+  "- montant : le nombre seul, sans signe",
+  "- à qui, à quoi : le libellé court, tel qu'il se relit",
+  "",
+  "« dieu » est tout ce qui est donné à Dieu : dîme, offrande, l'œuvre, les",
+  "pauvres. « epargne » et « invest » sortent du compte mais restent à moi.",
+  "« retour » est une épargne reprise ou un remboursement.",
+  "",
+  "Exemple :",
+  "2026-11-02 | salaire | 2500,00 | Salaire d'octobre",
+  "2026-11-03 | dieu | 250,00 | Dîme de novembre",
+  "2026-11-04 | moi | 900,00 | Loyer"
+].join("\n");
+
+/* Accents, majuscules et ponctuation ne doivent pas décider si une ligne
+   passe : « Ma Famille » et « ma famille » sont le même poste. */
+function chNu(s){
+  return String(s==null?"":s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"")
+         .replace(/[^a-z0-9]+/g," ").trim();
+}
+/* L'identifiant d'abord, le nom ensuite — et seulement s'il ne désigne qu'un
+   poste. « Mon travail » est une sortie ET une entrée : deviner laquelle
+   serait inventer un chiffre, et un chiffre faux est pire que pas de chiffre
+   (13.ch). On le dit, et le disciple tranche. */
+function chPoste(s){
+  const v=String(s==null?"":s).trim().toLowerCase();
+  if(!v) return null;
+  if(poste(v)) return v;
+  const n=chNu(v);
+  const f=POSTES.filter(function(p){ return chNu(p[1])===n; });
+  if(f.length===1) return f[0][0];
+  if(f.length>1) return false;
+  return null;
+}
+/* « 31/02/2026 » n'est pas une date. Sans ce retour sur soi, Date la roulerait
+   au 3 mars sans rien dire, et le mouvement se rangerait un mois trop loin. */
+function chJour(s){
+  const v=String(s==null?"":s).trim();
+  let m=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(v), y, mo, d;
+  if(m){ y=+m[1]; mo=+m[2]; d=+m[3]; }
+  else {
+    m=/^(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})$/.exec(v);
+    if(!m) return null;
+    y=+m[3]; mo=+m[2]; d=+m[1];
+  }
+  const o=new Date(y, mo-1, d); o.setHours(0,0,0,0);
+  if(o.getFullYear()!==y || o.getMonth()!==mo-1 || o.getDate()!==d) return null;
+  return o.getTime();
+}
+/* Le même jour, la même somme, le même poste, le même libellé : c'est le même
+   mouvement. Coller deux fois octobre doublerait la dîme — un registre qui
+   double ce qu'on donne ne prouve rien. On compare aussi au lot en cours,
+   pour la ligne répétée dans le collage lui-même. */
+function chDeja(x, faits){
+  const pareil=function(y){
+    return y.t===x.t && Math.abs(y.m||0)===x.m && y.p===x.p
+        && chNu(y.q)===chNu(x.q);
+  };
+  return (db.sous||[]).some(pareil) || faits.some(pareil);
+}
+/* Rien n'est écrit ici : on lit, on trie, on rend ce qu'on a compris. C'est
+   l'écran qui montre, et le disciple qui ajoute (13.bc). */
+function chLis(txt){
+  const out={ok:[], deja:[], ko:[]};
+  String(txt==null?"":txt).split(/\r?\n/).forEach(function(l){
+    const brut=l.trim();
+    if(!brut) return;
+    /* L'en-tête du modèle, recopié par habitude, n'est pas un mouvement. */
+    if(/^(jour|date)\s*[|;\t]/i.test(brut)) return;
+    const p=brut.split(/\s*[|;\t]\s*/);
+    if(p.length<3) return out.ko.push([brut, "il manque des colonnes — « jour | poste | montant | à qui »"]);
+    const t=chJour(p[0]);
+    if(t===null) return out.ko.push([brut, "le jour ne se lit pas (AAAA-MM-JJ)"]);
+    if(t>minuit(0)) return out.ko.push([brut, "ce jour n'est pas encore arrivé"]);
+    const ps=chPoste(p[1]);
+    if(ps===false) return out.ko.push([brut, "« "+p[1]+" » peut être une entrée ou une sortie : écris l'identifiant"]);
+    if(ps===null) return out.ko.push([brut, "« "+p[1]+" » n'est pas un poste"]);
+    const m=montantLu(p[2]);
+    if(!m) return out.ko.push([brut, "le montant ne se lit pas"]);
+    const x={t:t, m:Math.abs(m), p:ps, q:p.slice(3).join(" | ").trim()};
+    if(chDeja(x, out.ok)) out.deja.push(x); else out.ok.push(x);
+  });
+  return out;
+}
+function chLigneTxt(x){
+  return ligne({titre:esc(x.q || posteNom(x.p)),
+    sous:(x.q ? esc(posteNom(x.p))+" · " : "")+esc(souJour(x.t)),
+    apres:esc((posteSens(x.p)==="e" ? "+" : "−")+" "+sousTxt(x.m))});
+}
+function vCharger(){
+  Z.titre="Charger un relevé"; Z.retour=true;
+  const r=S.ch;
+  let h=`<div style="height:10px"></div>`;
+  if(!r){
+    h += `<div class="block amorce">Donne ton relevé à Claude avec la consigne ci-dessous, puis colle ici ce qu'il te rend. <b>Rien ne sera ajouté avant que tu l'aies vu.</b></div>`;
+    h += titreBloc("Ce que Claude t'a rendu");
+    h += `<div class="block"><textarea id="chTxt" placeholder="2026-11-03 | dieu | 250,00 | Dîme de novembre" style="min-height:150px;font-size:13px">${esc(S.chTxt||"")}</textarea></div>`;
+    h += titreBloc("La consigne à donner à Claude","ecart");
+    h += liste(ligne({titre:"Copier la consigne", attr:'data-act="chCopie"'}), "lien");
+    h += `<div class="block"><pre class="modele" id="chCons">${esc(CONSIGNE)}</pre></div>`;
+    Z.html=h;
+    Z.action=bouton("Lire", 'data-act="chLire"');
+    return;
+  }
+  if(r.ok.length){
+    h += titreBloc(r.ok.length>1 ? r.ok.length+" mouvements à ajouter" : "Un mouvement à ajouter");
+    h += liste(r.ok.map(chLigneTxt).join(""));
+  } else {
+    h += `<p class="vide">Rien à ajouter.</p>`;
+  }
+  /* Ce qui est écarté se montre autant que ce qui passe : un chargement
+     silencieux laisserait croire que tout est entré. */
+  if(r.deja.length){
+    h += titreBloc(r.deja.length>1 ? r.deja.length+" déjà notés" : "Un déjà noté","ecart");
+    h += `<div class="block amorce">Même jour, même somme, même poste, même libellé : ils sont déjà dans ton registre et ne seront pas repris. Si tu as vraiment dépensé deux fois la même chose le même jour, note la seconde à la main.</div>`;
+    h += liste(r.deja.map(chLigneTxt).join(""));
+  }
+  if(r.ko.length){
+    h += titreBloc(r.ko.length>1 ? r.ko.length+" lignes que je n'ai pas su lire" : "Une ligne que je n'ai pas su lire","ecart");
+    h += liste(r.ko.map(function(k){
+      return ligne({titre:`<span class="rouge">${esc(k[0])}</span>`, sous:esc(k[1])});
+    }).join(""));
+    h += `<div class="block amorce">Elles n'entreront pas. Corrige-les et recommence : ce qui est déjà passé ne sera pas ajouté deux fois.</div>`;
+  }
+  h += liste(ligne({titre:"Revenir au texte", attr:'data-act="chRetour"'}), "lien");
+  Z.html=h;
+  Z.action = r.ok.length
+    ? bouton("Ajouter "+(r.ok.length>1 ? "les "+r.ok.length : "le mouvement"), 'data-act="chAjoute"')
+    : "";
+}
+
 VUES.argent = vArgent;
 VUES.sou = vSou;
 VUES.devise = vDevise;
+VUES.charger = vCharger;

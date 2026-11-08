@@ -151,6 +151,13 @@ body::before{content:"";position:fixed;inset:0;z-index:0;background:var(--nappe)
 .tresor{font-family:var(--sans);font-size:16px;line-height:1.45;margin:0;
   color:var(--f7-text-color)}
 .tresor b{font-weight:700;color:var(--f7-theme-color);font-variant-numeric:tabular-nums}
+/* La consigne se relit et se recopie : elle doit s'aligner en colonnes, et
+   une ligne longue défile plutôt que de replier le format (13.dl). */
+.modele{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:11.5px;line-height:1.5;color:var(--muted);margin:0;
+  white-space:pre;overflow:auto;max-height:230px;-webkit-overflow-scrolling:touch;
+  padding:12px 14px;border:1px solid var(--filet);border-radius:10px;
+  -webkit-user-select:text;user-select:text}
 /* Le code de récupération : fait pour être recopié à la main, donc grand,
    espacé, et à chasse fixe pour qu'aucun signe n'en imite un autre. */
 #haut.libre, .entete{position:relative}

@@ -1976,3 +1976,171 @@ test("13.dk — la porte de Mes actes dit la part de Dieu du mois", () => {
   a.f.vActes();
   A.match(a.Z.html, /Ce qui entre, ce qui sort/, "et vide, elle invite sans accuser");
 });
+
+/* ---------- 13.dl — un relevé se verse, il ne remplace pas ---------- */
+
+const RELEVE = [
+  "2026-11-02 | salaire | 2500,00 | Salaire d'octobre",
+  "2026-11-03 | dieu | 250,00 | Dîme de novembre",
+  "2026-11-04 | moi | 900,00 | Loyer"
+].join("\n");
+
+function colle(a, txt) {
+  a.S.pile = []; a.S.view = "argent";
+  a.geste({ go: "charger" });
+  a.f.vCharger();
+  a.ecrit("chTxt", txt);
+  a.actions.chLire();
+  return a.S.ch;
+}
+
+test("13.dl — le format se lit, et rien n'entre avant le dernier geste", () => {
+  const a = app();
+  const r = colle(a, RELEVE);
+  A.equal(r.ok.length, 3);
+  A.equal(r.deja.length, 0);
+  A.equal(r.ko.length, 0);
+  /* Lire ne touche pas au registre : l'application montre, le disciple
+     ajoute (13.bc). */
+  A.equal(a.db.sous.length, 0, "lire n'écrit rien");
+
+  a.actions.chAjoute();
+  A.equal(a.db.sous.length, 3);
+  A.equal(a.S.view, "argent", "et il revient là d'où il venait");
+  const x = a.db.sous.filter(function (y) { return y.p === "dieu"; })[0];
+  A.equal(x.m, 25000, "les centimes, en entier");
+  A.equal(x.t, jour(3, 0, 0));
+  A.equal(x.q, "Dîme de novembre");
+  A.ok(x.id, "et chaque mouvement reçoit son identifiant");
+  A.equal(a.S.ch, null, "le lot ne reste pas en mémoire");
+});
+
+test("13.dl — coller deux fois ne double pas la dîme", () => {
+  const a = app();
+  colle(a, RELEVE);
+  a.actions.chAjoute();
+  A.equal(a.db.sous.length, 3);
+
+  const r = colle(a, RELEVE);
+  A.equal(r.ok.length, 0, "tout est déjà là");
+  A.equal(r.deja.length, 3);
+  a.actions.chAjoute();
+  A.equal(a.db.sous.length, 3, "un registre qui double ce qu'on donne ne prouve rien");
+});
+
+test("13.dl — une ligne répétée dans le collage même ne passe qu'une fois", () => {
+  const a = app();
+  const r = colle(a, RELEVE + "\n" + "2026-11-03 | dieu | 250,00 | Dîme de novembre");
+  A.equal(r.ok.length, 3);
+  A.equal(r.deja.length, 1);
+});
+
+test("13.dl — deux mouvements du même jour passent s'ils se distinguent", () => {
+  const a = app();
+  const r = colle(a, [
+    "2026-11-03 | moi | 3,50 | Café",
+    "2026-11-03 | moi | 3,50 | Le marché",
+    "2026-11-03 | moi | 4,00 | Café"
+  ].join("\n"));
+  A.equal(r.ok.length, 3, "le libellé et la somme les séparent");
+  A.equal(r.deja.length, 0);
+});
+
+test("13.dl — ce qui ne se lit pas se dit, et n'entre pas", () => {
+  const a = app();
+  const r = colle(a, [
+    RELEVE,
+    "2026-13-01 | dieu | 10,00 | Mois impossible",
+    "2026-02-31 | dieu | 10,00 | Jour impossible",
+    "2026-11-09 | dieu | 10,00 | Demain",
+    "2026-11-03 | cantine | 10,00 | Poste inconnu",
+    "2026-11-03 | dieu | zéro | Montant illisible",
+    "2026-11-03 dieu 10,00 Sans séparateur"
+  ].join("\n"));
+  A.equal(r.ok.length, 3, "les bonnes lignes passent quand même");
+  A.equal(r.ko.length, 6);
+  const raisons = Array.from(r.ko).map(function (k) { return k[1]; }).join(" ~ ");
+  A.match(raisons, /le jour ne se lit pas/);
+  A.match(raisons, /n'est pas encore arrivé/);
+  A.match(raisons, /« cantine » n'est pas un poste/);
+  A.match(raisons, /le montant ne se lit pas/);
+  A.match(raisons, /il manque des colonnes/);
+
+  a.f.vCharger();
+  A.match(a.Z.html, /je n'ai pas su lire/, "l'écran les montre une par une");
+  A.match(a.Z.html, /Jour impossible/, "avec la ligne telle qu'elle a été collée");
+
+  a.actions.chAjoute();
+  A.equal(a.db.sous.length, 3, "rien d'illisible n'est entré");
+});
+
+test("13.dl — un nom qui désigne deux postes ne se devine pas", () => {
+  const a = app();
+  /* « Mon travail » est une sortie ET une entrée : deviner serait inventer
+     un chiffre (13.ch). */
+  A.equal(a.f.chPoste("Mon travail"), false);
+  A.equal(a.f.chPoste("Le reste"), false);
+  A.equal(a.f.chPoste("travail"), "travail", "l'identifiant, lui, tranche");
+  A.equal(a.f.chPoste("salaire"), "salaire");
+
+  const r = colle(a, "2026-11-03 | Mon travail | 10,00 | Péage");
+  A.equal(r.ok.length, 0);
+  A.match(r.ko[0][1], /peut être une entrée ou une sortie/);
+});
+
+test("13.dl — on accepte ce qu'un relevé recopié donne vraiment", () => {
+  const a = app();
+  const r = colle(a, [
+    "jour | poste | montant | à qui, à quoi",
+    "03/11/2026 ; Pour Dieu ; 250,00 ; Dîme",
+    "2026-11-04\tMA FAMILLE\t1 234,56 €\tEnvoi à maman",
+    "2026-11-05 | moi | -43,20 | Courses",
+    "2026-11-06 | epargne | 400 | Virement | automatique"
+  ].join("\n"));
+  A.equal(r.ko.length, 0, Array.from(r.ko).map(function (k) { return k.join(" → "); }).join(" ~ "));
+  A.equal(r.ok.length, 4, "l'en-tête du modèle n'est pas un mouvement");
+  const o = Array.from(r.ok);
+  A.equal(o[0].p, "dieu", "le nom du poste, accents et majuscules compris");
+  A.equal(o[1].p, "famille");
+  A.equal(o[1].m, 123456, "l'espace des milliers et le symbole ne gênent pas");
+  A.equal(o[2].m, 4320, "le signe d'un relevé ne se garde pas : le poste dit le sens");
+  A.equal(o[3].q, "Virement | automatique", "une barre dans le libellé reste dans le libellé");
+});
+
+test("13.dl — l'écran donne la consigne avant de demander le texte", () => {
+  const a = app();
+  a.S.pile = []; a.S.view = "argent";
+  a.geste({ go: "charger" });
+  a.f.vCharger();
+  A.match(a.Z.html, /jour \| poste \| montant/, "le format est écrit noir sur blanc");
+  A.match(a.Z.html, /data-act="chCopie"/, "et se copie d'un geste");
+  A.match(a.Z.html, /id="chTxt"/);
+  A.match(a.Z.action, /data-act="chLire"/);
+  /* Tous les postes sont nommés dans la consigne, sans quoi Claude en
+     inventerait. */
+  Array.from(a.c.POSTES).forEach(function (p) {
+    A.match(a.c.CONSIGNE, new RegExp("\\b" + p[0] + "\\b"), p[0] + " manque à la consigne");
+  });
+});
+
+test("13.dl — la porte est sur Mon argent, vide ou plein", () => {
+  const a = app();
+  a.S.view = "argent"; a.S.per = "mois"; a.S.anc = null;
+  a.f.vArgent();
+  A.match(a.Z.html, /data-go="charger"/, "registre vide : c'est là qu'on commence");
+
+  a.db.sous = [{ id: "mv1", t: jour(3, 0, 0), m: 25000, p: "dieu", q: "Dîme", maj: 1 }];
+  a.S.vueA = "parts"; a.f.vArgent();
+  A.match(a.Z.html, /data-go="charger"/);
+  a.S.vueA = "mvts"; a.f.vArgent();
+  A.match(a.Z.html, /data-go="charger"/);
+});
+
+test("13.dl — un relevé à demi lu ne survit pas à l'écran", () => {
+  const a = app();
+  colle(a, RELEVE);
+  A.ok(a.S.ch, "le lot est là tant qu'on le regarde");
+  a.geste({ go: "today" });
+  A.equal(a.S.ch, null, "il ne revient pas par la porte d'à côté");
+  A.equal(a.S.chTxt, "");
+});

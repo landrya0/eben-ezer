@@ -70,6 +70,9 @@ function render(){
   /* Un mouvement en cours de saisie n'a de sens que sur son écran : le
      garder ailleurs ferait réapparaître une somme à demi tapée. */
   if(S.view!=="sou") S.sd=null;
+  /* Un relevé à demi lu n'a de sens que sur son écran ; le garder ferait
+     revenir un lot déjà ajouté. */
+  if(S.view!=="charger"){ S.ch=null; S.chTxt=""; }
   if(S.view!=="lecture"){ S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false; }
   if(S.view!=="pages" && S.view!=="livre"){ S.pgL=null; S.pgA=null; S.pgZ=null; }
   if(S.view!=="auteur") S.auId=null;

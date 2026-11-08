@@ -651,6 +651,35 @@ const actions={
     notePer(pr); touche(pr); save();
     toast("Gardé."); depile("temps"); render();
   },
+  chCopie(){
+    try{ navigator.clipboard.writeText(CONSIGNE).then(
+      function(){ toast("Copié — colle-le à Claude avec ton relevé."); },
+      function(){ toast("Sélectionne le texte et copie-le"); }); }
+    catch(x){ toast("Sélectionne le texte et copie-le"); }
+  },
+  chLire(){
+    const e=document.getElementById("chTxt");
+    S.chTxt = e ? e.value : "";
+    if(!String(S.chTxt).trim()) return toast("Colle d'abord ce que Claude t'a rendu");
+    S.ch = chLis(S.chTxt);
+    if(!S.ch.ok.length && !S.ch.deja.length && !S.ch.ko.length){
+      S.ch=null; return toast("Aucune ligne de mouvement là-dedans");
+    }
+    render();
+  },
+  chRetour(){ S.ch=null; render(); },
+  chAjoute(){
+    const r=S.ch; if(!r || !r.ok.length) return;
+    const n=r.ok.length;
+    db.sous=(db.sous||[]).concat(r.ok.map(function(x){
+      return {id:uid("mv"), t:x.t, m:x.m, p:x.p, q:x.q, maj:Date.now()};
+    }));
+    db.sous.sort(function(a,b){ return a.t-b.t; });
+    save();
+    S.ch=null; S.chTxt="";
+    toast(n>1 ? n+" mouvements ajoutés." : "Ajouté.");
+    depile("argent"); render();
+  },
   souNeuf(){ empile(); S.sd={id:null, t:minuit(0), p:"", q:"", mTxt:""}; S.view="sou"; render(); },
   souGarder(){
     souLit();

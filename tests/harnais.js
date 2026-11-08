@@ -215,8 +215,10 @@ const PONT = `
        sou, cumulSous, sousDans, souJour, souTitre, souLit, sousTxt, sousNu,
        montantLu, poste, posteNom, posteSens, postesDe, partsSous,
        devLig, devNom, devSym, devDec, jdate, jourLu,
-       vArgent, vSou, vDevise, vReglages, listePostes },
-  c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY, POSTES, DEVISES, CAT_SOCLE, ONG_ARG }
+       vArgent, vSou, vDevise, vReglages, listePostes,
+       chLis, chJour, chPoste, chNu, chDeja, vCharger, porteCharger },
+  c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY, POSTES, DEVISES, CAT_SOCLE, ONG_ARG,
+       CONSIGNE }
 };
 `;
 

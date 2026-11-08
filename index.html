@@ -807,7 +807,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v75";
+const VERSION = "v76";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -1069,11 +1069,15 @@ function fermeBloc(b){
   if(!b || b.fin) return;
   b.fin=Math.max(Date.now(), b.deb+1000); touche(b);
 }
-function pointe(tid, enPlus){
+function pointe(tid, enPlus, deb){
   const n=Date.now(), ouv=ouverts();
   if(ouv.some(function(b){ return b.t===tid; })) return false;
   if(!enPlus) ouv.forEach(fermeBloc);
-  db.temps.push({id:uid("b"), t:tid, deb:n, maj:n});
+  /* Un début repris ne peut être qu'antérieur : on ne commence pas à compter
+     dans le futur, et on ne remonte que jusqu'où le disciple l'a demandé. */
+  const d=(typeof deb==="number" && deb<n) ? deb : n;
+  db.temps.push({id:uid("b"), t:tid, deb:d, maj:n});
+  db.temps.sort(function(a,b){ return a.deb-b.deb; });
   save(); return true;
 }
 function arrete(){
@@ -1779,7 +1783,7 @@ function render(){
   if(!surCause){ S.cNeuf=false; S.cTxt=""; S.cType=""; S.cQ=""; }
   /* L'interrupteur ne se garde pas : « en plus » oublié d'hier ferait
      démarrer une activité par-dessus une autre sans qu'on l'ait voulu. */
-  if(S.view!=="pointer"){ S.tQ=""; S.tCat=""; S.enPlus=false; }
+  if(S.view!=="pointer"){ S.tQ=""; S.tCat=""; S.enPlus=false; S.vifPrend=false; }
   if(S.view!=="pointer" && S.view!=="temps" && S.view!=="bloc" && S.view!=="frise"
      && S.view!=="lecture" && S.view!=="pages" && S.view!=="livre"){ S.blocId=null; S.trou=null; }
   if(S.view!=="lecture"){ S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false; }
@@ -3290,13 +3294,32 @@ function vPointer(){
   const o = ouvert(), ouv = ouverts(), q = (S.tQ||"").trim(), cats = CATS();
   const enCours = {};
   ouv.forEach(function(b){ enCours[b.t]=1; });
+  /* Un creux vif ne naît que d'un arrêt voulu (13.db) : on le mesure avant
+     tout, parce que c'est lui qui décide de ce que la page a à dire. */
+  const vif = (!corr && !S.trou && !ouverts().length) ? creuxVif() : null;
+  const dv = vif ? Date.now()-vif.deb : 0;
+  const choixVif = !!vif && dv>=SEUIL_CREUX;
   let h = "";
   if(corr) h += `<div class="block amorce" style="margin-top:16px"><b>${esc(tacheNom(corr.t))}</b>, de ${hmin(new Date(corr.deb))} à ${corr.fin?hmin(new Date(corr.fin)):"maintenant"}.</div>`;
-  else if(trou && trou.vif) h += `<div class="block amorce" style="margin-top:16px">Depuis ${hmin(new Date(trou.deb))}, rien n'est compté — ${hm(Date.now()-trou.deb)}. Dis à quoi tout ce temps est allé : le compte reprendra là, sans trou.</div>`;
   else if(trou) h += `<div class="block amorce" style="margin-top:16px">De ${hmin(new Date(trou.deb))} à ${hmin(new Date(trou.fin))} — ${hm(trou.fin-trou.deb)} — rien n'a été compté. Dis à quoi c'est allé.</div>`;
   else if(o) h += `<div class="block amorce" style="margin-top:16px">Depuis ${hmin(new Date(o.deb))}, le temps va à <b>${esc(tacheNom(o.t))}</b> — ${hm(Date.now()-o.deb)}.${
       ouv.length>1 ? " En même temps : "+ouv.filter(function(b){ return b!==o; }).map(function(b){ return "<b>"+esc(tacheNom(b.t))+"</b>"; }).join(", ")+"." : ""}</div>`;
+  else if(choixVif) h += `<div class="block amorce" style="margin-top:16px">Rien n'est compté depuis que tu as arrêté, à ${hmin(new Date(vif.deb))}.</div>`;
   else h += `<div class="block amorce" style="margin-top:16px">Rien n'est compté. À partir de ce que tu touches ici, le temps aura un destinataire.</div>`;
+  /* Le défaut ne peut pas être de donner ce temps-là à la première activité
+     choisie : le disciple venait de le retirer à tout le monde. Mais il
+     arrive aussi qu'on s'arrête, puis qu'on se remette à prier sans le dire
+     — alors on le reprend, d'une tape. Deux positions, et l'écran dit
+     laquelle il tient : la forme déjà employée pour « à la place / en
+     plus » (13.db). */
+  if(choixVif){
+    h += `<div class="puces" style="padding-top:2px">`
+      + `<button class="puce" data-vif="0" aria-pressed="${!S.vifPrend}">Depuis maintenant</button>`
+      + `<button class="puce" data-vif="1" aria-pressed="${!!S.vifPrend}">Depuis ${hmin(new Date(vif.deb))}</button></div>`
+      + `<div class="block amorce">${S.vifPrend
+          ? "Ce qui s'est écoulé depuis ton arrêt — <b>"+esc(hm(dv))+"</b> — ira à ce que tu choisis."
+          : "Ce temps-là — <b>"+esc(hm(dv))+"</b> — n'ira à personne."}</div>`;
+  }
   /* S'arrêter n'était possible qu'au fond d'un menu, sur un bloc, depuis
      « Mon temps » : trois gestes pour dire qu'on ne fait plus rien. Or on
      s'arrête souvent, et sans savoir ce qui vient après. L'arrêt est donc
@@ -5158,7 +5181,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -5204,6 +5227,7 @@ document.addEventListener("click", ev=>{
     S.anc = (t===bornes(S.per, Date.now())[0]) ? null : t;
     return render(); }
   if(g.plus!==undefined){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.enPlus=(g.plus==="1"); return render(); }
+  if(g.vif!==undefined){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.vifPrend=(g.vif==="1"); return render(); }
   if(g.tcat){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.tCat=g.tcat; return render(); }
   if(g.creux){
     const p=g.creux.split("|");
@@ -5354,9 +5378,14 @@ function poseTache(id){
     apresArret([dejaLa]); return render();
   }
   const enPlus=!!S.enPlus;
-  const chg=pointe(id, enPlus);
+  /* L'interrupteur ne vaut que pour le geste qu'on vient de faire : laissé
+     en place, il reprendrait un creux qu'on n'a pas regardé (13.db). */
+  const vif=S.vifPrend ? creuxVif() : null;
+  S.vifPrend=false;
+  const chg=pointe(id, enPlus, vif && vif.deb);
   save(); S.pile=[]; S.view="today";
-  toast(chg ? (enPlus ? "En plus : "+tacheNom(id) : "On compte : "+tacheNom(id)) : "C'était déjà ça.");
+  const dep = vif ? ", depuis "+hmin(new Date(vif.deb)) : "";
+  toast(chg ? (enPlus ? "En plus : "+tacheNom(id)+dep : "On compte : "+tacheNom(id)+dep) : "C'était déjà ça.");
   render();
 }
 function valDate(id, repli){ const e=document.getElementById(id); return (e&&e.value)?e.value:(repli||today()); }
@@ -5661,13 +5690,14 @@ const actions={
                : "L'heure revient à ce qui tournait déjà.");
     render();
   },
-  /* Le creux vif ne se comble pas comme un creux d'archive : celui-ci
-     touche l'instant présent. Le bloc qu'on en tire reste donc ouvert — on
-     a dit à quoi allait tout ce temps, et il y va encore. La chaîne du
-     compte n'est pas rompue, ce qui était tout l'objet. S'il ne va plus
-     nulle part, l'arrêt est à une tape. */
-  comblerVif(){ const v=creuxVif(); if(!v) return;
-    S.blocId=null; S.trou={deb:v.deb, vif:true};
+  /* Le rail est le geste habituel pour dire à quoi l'on est. Quand rien ne
+     tourne, il montrait le temps non compté et menait au pointage — mais en
+     décidant au passage que l'activité choisie commencerait à l'arrêt. Or un
+     creux vif ne naît QUE d'un arrêt explicite : on ne peut pas donner à
+     quelqu'un un temps que le disciple vient de retirer à tout le monde
+     (13.db). Le rail ouvre donc le pointage, et rien de plus ; la reprise se
+     choisit là-bas, en clair. */
+  comblerVif(){ S.blocId=null; S.trou=null; S.vifPrend=false;
     empile(); S.view="pointer"; render(); },
   arretNet(){ const o=ouvert(); const n=o?tacheNom(o.t):""; const ouv=ouverts().slice();
     arrete(); S.pile=[]; S.view="today";

@@ -1056,3 +1056,63 @@ test("13.da — un bloc sans lecture ne renvoie nulle part", () => {
   const auj = a.f.bornes("jour", j(12, 0));
   A.equal(a.f.lectureAilleurs(b, auj[0], auj[1]), false);
 });
+
+/* ========================================================================
+   13.db — un arrêt est un arrêt
+   ======================================================================== */
+
+test("13.db — après un arrêt, une activité démarre maintenant, pas à l'heure de l'arrêt", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Sommeil", cat: "soi", maj: 1 },
+                 { id: "a2", nom: "Toilettes", cat: "soi", maj: 1 }];
+  a.db.temps = [{ id: "b1", t: "a1", deb: j(0, 30), maj: 1 }];
+
+  a.maintenant(j(7, 23));
+  a.f.arrete();
+  A.ok(a.f.creuxVif(), "l'arrêt ouvre un creux vif");
+
+  /* Sept minutes pour se lever, puis la tape sur le rail — le geste
+     habituel pour dire à quoi on est. */
+  a.maintenant(j(7, 30));
+  a.actions.comblerVif();
+  a.f.poseTache("a2");
+
+  const b = a.db.temps.filter(x => x.t === "a2")[0];
+  A.ok(b, "le bloc est créé");
+  A.equal(b.deb, j(7, 30),
+    "les sept minutes passées à se lever n'ont été données à personne");
+});
+
+test("13.db — mais reprendre le temps non compté reste à une tape", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Sommeil", cat: "soi", maj: 1 },
+                 { id: "a2", nom: "Prière", cat: "dieu", maj: 1 }];
+  a.db.temps = [{ id: "b1", t: "a1", deb: j(0, 30), maj: 1 }];
+  a.maintenant(j(7, 23));
+  a.f.arrete();
+  a.maintenant(j(7, 30));
+  a.S.vifPrend = true;
+  a.f.poseTache("a2");
+
+  const b = a.db.temps.filter(x => x.t === "a2")[0];
+  A.equal(b.deb, j(7, 23), "on priait déjà : le compte reprend à l'arrêt");
+  A.equal(b.fin, undefined, "et il tourne encore");
+});
+
+test("13.db — reprendre ne vaut que pour le geste qu'on vient de faire", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Sommeil", cat: "soi", maj: 1 },
+                 { id: "a2", nom: "Prière", cat: "dieu", maj: 1 },
+                 { id: "a3", nom: "Manger", cat: "soi", maj: 1 }];
+  a.db.temps = [{ id: "b1", t: "a1", deb: j(0, 30), maj: 1 }];
+  a.maintenant(j(7, 23));
+  a.f.arrete();
+  a.maintenant(j(7, 30));
+  a.S.vifPrend = true;
+  a.f.poseTache("a2");
+  A.equal(a.S.vifPrend, false, "l'interrupteur retombe : il ne vaut pas pour la suite");
+
+  a.maintenant(j(8, 0));
+  a.f.poseTache("a3");
+  A.equal(a.db.temps.filter(x => x.t === "a3")[0].deb, j(8, 0));
+});

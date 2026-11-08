@@ -187,7 +187,7 @@ const PONT = `
        disc, discNom, discDeNom, discTache, parDisc, mesureDisc, mesureProposee,
        spanActe,
        auteur, auteurId, auteurNom, auteursConnus, recuDe, recuTxt,
-       pdtDe, pdtCandidats, actesPdt, actesParDisc, node, enfants, partBloc,
+       pdtDe, pdtCandidats, actesPdt, actesParDisc, node, enfants, partBloc, lectureAilleurs,
        chemins, cheminDe, circonstancesDe, nomChemin, vChemin,
        periode, perOuverte, finPer, perOuvertes, perDans, perDisc, perDiscTxt,
        dureePer, quandPer,

@@ -333,6 +333,9 @@ body.avecRail .entete .rouage{top:calc(var(--rail,0px) + 5px)}
 .pas.rappel::before{background:transparent;border:1px dashed var(--muted)}
 .pas.rappel{padding:9px 0}
 .pas.rappel .dit{font-size:14px;font-weight:500;color:var(--muted);font-style:italic}
+/* Ce qui se compte un autre jour se dit, mais en retrait : c'est un repère,
+   pas une lecture de plus (13.da). */
+.lus.ailleurs{font-style:italic;opacity:.75}
 .etiq{display:inline-block;font-family:var(--sans);font-size:10.5px;font-weight:700;
   letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
   border:1px solid var(--filet);border-radius:9px;padding:1px 7px;margin-right:7px;
@@ -804,7 +807,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v74";
+const VERSION = "v75";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -1131,6 +1134,18 @@ function partBloc(b, t0, t1){
   const a=Math.max(deb, t0), z=Math.min(fin, t1);
   return {a:a, z:z, duree:Math.max(0, z-a), tot:Math.max(0, fin-deb),
           avant:deb<t0, apres:fin>t1, ouvert:typeof b.fin!=="number"};
+}
+/* Les heures d'un bloc se partagent entre les jours qu'il traverse ; ce qu'on
+   y a lu, non — cinquante-deux pages lues d'une traite ne se coupent pas au
+   prorata de minuit. Elles restent au jour où la lecture a commencé, et sur
+   l'autre jour le bloc le dit, pour qu'on ne cherche pas dans « Mes lectures »
+   des pages qui se comptent ailleurs (13.da). */
+function lectureAilleurs(b, t0, t1){
+  if(!b || (b.deb>=t0 && b.deb<t1)) return false;
+  return !!(((b.lu||[]).length) || ((b.pg||[]).length));
+}
+function dateJour(ms){
+  return new Date(ms).toLocaleDateString("fr-FR",{day:"numeric",month:"long"});
 }
 /* Ce qu'un acte occupe de temps, au plus fin de ce qu'on sait de sa date :
    un jour s'il est daté au jour, tout un mois si l'on ne se souvient que du
@@ -3769,6 +3784,8 @@ function vMonTemps(){
         +(deborde ? " · "+esc(deborde)+", "+esc(hm(p.tot))+" en tout" : "")
         +((b.lu&&b.lu.length)?`<span class="lus">${esc(passagesTxt(b))}</span>`:"")
         +((b.pg&&b.pg.length)?`<span class="lus">${esc(passagesPgTxt(b))}</span>`:"")
+        +(lectureAilleurs(b, f.t0, f.t1)
+          ? `<span class="lus ailleurs">Cette lecture compte au ${esc(dateJour(b.deb))}</span>` : "")
         +(b.note?`<span class="medNote">${esc(b.note)}</span>`:""),
       apres:esc(hm(p.duree)), attr:'data-bloc="'+b.id+'"'});
   }).join(""));

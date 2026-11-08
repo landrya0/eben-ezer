@@ -1036,3 +1036,23 @@ test("13.da — ce qui ne se divise pas ne se divise pas : les pages restent au 
   A.equal(a.f.mesureDisc("litt", auj[0], auj[1]), "",
     "et on ne les compte surtout pas une seconde fois");
 });
+
+test("13.da — le jour qui ne compte pas la lecture dit où elle se compte", () => {
+  const a = app();
+  aCheval(a);
+  a.db.temps[0].pg = [["Une voix pour le réveil", 1, 52]];
+  const b = a.db.temps[0];
+  const hier = a.f.bornes("jour", jour(7, 12, 0));
+  const auj = a.f.bornes("jour", j(12, 0));
+  A.equal(a.f.lectureAilleurs(b, hier[0], hier[1]), false,
+    "hier compte ces pages : il n'a rien à renvoyer ailleurs");
+  A.equal(a.f.lectureAilleurs(b, auj[0], auj[1]), true,
+    "aujourd'hui montre le bloc sans compter ses pages : il doit le dire");
+});
+
+test("13.da — un bloc sans lecture ne renvoie nulle part", () => {
+  const a = app();
+  const b = aCheval(a);
+  const auj = a.f.bornes("jour", j(12, 0));
+  A.equal(a.f.lectureAilleurs(b, auj[0], auj[1]), false);
+});

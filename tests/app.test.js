@@ -1691,3 +1691,56 @@ test("13.di — un sujet se corrige, mais rien ne se réunit à sa place", () =>
     "un autre sujet porte déjà ce texte : on le dit, on ne fusionne pas (13.ct)");
   A.equal(a.db.sujets.length, 3);
 });
+
+/* ---------- 13.dj — un temps mis à part se dit en haut ---------- */
+
+function enRetraite(a) {
+  a.db.periodes = [{ id: "pr1", d: "retraite", deb: jour(7, 7, 0), maj: 1 }];
+  a.db.nodes = [{ id: "n1", act: "dieu", txt: "Il a parlé au matin", man: "parle",
+                  kind: "rhema", date: "2026-11-07", prec: "j", etat: "fait",
+                  par: [], ts: 1, maj: 1 }];
+  return a.db.periodes[0];
+}
+
+test("13.dj — une retraite en cours se dit sur l'écran d'ouverture", () => {
+  const a = app();
+  const pr = enRetraite(a);
+  A.match(a.f.rappelPer(), /Retraites pour le progrès spirituel/);
+  A.match(a.f.rappelPer(), /C'est fini/);
+  A.match(a.f.rappelPer(), /data-perfin="pr1"/);
+  a.S.view = "today";
+  a.f.vToday();
+  A.match(a.Z.html, /data-perfin="pr1"/, "et pas seulement dans Mon temps");
+
+  pr.fin = jour(8, 18, 0);
+  A.equal(a.f.rappelPer(), "", "refermée, elle quitte le haut de l'écran");
+});
+
+test("13.dj — « C'est fini » referme et mène aussitôt à la fiche", () => {
+  const a = app();
+  const pr = enRetraite(a);
+  a.maintenant(j(12, 0));
+  a.geste({ perfin: "pr1" });
+  A.equal(a.f.perOuverte(pr), false);
+  A.equal(pr.fin, j(12, 0), "elle se referme à l'instant où il le dit");
+  A.equal(a.S.view, "periode", "et on arrive là où l'heure se corrige");
+  A.equal(a.S.perId, "pr1");
+});
+
+test("13.dj — la ligne dit le geste, et le geste se reprend", () => {
+  const a = app();
+  const pr = enRetraite(a);
+  a.S.view = "periode"; a.S.perId = "pr1";
+  a.f.vPeriode();
+  A.match(a.Z.html, /C'est fini/, "ouverte : la ligne propose de refermer");
+  A.ok(!/C'est toujours en cours/.test(a.Z.html));
+
+  a.maintenant(j(12, 0));
+  a.actions.perCours();
+  A.equal(a.f.perOuverte(pr), false);
+  a.f.vPeriode();
+  A.match(a.Z.html, /C'est toujours en cours/, "refermée : on peut la rouvrir");
+
+  a.actions.perCours();
+  A.equal(a.f.perOuverte(pr), true, "une fin posée par erreur se reprend (13.cl)");
+});

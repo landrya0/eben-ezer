@@ -1270,14 +1270,19 @@ function vPeriode(){
   h+=titreBloc("Le début","ecart");
   h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
       <input type="datetime-local" id="pdDeb" value="${dtl(pr.deb)}"></div></div></li>`);
+  /* « C'est toujours en cours ✓ » demandait de DÉCOCHER pour dire qu'un temps
+     était fini : la case disait l'état, pas le geste, et on cherchait le
+     geste. La ligne dit maintenant ce qu'elle fait — et l'inverse reste
+     atteignable d'une touche, car une fin posée par erreur doit pouvoir se
+     reprendre (13.cl, 13.dj). */
   h+=titreBloc("La fin","ecart");
-  h+=liste(ligne({titre:"C'est toujours en cours",
-      apres: ouverte ? `<span class="coche">✓</span>` : "", attr:'data-act="perCours"'}));
+  h+=liste(ouverte
+    ? ligne({titre:"C'est fini", sous:"Tu pourras corriger l'heure juste après",
+        attr:'data-act="perCours"'})
+    : ligne({titre:"C'est toujours en cours", attr:'data-act="perCours"'}));
   if(!ouverte){
     h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
         <input type="datetime-local" id="pdFin" value="${dtl(pr.fin)}"></div></div></li>`);
-  } else {
-    h+=`<div class="block amorce">Personne ne referme un temps mis à part à ta place : touche la ligne du dessus quand il sera fini.</div>`;
   }
   const ap=actesPdt(pr.id);
   h+=titreBloc("Ce qu'Il y a fait","ecart");

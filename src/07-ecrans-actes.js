@@ -43,6 +43,26 @@ function rappelTemps(){
     sous: cj.tot ? esc(hm(cj.tot))+" comptés aujourd'hui" : "Dire à quoi va ton temps",
     attr:'data-go="pointer"'}), "lien") + `<div style="height:6px"></div>`;
 }
+/* Un temps mis à part ne se compte pas en heures : il ne passe donc ni dans
+   le rail ni dans le compteur, et il n'avait aucune place sur l'écran
+   d'ouverture. Résultat : pour dire « ma retraite est finie », il fallait
+   descendre dans Mon temps, choisir Les routines, trouver la période, et y
+   décocher « c'est toujours en cours » — quatre écrans pour un seul mot.
+   Or une retraite, c'est deux jours de la vie du disciple : tant qu'elle
+   dure, elle est le cadre de tout le reste, et elle se dit en haut (13.dj). */
+function rappelPer(){
+  const ps=perOuvertes();
+  if(!ps.length) return "";
+  return titreBloc("Un temps mis à part")
+    + ps.map(function(pr){
+        return liste(ligne({titre:esc(discNom(pr.d)),
+            sous:esc(dureePer(pr))+", depuis "+esc(quandPer(pr)),
+            attr:'data-prd="'+pr.id+'"'})
+          + ligne({titre:"C'est fini", sous:"Refermer ce temps mis à part",
+            attr:'data-perfin="'+pr.id+'"'}), "lien");
+      }).join("")
+    + `<div style="height:6px"></div>`;
+}
 function rappelFichier(){
   const n=db.nodes.length + (db.temps||[]).length;
   if(n<5) return "";
@@ -86,7 +106,7 @@ function vToday(){
     Z.file = true;
     Z.haut = RAMEAU("marque") + `<p class="titre-page">Rien ne revient aujourd'hui.</p><p class="ssTitre">${d}</p>`;
     Z.html = `<div class="block amorce" style="margin-top:20px">Tout ce qu'Il a fait a reçu quelque chose de toi. Note la suite quand elle vient.</div>`
-      + rappelTemps() + rappelFichier();
+      + rappelPer() + rappelTemps() + rappelFichier();
     return;
   }
   /* Quatre derniers gardés remplissent un téléphone et laissent une tablette
@@ -97,6 +117,7 @@ function vToday(){
   Z.haut = RAMEAU("marque") + `<p class="titre-page">Ce qui revient</p><p class="ssTitre">${d}</p>`;
   Z.html = `<div class="carr" id="carr" style="margin-top:16px">${cartes.map(carte).join("")}</div>
     ${cartes.length>1 ? `<div class="points" id="points">${cartes.map((c,i)=>`<i${i?"":' class="on"'}></i>`).join("")}</div>` : ""}
+    ${rappelPer()}
     ${rappelTemps()}
     ${titreBloc("Derniers gardés")}
     ${liste(recents.map(n=>ligneActe(n,{attr:'data-node="'+n.id+'"'})).join(""))}

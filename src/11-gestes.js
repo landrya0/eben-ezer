@@ -61,7 +61,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -124,6 +124,16 @@ document.addEventListener("click", ev=>{
     touche(b); save(); return render();
   }
   if(g.sujo){ empile(); S.sujId=g.sujo; S.view="sujet"; return render(); }
+  /* On referme au moment où il le dit, et on l'emmène aussitôt sur la fiche :
+     l'heure exacte de la fin est rarement « maintenant », et la corriger doit
+     être le geste suivant, pas une chose à retrouver (13.dj). */
+  if(g.perfin){
+    const pr=periode(g.perfin); if(!pr) return;
+    if(perOuverte(pr)){ pr.fin=Math.max(Date.now(), pr.deb+60000); touche(pr); save(); }
+    S.pile=[]; empile(); S.perId=pr.id; S.view="periode";
+    toast("Terminé. Corrige l'heure si besoin.");
+    return render();
+  }
   if(g.sjf){ const e=document.getElementById("sjQ"); if(e) S.sjQ=e.value;
     S.sjF=g.sjf; return render(); }
   /* Le geste du cahier de prière : la réponse vient, on l'écrit, et le lien

@@ -768,7 +768,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v59";
+const VERSION = "v60";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -815,7 +815,7 @@ let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an"
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
          per:"jour", anc:null, tQ:"", tCat:"", blocId:null, medId:null, trou:null, quand:null,
          noteFocus:false, frisZ:null, enPlus:false, tchId:null,
-         lu:null, luA:null, luZ:null, luPlein:false, tSp:null,
+         lu:null, luA:null, luZ:null, luPlein:false,
          pgL:null, pgA:null, pgZ:null, lvId:null};
 
 /* Un seul « écran précédent » ne suffisait pas : en ouvrant un retour depuis
@@ -853,6 +853,14 @@ function sane(v){
      la plus ancienne possible : la moindre écriture réelle les dépassera. */
   [d.nodes,d.gens,d.noms,d.mans,d.cats,d.taches,d.temps,d.livres].forEach(function(a){
     a.forEach(function(x){ if(x && typeof x.maj!=="number") x.maj=1; });
+  });
+  /* Le type de champs était un réglage à part ; il devient une conséquence de
+     la routine (13.cn). On reprend l'ancien à la lettre, le choix explicite
+     de « rien de plus » compris, et chaque appareil fait la même traduction
+     de son côté — rien à propager. */
+  d.taches.forEach(function(t){
+    if(t && t.d===undefined && t.sp!==undefined)
+      t.d = t.sp==="bible" ? "parole" : (t.sp==="livre" ? "litt" : "");
   });
   /* Un bloc sans départ ou sans activité ne dit rien : on nettoie et on
      range une fois pour toutes, au chargement.
@@ -961,13 +969,13 @@ function tacheCat(id){ const t=tache(id); return t ? (t.cat||"reste") : "reste";
    deviner d'après le nom dépannait les anciennes, ce n'est pas une manière
    de créer les nouvelles. À défaut de choix, le nom tranche — mais le choix
    est offert, au même écran (13.cg). */
-function tacheId(nom, cat, sp){
+function tacheId(nom, cat, d){
   const v=String(nom||"").trim(); if(!v) return "";
   const t=(db.taches||[]).filter(x=>x.nom.toLowerCase()===v.toLowerCase())[0];
   if(t){ if(cat && t.cat!==cat){ t.cat=cat; touche(t); } return t.id; }
   const id=uid("a");
   db.taches.push({id:id, nom:cap(v), cat:cat||"reste",
-                  sp:(sp===undefined||sp===null) ? spDeNom(v) : sp, maj:Date.now()});
+                  d:(d===undefined||d===null) ? discDeNom(v) : d, maj:Date.now()});
   return id;
 }
 function blocT(id){ return (db.temps||[]).filter(b=>b.id===id)[0]; }
@@ -1657,7 +1665,6 @@ function render(){
      && S.view!=="lecture" && S.view!=="pages" && S.view!=="livre"){ S.blocId=null; S.trou=null; }
   if(S.view!=="lecture"){ S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false; }
   if(S.view!=="pages" && S.view!=="livre"){ S.pgL=null; S.pgA=null; S.pgZ=null; }
-  if(S.view!=="pointer") S.tSp=null;
   /* On ne rouvre jamais l'application sur une fenêtre passée : revenir à un
      onglet ramène au présent, comme on ouvre toujours sur Aujourd'hui. */
   if(ONGLETS.some(function(o){ return o[0]===S.view; })) S.anc=null;
@@ -3153,11 +3160,6 @@ function vPointer(){
       ${titreBloc("Nouvelle activité")}
       <div class="block amorce">Dans quoi la ranger ? C'est ce rangement, et lui seul, qui fera les parts.</div>
       <div class="puces">${cats.map(c=>`<button class="puce" data-tcat="${c.id}" aria-pressed="${S.tCat===c.id}">${esc(c.nom)}</button>`).join("")}</div>
-      <div class="block amorce" style="margin-top:14px">Et qu'est-ce qu'on y note, en plus du temps ?</div>
-      <div class="puces" id="tTypes">${[["","Rien de plus"],["bible","Lecture de la Bible"],["livre","Lecture d'un livre"]].map(function(x){
-        const vu = S.tSp===null||S.tSp===undefined ? spDeNom(q) : S.tSp;
-        return `<button class="puce" data-tsp="${x[0]}" aria-pressed="${vu===x[0]}">${x[1]}</button>`;
-      }).join("")}</div>
       ${liste(ligne({titre:`<span class="qn">Compter « ${esc(cap(q))} »</span>`, attr:'data-act="neufTache"'}), "lien")}
     </div>`;
 
@@ -3412,13 +3414,13 @@ function vMonTemps(){
      temps couvre le tout (13.cm). */
   const pd=parDisc(c.par);
   if(Object.keys(pd).length){
-    h += titreBloc("Les disciplines","ecart");
+    h += titreBloc("Les routines","ecart");
     h += liste(DISC.filter(function(x){ return x[2]==="d" || pd[x[0]]; }).map(function(x){
       const o={titre:esc(x[1]), apres: pd[x[0]] ? esc(hm(pd[x[0]])) : "—"};
       if(x[2]!=="d") o.sous = (x[2]==="e") ? "Se compte en actes" : "Se tient en posture";
       return ligne(o);
     }).join(""));
-    h += `<div class="block amorce">Sur les seize disciplines du message de Bertoua, sept se mesurent en durée. Les autres se vivent en actes et en postures : ce compteur ne les atteint pas, et ne prétend pas le contraire.</div>`;
+    h += `<div class="block amorce">Sur les seize routines du message de Bertoua, sept se mesurent en durée. Les autres se vivent en actes et en postures : le compteur ne les atteint pas — elles se compteront ailleurs.</div>`;
   }
 
   const pf=pagesFen(f.t0, f.t1);
@@ -3444,8 +3446,15 @@ function vMonTemps(){
   const tids=Object.keys(c.par).sort((a,b)=>c.par[b]-c.par[a]);
   h += titreBloc("Activité par activité","ecart");
   if(porte) h += `<div class="block amorce">Chacune compte tout son temps. Quand plusieurs sont menées de front, leur somme dépasse la journée — c'est voulu : la journée, elle, est au-dessus.</div>`;
-  h += liste(tids.map(tid=>ligne({titre:esc(tacheNom(tid)), sous:esc(catNom(tacheCat(tid))),
-      apres:esc(hm(c.par[tid])), attr:'data-tch="'+tid+'"'})).join(""));
+  /* Le rangement d'abord — c'est lui qui fait les parts — et la routine
+     derrière, quand elle est déclarée : c'est là qu'on veut voir l'association,
+     à côté du temps qu'elle a reçu. */
+  h += liste(tids.map(function(tid){
+    const dd=discTache(tid);
+    return ligne({titre:esc(tacheNom(tid)),
+      sous:esc(catNom(tacheCat(tid))) + (dd ? " · "+esc(discNom(dd)) : ""),
+      apres:esc(hm(c.par[tid])), attr:'data-tch="'+tid+'"'});
+  }).join(""));
 
   /* Le temps dit la fidélité, pas le chemin. Deux heures dans la Parole
      peuvent être dix chapitres ou un seul relu dix fois : les deux sont
@@ -3626,13 +3635,6 @@ function chapitresTxt(n){ return n+" chapitre"+(n>1?"s":""); }
    Parole » lit la Bible — et l'écran de l'activité tranche quand le nom se
    trompe. Son avis tient : un champ posé à la main vaut mieux qu'une
    devinette qui revient. */
-function spDeNom(nom){
-  const v=String(nom||"");
-  if(/bible|parole|écriture|ecriture/i.test(v)) return "bible";
-  if(/littérature|litterature/i.test(v)) return "livre";
-  return "";
-}
-
 /* ---------- les seize disciplines ---------- */
 /* Le message de Bertoua (2008) nomme seize disciplines à revêtir. Elles ne
    sont pas de cette application : elles lui préexistent, et c'est pourquoi
@@ -3697,10 +3699,15 @@ function parDisc(par){
   });
   return o;
 }
+/* Un seul attribut sur l'activité : la routine. Les champs qu'on lui demande
+   en découlent — les chapitres pour la Bible, les pages pour la littérature
+   — au lieu d'être un second réglage qu'il faudrait tenir d'accord avec le
+   premier (13.cn). */
 function spTache(id){
-  const t=tache(id);
-  if(!t) return "";
-  return (t.sp!==undefined) ? t.sp : spDeNom(t.nom);
+  const d=discTache(id);
+  if(d==="parole") return "bible";
+  if(d==="litt") return "livre";
+  return "";
 }
 /* L'activité qui porte la lecture : celle qu'on a déclarée telle, et s'il y
    en a plusieurs, celle où l'on passe le plus de temps. */
@@ -3915,26 +3922,10 @@ function vTache(){
   const sp=spTache(t.id);
   Z.titre=t.nom; Z.retour=true;
   let h=`<div class="block amorce" style="margin-top:16px">Rangée dans <b>${esc(catNom(t.cat||"reste"))}</b>. C'est ce rangement qui fait les parts.</div>`;
-  h+=titreBloc("Ce qu'on y note");
-  h+=`<div class="block amorce">En plus du temps et de ce qui s'y est passé, l'app peut demander autre chose à cette activité.</div>`;
-  h+=liste(ligne({titre:"Rien de plus", sous:"Le temps, et la note du bloc",
-      apres: !sp ? `<span class="coche">✓</span>` : "", attr:'data-sp="-"'})
-    + ligne({titre:"Les chapitres de la Bible",
-      sous:"Le livre et les chapitres lus, avec la reprise là où tu t'es arrêté",
-      apres: sp==="bible" ? `<span class="coche">✓</span>` : "", attr:'data-sp="bible"'})
-    + ligne({titre:"Les pages d'un livre",
-      sous:"Plusieurs livres de front, chacun avec son signet et son avancement",
-      apres: sp==="livre" ? `<span class="coche">✓</span>` : "", attr:'data-sp="livre"'}));
-  if(sp==="bible"){
-    const n=chapDistincts(t.id);
-    h+=titreBloc("Ce que tu as traversé","ecart");
-    h+=liste(ligne({titre:"Chapitres distincts", sous:"Relire ne l'agrandit pas",
-        apres:esc(n+" / "+BIBLE_CH)}));
-  }
   const dc=discTache(t.id);
-  h+=titreBloc("La discipline à laquelle elle répond","ecart");
-  h+=`<div class="block amorce">Les seize disciplines du message de Bertoua. L'activité garde son nom et le tien ; elle dit seulement de laquelle elle est la mise en œuvre.</div>`;
-  h+=liste(champSel("tDisc","Discipline",
+  h+=titreBloc("La routine");
+  h+=`<div class="block amorce">Les seize routines du message de Bertoua. L'activité garde son nom ; elle dit seulement de laquelle elle est la mise en œuvre — et c'est elle qui décide de ce qu'on te demandera en plus du temps.</div>`;
+  h+=liste(champSel("tDisc","Routine",
       `<option value=""${dc?"":" selected"}>— aucune —</option>`
       + ["d","e","p"].map(function(m){
           return `<optgroup label="${esc(DISC_MODE[m])}">`
@@ -3942,6 +3933,16 @@ function vTache(){
                 return `<option value="${x[0]}"${dc===x[0]?" selected":""}>${esc(x[1])}</option>`;
               }).join("") + `</optgroup>`;
         }).join("")));
+  h+=`<div class="block amorce">${
+      sp==="bible" ? "On te demandera <b>les chapitres lus</b>, et la reprise là où tu t'es arrêté."
+    : sp==="livre" ? "On te demandera <b>les pages lues</b>, avec un signet par livre."
+    : "Rien de plus que le temps et la note du bloc."}</div>`;
+  if(sp==="bible"){
+    const n=chapDistincts(t.id);
+    h+=titreBloc("Ce que tu as traversé","ecart");
+    h+=liste(ligne({titre:"Chapitres distincts", sous:"Relire ne l'agrandit pas",
+        apres:esc(n+" / "+BIBLE_CH)}));
+  }
   if(sp==="livre"){
     h+=titreBloc("Tes livres","ecart");
     h+=liste(((db.livres||[]).map(function(l){
@@ -4467,14 +4468,6 @@ document.addEventListener("input", ev=>{
       nf.hidden = !q || exact;
       const b=nf.querySelector(".qn");
       if(b) b.textContent="Compter « "+cap(ev.target.value.trim())+" »";
-      /* Le nom propose, il ne décide plus : tant que rien n'est touché, la
-         pastille suit ce qu'on écrit ; dès qu'on en touche une, elle tient. */
-      if(S.tSp===null || S.tSp===undefined){
-        const vu=spDeNom(ev.target.value);
-        [].forEach.call(document.querySelectorAll("#tTypes .puce"), function(p){
-          p.setAttribute("aria-pressed", String(p.dataset.tsp===vu));
-        });
-      }
     }
     return;
   }
@@ -4527,7 +4520,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup],[data-tch],[data-sp],[data-lusup],[data-tsp],[data-pgl],[data-pgsup],[data-lv],[data-fdec]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup],[data-tch],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-fdec]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -4570,7 +4563,6 @@ document.addEventListener("click", ev=>{
     const fd=fenetre(), t=decale(S.per, fd.t0, +g.fdec);
     S.anc = (t===bornes(S.per, Date.now())[0]) ? null : t;
     return render(); }
-  if(g.tsp!==undefined){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.tSp=g.tsp; return render(); }
   if(g.plus!==undefined){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.enPlus=(g.plus==="1"); return render(); }
   if(g.tcat){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.tCat=g.tcat; return render(); }
   if(g.creux){
@@ -4588,11 +4580,6 @@ document.addEventListener("click", ev=>{
   /* Une ligne d'« activité par activité » ne menait nulle part : elle est
      maintenant la porte de l'activité elle-même, et de ce qu'on y note. */
   if(g.tch){ empile(); S.tchId=g.tch; S.view="tache"; return render(); }
-  if(g.sp){
-    const t=tache(S.tchId); if(!t) return;
-    t.sp = g.sp==="-" ? "" : g.sp;
-    touche(t); save(); toast("Noté."); return render();
-  }
   if(g.pgl){ S.pgL=g.pgl; S.pgA=null; S.pgZ=null; return render(); }
   if(g.lv){ empile(); S.lvId=g.lv; S.view="livre"; return render(); }
   if(g.pgsup!==undefined){
@@ -4745,7 +4732,7 @@ const actions={
     const v=((e&&e.value)||S.tQ||"").trim();
     if(!v) return toast("Écris le nom de l'activité");
     if(!S.tCat) return toast("Dis dans quoi la ranger");
-    poseTache(tacheId(v, S.tCat, S.tSp));
+    poseTache(tacheId(v, S.tCat));
   },
   corrBloc(){ fermeMenu(); empile(); S.view="pointer"; render(); },
   heuresBloc(){ fermeMenu(); empile(); S.view="bloc"; render(); },
@@ -4766,7 +4753,7 @@ const actions={
     apresArret([b]); render();
   },
   bibleGo(){
-    const id=tacheBible() || tacheId("Lecture de la Parole", "dieu", "bible");
+    const id=tacheBible() || tacheId("Lecture de la Parole", "dieu", "parole");
     pointe(id, false); S.pile=[]; S.view="today";
     toast("On compte : "+tacheNom(id)); render();
   },

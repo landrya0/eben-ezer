@@ -768,7 +768,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v58";
+const VERSION = "v59";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -3405,6 +3405,22 @@ function vMonTemps(){
      parts vivent au-dessus, dans « La part de chacun », et nulle part
      ailleurs — c'est ce qui évite d'avoir deux chiffres qui se contredisent
      sur le même écran. */
+  /* Sept des seize disciplines se mesurent en durée ; les neuf autres sont
+     des actes ou des postures, et un compteur ne les atteindra jamais. On
+     montre donc les sept — plus celles qu'une activité a déclarées — et on
+     écrit en toutes lettres ce qui échappe, au lieu de laisser croire que le
+     temps couvre le tout (13.cm). */
+  const pd=parDisc(c.par);
+  if(Object.keys(pd).length){
+    h += titreBloc("Les disciplines","ecart");
+    h += liste(DISC.filter(function(x){ return x[2]==="d" || pd[x[0]]; }).map(function(x){
+      const o={titre:esc(x[1]), apres: pd[x[0]] ? esc(hm(pd[x[0]])) : "—"};
+      if(x[2]!=="d") o.sous = (x[2]==="e") ? "Se compte en actes" : "Se tient en posture";
+      return ligne(o);
+    }).join(""));
+    h += `<div class="block amorce">Sur les seize disciplines du message de Bertoua, sept se mesurent en durée. Les autres se vivent en actes et en postures : ce compteur ne les atteint pas, et ne prétend pas le contraire.</div>`;
+  }
+
   const pf=pagesFen(f.t0, f.t1);
   if(pf.pg || (db.livres||[]).length){
     h += titreBloc("Mes lectures","ecart");
@@ -3611,7 +3627,75 @@ function chapitresTxt(n){ return n+" chapitre"+(n>1?"s":""); }
    trompe. Son avis tient : un champ posé à la main vaut mieux qu'une
    devinette qui revient. */
 function spDeNom(nom){
-  return /bible|parole|écriture|ecriture/i.test(String(nom||"")) ? "bible" : "";
+  const v=String(nom||"");
+  if(/bible|parole|écriture|ecriture/i.test(v)) return "bible";
+  if(/littérature|litterature/i.test(v)) return "livre";
+  return "";
+}
+
+/* ---------- les seize disciplines ---------- */
+/* Le message de Bertoua (2008) nomme seize disciplines à revêtir. Elles ne
+   sont pas de cette application : elles lui préexistent, et c'est pourquoi
+   on les cite dans leur ordre et sous leurs noms, sans les réécrire.
+   Trois modes, et un seul regarde un compteur : sept se mesurent en durée,
+   cinq se comptent en actes, quatre se tiennent en posture. Ében-Ézer ne
+   prétend donc pas les couvrir — il répond de celles que le temps mesure,
+   et il dit lesquelles lui échappent (13.cm). */
+const DISC = [
+  ["disciple","Devenir et être disciple de Jésus-Christ","p"],
+  ["priere","La prière seul","d"],
+  ["rdqd","Rencontres quotidiennes avec Dieu","d"],
+  ["parole","Lecture de la Bible","d"],
+  ["litt","Lecture de littérature chrétienne","d"],
+  ["retraite","Retraites pour le progrès spirituel","d"],
+  ["ensemble","Prière avec les autres","d"],
+  ["donner","Donner à Dieu","e"],
+  ["jeune","Le jeûne","d"],
+  ["ames","La conquête des âmes","e"],
+  ["former","Faire des disciples","e"],
+  ["cr","Le compte-rendu","e"],
+  ["eglise","Être membre fidèle d'une église locale","e"],
+  ["servir","Servir selon son appel","p"],
+  ["volonte","Vivre dans la volonté de Dieu en tout","p"],
+  ["gloire","Tout faire pour la gloire de Jésus-Christ","p"]
+];
+const DISC_MODE = {d:"Ce que le temps mesure", e:"Ce qui se compte en actes",
+                   p:"Ce qui se tient en posture"};
+function disc(id){ return DISC.filter(function(x){ return x[0]===id; })[0]; }
+function discNom(id){ const d=disc(id); return d ? d[1] : ""; }
+/* Le nom donne un premier avis — « Nuit de prière Paris » n'est pas la
+   prière seul — et l'écran tranche quand le nom se trompe : son avis tient,
+   comme pour le type (13.ce). */
+function discDeNom(nom){
+  const v=String(nom||"");
+  if(/bible|parole|écriture|ecriture/i.test(v)) return "parole";
+  if(/littérature|litterature/i.test(v)) return "litt";
+  if(/retraite/i.test(v)) return "retraite";
+  if(/je[uû]ne/i.test(v)) return "jeune";
+  if(/rdqd|rencontre/i.test(v)) return "rdqd";
+  if(/pri[eè]re|prier/i.test(v))
+    return /avec|nuit|culte|r[eé]union|assembl[eé]e|ensemble|groupe/i.test(v) ? "ensemble" : "priere";
+  if(/d[iî]me|offrande|donner/i.test(v)) return "donner";
+  if(/[âa]me|[eé]vang[eé]lis/i.test(v)) return "ames";
+  if(/disciple/i.test(v)) return "former";
+  if(/compte.?rendu/i.test(v)) return "cr";
+  if(/[eé]glise|assembl[eé]e|culte|r[eé]union/i.test(v)) return "eglise";
+  return "";
+}
+function discTache(id){
+  const t=tache(id);
+  if(!t) return "";
+  return (t.d!==undefined) ? t.d : discDeNom(t.nom);
+}
+/* Ce que chaque discipline a reçu sur la fenêtre. On part des totaux par
+   activité, jamais de l'union : deux activités rattachées à la même
+   discipline lui ont bien donné leurs deux temps. */
+function parDisc(par){
+  const o={};
+  Object.keys(par||{}).forEach(function(tid){
+    const d=discTache(tid); if(d) o[d]=(o[d]||0)+par[tid];
+  });
+  return o;
 }
 function spTache(id){
   const t=tache(id);
@@ -3834,7 +3918,7 @@ function vTache(){
   h+=titreBloc("Ce qu'on y note");
   h+=`<div class="block amorce">En plus du temps et de ce qui s'y est passé, l'app peut demander autre chose à cette activité.</div>`;
   h+=liste(ligne({titre:"Rien de plus", sous:"Le temps, et la note du bloc",
-      apres: sp!=="bible" ? `<span class="coche">✓</span>` : "", attr:'data-sp="-"'})
+      apres: !sp ? `<span class="coche">✓</span>` : "", attr:'data-sp="-"'})
     + ligne({titre:"Les chapitres de la Bible",
       sous:"Le livre et les chapitres lus, avec la reprise là où tu t'es arrêté",
       apres: sp==="bible" ? `<span class="coche">✓</span>` : "", attr:'data-sp="bible"'})
@@ -3847,6 +3931,17 @@ function vTache(){
     h+=liste(ligne({titre:"Chapitres distincts", sous:"Relire ne l'agrandit pas",
         apres:esc(n+" / "+BIBLE_CH)}));
   }
+  const dc=discTache(t.id);
+  h+=titreBloc("La discipline à laquelle elle répond","ecart");
+  h+=`<div class="block amorce">Les seize disciplines du message de Bertoua. L'activité garde son nom et le tien ; elle dit seulement de laquelle elle est la mise en œuvre.</div>`;
+  h+=liste(champSel("tDisc","Discipline",
+      `<option value=""${dc?"":" selected"}>— aucune —</option>`
+      + ["d","e","p"].map(function(m){
+          return `<optgroup label="${esc(DISC_MODE[m])}">`
+            + DISC.filter(function(x){ return x[2]===m; }).map(function(x){
+                return `<option value="${x[0]}"${dc===x[0]?" selected":""}>${esc(x[1])}</option>`;
+              }).join("") + `</optgroup>`;
+        }).join("")));
   if(sp==="livre"){
     h+=titreBloc("Tes livres","ecart");
     h+=liste(((db.livres||[]).map(function(l){
@@ -4320,6 +4415,12 @@ document.addEventListener("input", ev=>{
      les trois listes restent d'accord entre elles. */
   if(id==="luZ"){ S.luZ=+ev.target.value; return render(); }
   if(id==="pgZ"){ S.pgZ=+ev.target.value; return render(); }
+  /* Un réglage d'activité, pas un état d'écran : il se garde tout seul. */
+  if(id==="tDisc"){
+    const t=tache(S.tchId);
+    if(t){ t.d=ev.target.value; touche(t); save(); toast("Noté."); }
+    return render();
+  }
   if(id==="luLiv" || id==="luDeb" || id==="luFin"){
     if(!S.lu) return;
     const v=+ev.target.value;

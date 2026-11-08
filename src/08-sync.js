@@ -411,6 +411,7 @@ function fusionne(A, B){
     cats:  fusionListe(A.cats,   B.cats,   morts),
     livres:fusionListe(A.livres, B.livres, morts),
     auteurs:fusionListe(A.auteurs, B.auteurs, morts),
+    sujets:fusionListe(A.sujets, B.sujets, morts),
     taches:fusionListe(A.taches, B.taches, morts),
     temps: fusionTemps(fusionListe(A.temps, B.temps, morts)),
     periodes: fusionListe(A.periodes, B.periodes, morts),
@@ -426,6 +427,10 @@ function fusionne(A, B){
   d.noms.forEach(function(nm){ if(nm.nodes) nm.nodes=nm.nodes.filter(function(p){ return vivants[p]; }); });
   const ta={}; d.taches.forEach(function(t){ ta[t.id]=1; });
   d.temps=d.temps.filter(function(b){ return ta[b.t]; });
+  /* Un sujet effacé sur l'autre appareil laisserait, ici, une ligne qui ne
+     dit plus rien — et le nombre compterait du vide. */
+  const sj={}; d.sujets.forEach(function(s){ sj[s.id]=1; });
+  d.temps.forEach(function(b){ if(b.sj) b.sj=b.sj.filter(function(x){ return sj[x]; }); });
   /* Et un « pendant » qui ne mène plus à rien : le bloc ou la période a pu
      être effacé sur l'autre appareil. L'acte reste, il perd sa circonstance
      — jamais l'inverse (13.cx). */

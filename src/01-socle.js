@@ -9,7 +9,7 @@
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v79";
+const VERSION = "v80";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -50,12 +50,12 @@ const TACHES_SOCLE = [
   ["Attente","reste"],["Écrans","reste"]
 ];
 
-let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], periodes:[], livres:[], auteurs:[], exp:0, seq:1};
+let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], periodes:[], livres:[], auteurs:[], sujets:[], exp:0, seq:1};
 let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an", rev:"noms", pile:[], nodeId:null,
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
          per:"jour", anc:null, vue:"parts", tQ:"", tCat:"", blocId:null, medId:null, trou:null, quand:null,
-         noteFocus:false, frisZ:null, enPlus:false, tchId:null,
+         noteFocus:false, frisZ:null, enPlus:false, tchId:null, sjQ:"",
          lu:null, luA:null, luZ:null, luPlein:false,
          pgL:null, pgA:null, pgZ:null, lvId:null, auId:null, perId:null};
 
@@ -87,6 +87,7 @@ function sane(v){
           cats:Array.isArray(o.cats)?o.cats:[], taches:Array.isArray(o.taches)?o.taches:[],
           livres:Array.isArray(o.livres)?o.livres:[],
           auteurs:Array.isArray(o.auteurs)?o.auteurs:[],
+          sujets:Array.isArray(o.sujets)?o.sujets:[],
           temps:Array.isArray(o.temps)?o.temps:[],
           periodes:Array.isArray(o.periodes)?o.periodes:[],
           exp:(typeof o.exp==="number")?o.exp:0,
@@ -95,7 +96,7 @@ function sane(v){
           seq:(typeof o.seq==="number"&&o.seq>0)?o.seq:1};
   /* Les fiches d'avant la synchronisation n'ont pas d'heure. On leur en donne
      la plus ancienne possible : la moindre écriture réelle les dépassera. */
-  [d.nodes,d.gens,d.noms,d.mans,d.cats,d.taches,d.temps,d.periodes,d.livres,d.auteurs].forEach(function(a){
+  [d.nodes,d.gens,d.noms,d.mans,d.cats,d.taches,d.temps,d.periodes,d.livres,d.auteurs,d.sujets].forEach(function(a){
     a.forEach(function(x){ if(x && typeof x.maj!=="number") x.maj=1; });
   });
   /* Le type de champs était un réglage à part ; il devient une conséquence de

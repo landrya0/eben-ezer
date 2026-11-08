@@ -530,6 +530,7 @@ function vMonTemps(){
         +(deborde ? " · "+esc(deborde)+", "+esc(hm(p.tot))+" en tout" : "")
         +((b.lu&&b.lu.length)?`<span class="lus">${esc(passagesTxt(b))}</span>`:"")
         +((b.pg&&b.pg.length)?`<span class="lus">${esc(passagesPgTxt(b))}</span>`:"")
+      +((b.sj&&b.sj.length)?`<span class="lus">${esc(sujetsTxt(b.sj.length))}</span>`:"")
         +(lectureAilleurs(b, f.t0, f.t1)
           ? `<span class="lus ailleurs">Cette lecture compte au ${esc(dateJour(b.deb))}</span>` : "")
         +(b.note?`<span class="medNote">${esc(b.note)}</span>`:""),
@@ -686,10 +687,12 @@ function mesureDisc(id, t0, t1){
     if(b.deb<t0 || b.deb>=t1 || discTache(b.t)!==id) return;
     if(id==="parole") (b.lu||[]).forEach(function(r){ n+=nbLu(r); });
     else if(id==="litt") (b.pg||[]).forEach(function(r){ n+=r[2]-r[1]+1; });
+    else n+=(b.sj||[]).length;
   });
   if(!n) return "";
   if(id==="parole") return chapitresTxt(n);
   if(id==="litt") return pagesTxt(n);
+  if(mesureProposee(id)==="sujets") return sujetsTxt(n);
   return "";
 }
 /* Une activité déclare-t-elle une routine ? C'est ce qui ouvre le compte

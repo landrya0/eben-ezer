@@ -103,7 +103,48 @@ function parDisc(par){
 function mesureProposee(d){
   if(d==="parole") return "bible";
   if(d==="litt") return "livre";
+  /* Trois routines qui ne se comptent ni en chapitres ni en pages : ce qu'on
+     y fait, c'est NOMMER. Le disciple tient depuis des années un cahier de
+     sujets de prière et un cahier de sujets d'actions de grâces — une ligne
+     par sujet, numérotée, datée. On garde sa forme, parce qu'elle est juste :
+     le nombre est le nombre de lignes, il tombe tout seul, et chaque ligne
+     garde la matière au lieu de la réduire à un chiffre (13.de). */
+  if(d==="priere" || d==="rdqd" || d==="ensemble") return "sujets";
   return "";
+}
+/* Un sujet n'appartient pas à une séance : il revient. « Merci pour le
+   travail » est écrit dix fois dans le cahier, et c'est sa répétition qui se
+   lit. On le retrouve donc au lieu de le recréer — à la casse et aux espaces
+   près, puisque personne ne retape deux fois la même phrase à l'identique. */
+function sujet(id){ return (db.sujets||[]).filter(function(s){ return s.id===id; })[0]; }
+function sujetTxt(id){ const s=sujet(id); return s ? s.txt : ""; }
+function sujetId(txt){
+  const v=String(txt||"").trim().replace(/\s+/g," ");
+  if(!v) return null;
+  db.sujets=db.sujets||[];
+  const k=v.toLowerCase();
+  const f=db.sujets.filter(function(s){ return String(s.txt).trim().toLowerCase()===k; })[0];
+  if(f) return f.id;
+  const id=uid("s"); db.sujets.push({id:id, txt:v, maj:Date.now()}); return id;
+}
+function sujetsTxt(n){ return n+" sujet"+(n>1?"s":""); }
+/* Ce qui revient revient : la santé, l'assemblée, le travail. Les redemander
+   en toutes lettres chaque matin ferait payer deux fois ce qui est déjà
+   écrit. On tend donc la liste de la dernière fois — de la même routine, pas
+   d'une autre : les sujets d'une prière du soir ne sont pas ceux d'une
+   rencontre matinale. Mais on n'en coche aucun : un sujet qu'il n'a pas
+   nommé ce matin n'a pas été nommé, et un nombre faux est pire que pas de
+   nombre (13.de). */
+function sujetsDerniers(b){
+  if(!b) return [];
+  const d=discTache(b.t);
+  let der=null;
+  (db.temps||[]).forEach(function(x){
+    if(x.id===b.id || !(x.sj||[]).length || x.deb>b.deb) return;
+    if(discTache(x.t)!==d) return;
+    if(!der || x.deb>der.deb) der=x;
+  });
+  return der ? der.sj.slice() : [];
 }
 /* Mais une routine se vit sous plusieurs supports, et le support commande la
    mesure : un enseignement suivi en vidéo est de la littérature chrétienne et
@@ -208,14 +249,16 @@ function passagesDe(a, z){
 function apresArret(bs, repli){
   const b=(bs||[]).filter(function(x){
     const sp=x ? spTache(x.t) : "";
-    return x && blocT(x.id) && (sp==="bible" || sp==="livre");
+    return x && blocT(x.id) && (sp==="bible" || sp==="livre" || sp==="sujets");
   })[0];
   if(!b) return false;
   S.pile=[]; S.view=repli||"today"; empile();
   S.blocId=b.id;
   S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false;
   S.pgL=null; S.pgA=null; S.pgZ=null;
-  S.view = spTache(b.t)==="livre" ? "pages" : "lecture";
+  S.sjQ="";
+  const sp=spTache(b.t);
+  S.view = sp==="livre" ? "pages" : sp==="sujets" ? "sujets" : "lecture";
   return true;
 }
 function debutPlat(){
@@ -521,6 +564,49 @@ function listePg(b){
   }).join(""));
 }
 
+function listeSj(b){
+  return liste((b.sj||[]).map(function(id,i){
+    return ligne({titre:esc(sujetTxt(id)),
+      apres:`<span class="rouge">Retirer</span>`, attr:'data-sjsup="'+i+'"'});
+  }).join(""));
+}
+function ligneSj(id){
+  const t=sujetTxt(id);
+  return ligne({titre:esc(t), attr:'data-sjadd="'+id+'" data-sjn="'+esc(t.toLowerCase())+'"'});
+}
+/* L'écran du cahier. Il ne se referme pas sur un ajout : une séance en nomme
+   trente, et refermer à chaque fois ferait trente allers-retours. On écrit,
+   ça s'ajoute, le champ se vide, on continue — et ce qui est déjà nommé
+   reste sous les yeux, parce que c'est ainsi qu'on sait où l'on en est. */
+function vSujets(){
+  const b=blocT(S.blocId);
+  if(!b){ depile("temps"); return render(); }
+  Z.titre="Ce que tu as nommé"; Z.retour=true;
+  const sur=(b.sj||[]), pris={};
+  sur.forEach(function(id){ pris[id]=1; });
+  let h=`<div class="block amorce" style="margin-top:16px">Un sujet par ligne, comme dans ton cahier. Ce qui revient, tu le retrouves d'un geste.</div>`;
+  if(sur.length){
+    h+=titreBloc("Nommés ici — "+sujetsTxt(sur.length));
+    h+=listeSj(b);
+  }
+  h+=titreBloc(sur.length ? "En nommer un autre" : "Les nommer", "ecart");
+  h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
+    <input type="text" id="sjQ" placeholder="Chercher, ou nommer un sujet" value="${esc(S.sjQ||"")}" autocomplete="off" autocapitalize="sentences"></div></div></li>`);
+  h+=`<div class="list list-strong list-outline list-dividers inset" id="sjNeuf" hidden><ul>${
+      ligne({titre:`<span class="qn"></span>`, attr:'data-act="sjAdd"'})}</ul></div>`;
+  const der=sujetsDerniers(b).filter(function(id){ return !pris[id] && sujet(id); });
+  const vus={}; der.forEach(function(id){ vus[id]=1; });
+  if(der.length)
+    h+=`<div class="sjgrp">`+titreBloc("La dernière fois","ecart")+liste(der.map(ligneSj).join(""))+`</div>`;
+  const autres=(db.sujets||[]).filter(function(s){ return !pris[s.id] && !vus[s.id]; })
+    .sort(function(a,b2){ return (b2.maj||0)-(a.maj||0); });
+  if(autres.length)
+    h+=`<div class="sjgrp">`+titreBloc("Déjà nommés, une autre fois","ecart")
+      + liste(autres.map(function(s){ return ligneSj(s.id); }).join(""))+`</div>`;
+  Z.html=h;
+  Z.action=bouton("Terminé", 'data-back="1"');
+}
+
 /* Une seule liste, comme pour l'Écriture : le départ est le signet, et la
    seule question est jusqu'où. Les autres livres entamés sont là, en
    pastilles — changer de livre reste un geste, pas un écran. */
@@ -669,6 +755,12 @@ function vBloc(){
     if((b.pg||[]).length) h+=listePg(b);
     h+=liste(ligne({titre:(b.pg||[]).length ? "Ajouter un passage" : "Dire les pages lues",
         sous:"Le livre et les pages traversées", attr:'data-act="direPg"'}), "lien");
+  }
+  if(spTache(b.t)==="sujets"){
+    h+=titreBloc("Ce que tu as nommé","ecart");
+    if((b.sj||[]).length) h+=listeSj(b);
+    h+=liste(ligne({titre:(b.sj||[]).length ? "En nommer un autre" : "Dire ce que tu as nommé",
+        sous:"Les sujets, un par ligne", attr:'data-act="direSj"'}), "lien");
   }
   h+=titreBloc("Le début","ecart");
   h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
@@ -1019,6 +1111,7 @@ const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), acte
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData,
               pointer:vPointer, temps:vMonTemps, bloc:vBloc, quand:vQuand, frise:vFrise,
               tache:vTache, lecture:vLecture, pages:vPages, livre:vLivre, auteur:vAuteur,
+              sujets:vSujets,
               perNeuf:vPerNeuf, periode:vPeriode, epingles:vEpingles,
               sync:vSync, reglages:vReglages};
 
@@ -1152,6 +1245,29 @@ document.addEventListener("input", ev=>{
       nf.hidden = !q || exact;
       const b=nf.querySelector(".qn");
       if(b) b.textContent="Compter « "+cap(ev.target.value.trim())+" »";
+    }
+    return;
+  }
+  /* Le même rouage que la recherche d'activité : on cache et on montre au
+     lieu de redessiner, sinon le curseur saute à chaque lettre et le clavier
+     se referme — sur un écran où l'on tape trente fois de suite. */
+  if(id==="sjQ"){
+    const q=ev.target.value.trim().toLowerCase();
+    S.sjQ=ev.target.value;
+    let exact=false;
+    [].forEach.call(document.querySelectorAll("[data-sjn]"), el=>{
+      const li=el.closest("li")||el, nom=el.getAttribute("data-sjn")||"";
+      const ok = !q || nom.indexOf(q)!==-1;
+      li.hidden=!ok; if(nom===q) exact=true;
+    });
+    [].forEach.call(document.querySelectorAll(".sjgrp"), g=>{
+      g.hidden = !g.querySelectorAll("li:not([hidden])").length;
+    });
+    const nf=document.getElementById("sjNeuf");
+    if(nf){
+      nf.hidden = !q || exact;
+      const bq=nf.querySelector(".qn");
+      if(bq) bq.textContent="Nommer « "+cap(ev.target.value.trim())+" »";
     }
     return;
   }

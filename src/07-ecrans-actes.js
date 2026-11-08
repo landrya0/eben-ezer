@@ -644,6 +644,7 @@ function raccourciArret(t){
   const sp=spTache(t.id);
   if(sp==="bible") return " — tu diras jusqu'où tu es allé";
   if(sp==="livre") return " — tu diras jusqu'à quelle page";
+  if(sp==="sujets") return " — tu diras ce que tu as nommé";
   return "";
 }
 function porteRaccourci(t){

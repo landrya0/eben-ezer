@@ -61,7 +61,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -95,6 +95,21 @@ document.addEventListener("click", ev=>{
   /* Épingler, c'est une date : elle dit aussi dans quel ordre les lignes se
      rangent. Zéro, et non « absent », pour qu'un décochage voyage à la
      synchronisation au lieu de se faire écraser par l'autre appareil. */
+  if(g.sjadd){
+    const b=blocT(S.blocId); if(!b) return;
+    b.sj=(b.sj||[]);
+    if(b.sj.indexOf(g.sjadd)<0) b.sj.push(g.sjadd);
+    /* Reprendre un sujet le remet au-dessus de la pile : ce qu'on redit
+       souvent se retrouve vite, ce qu'on a dit une fois il y a deux ans
+       descend tout seul. */
+    touche(sujet(g.sjadd)); touche(b); S.sjQ=""; save(); return render();
+  }
+  if(g.sjsup){
+    const b=blocT(S.blocId); if(!b) return;
+    const i=+g.sjsup;
+    b.sj=(b.sj||[]).filter(function(x,k){ return k!==i; });
+    touche(b); save(); return render();
+  }
   if(g.eptog){
     const t=tache(g.eptog);
     if(t){ t.ep = t.ep ? 0 : Date.now(); touche(t); save(); }
@@ -199,6 +214,9 @@ document.addEventListener("click", ev=>{
         .concat(spTache(b.t)==="livre" ? [{txt:(b.pg&&b.pg.length) ? "Corriger les pages lues"
                                                                    : "Dire les pages lues",
                                             attr:'data-act="direPg"'}] : [])
+        .concat(spTache(b.t)==="sujets" ? [{txt:(b.sj&&b.sj.length) ? "Corriger ce que tu as nommé"
+                                                                     : "Dire ce que tu as nommé",
+                                            attr:'data-act="direSj"'}] : [])
         .concat(chevauche(b) ? [{txt: b.porte ? "Rendre l'heure à ce qui tournait déjà"
                                                : "C'est ça qui portait l'heure",
                                   attr:'data-act="porteBloc"'}] : [])
@@ -364,6 +382,20 @@ const actions={
     S.view="lecture"; render(); },
   direPg(){ fermeMenu(); empile(); S.pgL=null; S.pgA=null; S.pgZ=null;
     S.view="pages"; render(); },
+  direSj(){ fermeMenu(); empile(); S.sjQ=""; S.view="sujets"; render(); },
+  /* On garde ce qui est écrit, pas ce qui est choisi : le champ sert à la
+     fois à chercher et à nommer, et ce qu'il contient au moment du geste est
+     ce que le disciple vient de dire. */
+  sjAdd(){
+    const b=blocT(S.blocId); if(!b) return;
+    const e=document.getElementById("sjQ");
+    const v=((e&&e.value)||S.sjQ||"").trim();
+    if(!v) return;
+    const id=sujetId(v); if(!id) return;
+    b.sj=(b.sj||[]);
+    if(b.sj.indexOf(id)<0) b.sj.push(id);
+    touche(b); S.sjQ=""; save(); render();
+  },
   livreNeuf(){ empile(); S.lvId=null; S.view="livre"; render(); },
   livreFin(){
     const l=livre(S.lvId); if(!l) return;

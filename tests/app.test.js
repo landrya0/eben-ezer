@@ -348,7 +348,12 @@ test("13.cq — la routine propose une mesure, le support peut la refuser", () =
   const a = app();
   A.equal(a.f.mesureProposee("litt"), "livre");
   A.equal(a.f.mesureProposee("parole"), "bible");
-  A.equal(a.f.mesureProposee("priere"), "", "la prière ne se compte qu'en temps");
+  /* La prière comptait autrefois le temps et rien d'autre. Elle compte
+     maintenant les sujets nommés (13.de) — mais toutes les routines ne
+     comptent pas quelque chose de plus, et c'est ce que ce test garde. */
+  A.equal(a.f.mesureProposee("priere"), "sujets");
+  A.equal(a.f.mesureProposee("eglise"), "",
+    "être membre fidèle d'une église ne se compte qu'en temps");
 
   a.db.taches = [
     { id: "a1", nom: "Un livre", cat: "dieu", d: "litt", maj: 1 },
@@ -1174,7 +1179,10 @@ test("13.dc — ce qu'on demandera à l'arrêt vient de la routine, pas du racco
   ts.forEach(t => { t.ep = 1000 + ts.indexOf(t); });
   A.ok(a.f.raccourciArret(ts[0]).includes("jusqu'où"), "la Parole demande les chapitres");
   A.ok(a.f.raccourciArret(ts[1]).includes("quelle page"), "la littérature demande les pages");
-  A.equal(a.f.raccourciArret(ts[2]), "", "la prière ne compte que le temps");
+  A.ok(a.f.raccourciArret(ts[2]).includes("nommé"), "la prière demande les sujets (13.de)");
+  a.db.taches.push({ id: "t4", nom: "Culte", cat: "dieu", d: "eglise", ep: 1003, maj: 1 });
+  A.equal(a.f.raccourciArret(a.f.tache("t4")), "",
+    "une routine sans mesure propre ne demande rien de plus");
 });
 
 test("13.dc — une activité qui refuse la mesure de sa routine ne demande rien de plus", () => {
@@ -1244,4 +1252,127 @@ test("13.dd — toucher un raccourci qui tourne l'arrête, quel que soit l'inter
   a.geste({ ep: "t1" });
   A.ok(a.db.temps.filter(b => b.t === "t1")[0].fin, "c'est la même ligne qui arrête");
   A.equal(a.f.ouverts().length, 0);
+});
+
+/* ---------- 13.de — compter ce qu'on a nommé ---------- */
+
+function priant(a) {
+  a.db.taches = [
+    { id: "p1", nom: "Actions de grâces", cat: "dieu", d: "priere", maj: 1 },
+    { id: "p2", nom: "Lecture de la Parole", cat: "dieu", d: "parole", maj: 1 }
+  ];
+  a.db.temps = [bloc("b1", "p1", j(6, 0), j(6, 40))];
+  /* L'écran du cahier est ouvert : ailleurs, le bloc en cours d'édition est
+     relâché à chaque dessin, et le deuxième sujet ne trouverait plus où se
+     poser. */
+  a.S.view = "sujets"; a.S.blocId = "b1";
+  return a.db.temps[0];
+}
+
+test("13.de — un sujet redit n'est pas un sujet neuf", () => {
+  const a = app();
+  const i1 = a.f.sujetId("Merci pour le travail");
+  const i2 = a.f.sujetId("  merci   pour le TRAVAIL ");
+  A.equal(i2, i1, "ni la casse ni les espaces ne font deux sujets");
+  A.equal(a.db.sujets.length, 1);
+  A.equal(a.f.sujetTxt(i1), "Merci pour le travail", "la première forme est gardée");
+  A.notEqual(a.f.sujetId("Merci pour l'assemblée"), i1);
+  A.equal(a.db.sujets.length, 2);
+  A.equal(a.f.sujetId("   "), null, "un sujet vide n'est pas un sujet");
+});
+
+test("13.de — le compte est le nombre de lignes", () => {
+  const a = app();
+  const b = priant(a);
+  a.geste({ sjadd: a.f.sujetId("La santé de maman") });
+  a.geste({ sjadd: a.f.sujetId("Le travail") });
+  A.equal(b.sj.length, 2);
+  A.equal(a.f.mesureDisc("priere", jour(8, 0), jour(9, 0)), "2 sujets");
+  a.geste({ sjadd: a.f.sujetId("Le travail") });
+  A.equal(b.sj.length, 2, "ce qu'on a nommé une fois ne se compte pas deux fois");
+  a.geste({ sjsup: "0" });
+  A.equal(a.f.mesureDisc("priere", jour(8, 0), jour(9, 0)), "1 sujet");
+});
+
+test("13.de — nommer passe par le champ, et le champ se vide", () => {
+  const a = app();
+  const b = priant(a);
+  a.S.sjQ = "Merci pour la nouvelle année";
+  a.actions.sjAdd();
+  A.equal(b.sj.length, 1);
+  A.equal(a.f.sujetTxt(b.sj[0]), "Merci pour la nouvelle année");
+  A.equal(a.S.sjQ, "", "le champ se vide, on enchaîne sur le suivant");
+  a.actions.sjAdd();
+  A.equal(b.sj.length, 1, "un champ vide n'ajoute rien");
+});
+
+test("13.de — la dernière fois ne vient que de la même routine, et rien n'est coché", () => {
+  const a = app();
+  const b = priant(a);
+  const s1 = a.f.sujetId("La santé de maman"), s2 = a.f.sujetId("L'assemblée");
+  const s3 = a.f.sujetId("Un chapitre");
+  a.db.temps = [
+    bloc("b0", "p1", jour(7, 6, 0), jour(7, 6, 40), { sj: [s1, s2] }),
+    bloc("bL", "p2", jour(7, 8, 0), jour(7, 8, 30), { sj: [s3] }),
+    b
+  ];
+  A.deepEqual(Array.from(a.f.sujetsDerniers(b)), [s1, s2],
+    "les sujets d'une lecture ne sont pas ceux d'une prière");
+  A.equal((b.sj || []).length, 0, "l'app tend la liste, elle ne coche rien");
+});
+
+test("13.de — la dernière fois, c'est la dernière AVANT ce bloc", () => {
+  const a = app();
+  const b = priant(a);
+  const vieux = a.f.sujetId("Il y a longtemps"), hier = a.f.sujetId("Hier");
+  const apres = a.f.sujetId("Ce soir");
+  a.db.temps = [
+    bloc("b0", "p1", jour(5, 6, 0), jour(5, 6, 40), { sj: [vieux] }),
+    bloc("b1b", "p1", jour(7, 6, 0), jour(7, 6, 40), { sj: [hier] }),
+    b,
+    bloc("b2", "p1", j(20, 0), j(20, 30), { sj: [apres] })
+  ];
+  A.deepEqual(Array.from(a.f.sujetsDerniers(b)), [hier],
+    "ni l'avant-dernière, ni une séance qui vient après");
+});
+
+test("13.de — arrêter une prière mène au cahier, comme une lecture mène aux chapitres", () => {
+  const a = app();
+  priant(a);
+  a.db.temps = [bloc("b1", "p1", j(6, 0))];
+  a.S.view = "today";
+  a.maintenant(j(6, 40));
+  a.actions.arretNet();
+  A.equal(a.S.view, "sujets", "la question est posée à l'arrêt, pas à retrouver plus tard");
+  A.equal(a.S.blocId, "b1");
+});
+
+test("13.de — une activité qui refuse la mesure de sa routine ne demande pas de sujets", () => {
+  const a = app();
+  priant(a);
+  a.db.taches[0].m = 0;      /* on prie, on ne tient pas de liste (13.cq) */
+  A.equal(a.f.spTache("p1"), "");
+  a.db.temps = [bloc("b1", "p1", j(6, 0))];
+  a.S.view = "today";
+  a.maintenant(j(6, 40));
+  a.actions.arretNet();
+  A.notEqual(a.S.view, "sujets");
+});
+
+test("13.de — un sujet effacé ailleurs ne laisse pas une ligne vide qui compte", () => {
+  const a = app();
+  const s1 = a.f.sujetId("La santé de maman"), s2 = a.f.sujetId("L'assemblée");
+  const ici = {
+    sujets: [{ id: s1, txt: "La santé de maman", maj: 10 },
+             { id: s2, txt: "L'assemblée", maj: 10 }],
+    taches: [{ id: "p1", nom: "Actions de grâces", cat: "dieu", d: "priere", maj: 1 }],
+    temps: [bloc("b1", "p1", j(6, 0), j(6, 40), { sj: [s1, s2] })],
+    morts: {}, maj: 10, seq: 50
+  };
+  const ailleurs = JSON.parse(JSON.stringify(ici));
+  ailleurs.sujets = ailleurs.sujets.filter(s => s.id !== s2);
+  ailleurs.morts[s2] = 20; ailleurs.maj = 20;
+  const d = a.f.fusionne(a.f.sane(ici), a.f.sane(ailleurs));
+  A.deepEqual(Array.from(d.temps[0].sj), [s1]);
+  A.equal(d.sujets.length, 1);
 });

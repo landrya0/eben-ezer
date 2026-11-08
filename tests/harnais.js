@@ -207,6 +207,7 @@ const PONT = `
        periode, perOuverte, finPer, perOuvertes, perDans, perDisc, perDiscTxt,
        dureePer, quandPer,
        perTxt, cumulPer, parDisc,
+       sujet, sujetId, sujetTxt, sujetsTxt, sujetsDerniers, apresArret, spTache,
        livre, livreId, pageLue, nbLu, chapitresTxt, pagesTxt },
   c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY }
 };

@@ -62,7 +62,9 @@ function render(){
      une activité par-dessus une autre sans qu'on l'ait voulu. */
   if(S.view!=="pointer" && S.view!=="note"){ S.tQ=""; S.tCat=""; S.enPlus=false; S.vifPrend=false; }
   if(S.view!=="pointer" && S.view!=="temps" && S.view!=="bloc" && S.view!=="frise"
-     && S.view!=="lecture" && S.view!=="pages" && S.view!=="livre"){ S.blocId=null; S.trou=null; }
+     && S.view!=="lecture" && S.view!=="pages" && S.view!=="livre"
+     && S.view!=="sujets"){ S.blocId=null; S.trou=null; }
+  if(S.view!=="sujets") S.sjQ="";
   if(S.view!=="lecture"){ S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false; }
   if(S.view!=="pages" && S.view!=="livre"){ S.pgL=null; S.pgA=null; S.pgZ=null; }
   if(S.view!=="auteur") S.auId=null;
@@ -112,6 +114,8 @@ function render(){
   if(f){ f.value=S.cQ||""; f.dispatchEvent(new Event("input",{bubbles:true})); }
   const tf=document.getElementById("tQ");
   if(tf){ tf.value=S.tQ||""; tf.dispatchEvent(new Event("input",{bubbles:true})); }
+  const sf=document.getElementById("sjQ");
+  if(sf){ sf.value=S.sjQ||""; sf.dispatchEvent(new Event("input",{bubbles:true})); }
   medRend();
   const carr=document.getElementById("carr"), pts=document.getElementById("points");
   if(carr && pts) carr.addEventListener("scroll", ()=>{

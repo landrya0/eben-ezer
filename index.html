@@ -788,7 +788,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v69";
+const VERSION = "v70";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -2416,7 +2416,16 @@ function vNode(){
       apres:(n.etat||"fait")===k?`<span class="coche">✓</span>`:"",
       attr:'data-netat="'+k+'"'})).join(""));
   }
-  h+=titreBloc("En réponse à", n.act==="moi"?"ecart":"");
+  /* « Pendant » n'est pas « en réponse à » : l'un dit la circonstance,
+     l'autre affirme une cause (13.cx). Ils vivent donc l'un sous l'autre,
+     jamais mélangés. */
+  const px=n.pdt ? pdtDe(n.pdt) : null;
+  if(px){
+    h+=titreBloc("Pendant", n.act==="moi"?"ecart":"");
+    h+=liste(ligne({titre:esc(px.nom), sous:esc(px.quand),
+      attr:(px.kind==="periode" ? 'data-prd="' : 'data-vbloc="')+px.id+'"'}));
+  }
+  h+=titreBloc("En réponse à", (n.act==="moi"||px)?"ecart":"");
   h+=liste(
     (par.length ? par.map(p=>ligneActe(p,{attr:'data-node="'+p.id+'"'})).join("")
       : ligne({titre:`<span class="rien">Rien, pour l'instant</span>`}))
@@ -2511,7 +2520,7 @@ function vLier(){
 }
 
 /* ---------- l'assistant : noter, et attacher une réponse ---------- */
-function neuf(act){ return {act:act,gid:null,dest:"dieu",dgid:null,txt:"",desc:"",man:"",par:[],etat:"fait",date:today(),prec:"j",fige:false}; }
+function neuf(act){ return {act:act,gid:null,dest:"dieu",dgid:null,txt:"",desc:"",man:"",par:[],pdt:null,etat:"fait",date:today(),prec:"j",fige:false}; }
 /* La phrase courte est ce qui se relit ; la description est ce qu'on y ajoute
    quand on a le temps. Elle reste pliée tant qu'elle est vide, pour ne pas
    peser sur la capture — c'est la capture qui doit être rapide (P2). */
@@ -2671,13 +2680,20 @@ function vNote(){
     Z.html = `<div class="block amorce" style="margin-top:16px">${S.cNeuf
         ? "Ce qui a précédé n'était pas encore gardé. Écris-le ici."
         : "Une parole, une prière, un bienfait d'avant. Autant de liens que nécessaire."}</div>`
+      + (S.cNeuf ? "" : choixPendant(d))
       + choixCause(d.par, []);
     if(S.cNeuf){ Z.action = bouton("Ajouter et lier", 'data-act="ajoute"'); }
     else {
       const der = S.step===etapes(d).length-1;
+      /* « En réponse à rien » dit une absence, et c'est voulu — mais une
+         circonstance posée n'est pas rien : l'annoncer vide, juste sous une
+         ligne cochée, se contredirait. */
+      const acte=der?"saveNote":"suite";
       Z.action = d.par.length
-        ? bouton((der?"Garder — ":"Continuer — ")+d.par.length+" lien"+(d.par.length>1?"s":""), 'data-act="'+(der?"saveNote":"suite")+'"')
-        : bouton((der?"Garder":"Continuer")+" — en réponse à rien", 'data-act="'+(der?"saveNote":"suite")+'"');
+        ? bouton((der?"Garder — ":"Continuer — ")+d.par.length+" lien"+(d.par.length>1?"s":""), 'data-act="'+acte+'"')
+        : (d.pdt
+            ? bouton(der?"Garder":"Continuer", 'data-act="'+acte+'"')
+            : bouton((der?"Garder":"Continuer")+" — en réponse à rien", 'data-act="'+acte+'"'));
     }
   }
   else {
@@ -3130,6 +3146,12 @@ function fusionne(A, B){
   d.noms.forEach(function(nm){ if(nm.nodes) nm.nodes=nm.nodes.filter(function(p){ return vivants[p]; }); });
   const ta={}; d.taches.forEach(function(t){ ta[t.id]=1; });
   d.temps=d.temps.filter(function(b){ return ta[b.t]; });
+  /* Et un « pendant » qui ne mène plus à rien : le bloc ou la période a pu
+     être effacé sur l'autre appareil. L'acte reste, il perd sa circonstance
+     — jamais l'inverse (13.cx). */
+  const ici={}; d.temps.forEach(function(b){ ici[b.id]=1; });
+  d.periodes.forEach(function(x){ ici[x.id]=1; });
+  d.nodes.forEach(function(n){ if(n.pdt && !ici[n.pdt]) delete n.pdt; });
   /* Une pierre tombale ne sert que le temps que les deux appareils se
      rencontrent. Passé six mois, ils se sont parlé — ou l'autre n'existe plus. */
   const vieux=Date.now()-180*86400000;
@@ -3493,10 +3515,14 @@ function vMonTemps(){
 
   if(v==="routines" && routineDite()){
     h += titreBloc("Les routines","ecart");
+    const rep=actesParDisc(f.t0, f.t1);
     h += liste(DISC.map(function(x){
       const o={titre:esc(x[1]), apres: pd[x[0]] ? esc(hm(pd[x[0]])) : "—"};
-      const m=mesureDisc(x[0], f.t0, f.t1);
-      if(m) o.sous=esc(m);
+      const m=mesureDisc(x[0], f.t0, f.t1), r=rep[x[0]];
+      /* Ce que le lien « pendant » permet enfin de dire : non plus seulement
+         ce que j'ai donné, mais ce qu'Il y a répondu (13.cx). */
+      const sous=[m, r ? (r+" fois qu'Il y a parlé ou agi") : ""].filter(Boolean).join(" · ");
+      if(sous) o.sous=esc(sous);
       return ligne(o);
     }).join(""));
     h += `<div class="block amorce">Les seize routines du message de Bertoua : <b>le temps</b>, et ce que chacune compte en propre. Un tiret dit que cette routine n'a rien reçu ${esc(f.nom)}, pas qu'elle n'a pas été vécue — ce qui se vit en actes, une dîme, une âme touchée, un compte-rendu, se comptera à côté.</div>`;
@@ -4449,6 +4475,13 @@ function vBloc(){
   } else {
     h+=`<div class="block amorce">Le compte court encore. Pose une heure de fin pour l'arrêter à ce moment-là, même s'il est passé.</div>`;
   }
+  const ap=actesPdt(b.id);
+  h+=titreBloc("Ce qu'Il y a fait","ecart");
+  h+= ap.length
+    ? liste(ap.map(function(x){ return ligneActe(x,{attr:'data-node="'+x.id+'"'}); }).join(""))
+    : `<div class="block amorce">Deux heures ne disent pas ce qui s'y est passé. Si Dieu y a parlé ou agi, garde-le ici : l'acte saura d'où il est venu.</div>`;
+  h+=liste(ligne({titre:`<span class="coche">Noter ce qu'Il a fait pendant ce temps</span>`,
+      attr:'data-pdtneuf="'+b.id+'"'}));
   h+=liste(ligne({titre:`<span class="rouge">Effacer ce bloc</span>`, attr:'data-act="delBlocIci"'}));
   Z.html=h;
   Z.action=bouton("Garder", 'data-act="majBloc"');
@@ -4642,6 +4675,69 @@ function vData(){
 /* Depuis n'importe quel onglet, le geste reste à portée. */
 function vListe(f){ return function(){ f(); }; }
 
+
+/* ---------- pendant quoi ----------
+   Suivre un enseignement pendant deux heures est une recherche aussi réelle
+   qu'une prière notée. Le temps mesure ce que je donne, le mémorial garde ce
+   qu'Il a fait : il manquait le fil entre les deux. Un acte peut donc nommer
+   ce PENDANT quoi il est arrivé — un bloc, ou un temps mis à part (13.cx).
+
+   Le lien part toujours de l'acte. Le registre du temps ne garde rien : il
+   ignore qu'on le montre du doigt (13.ax).
+
+   Et il reste distinct de « en réponse à ». Celui-la affirme une cause et
+   entre dans la preuve ; celui-ci dit une circonstance. Les confondre
+   fabriquerait des liens de cause que personne n'a affirmés. */
+function pdtDe(id){
+  if(!id) return null;
+  const b=blocT(id);
+  if(b) return {kind:"bloc", id:id, nom:tacheNom(b.t), d:discTache(b.t),
+                deb:b.deb, fin:finDe(b), quand:hmin(new Date(b.deb))};
+  const pr=periode(id);
+  if(pr) return {kind:"periode", id:id, nom:discNom(pr.d), d:pr.d,
+                 deb:pr.deb, fin:finPer(pr), quand:quandPer(pr)};
+  return null;
+}
+/* Ce qui tournait au moment où l'on note : l'application connaît déjà la réponse, elle n'a pas à la demander. */
+function pdtCandidats(){
+  const o=[];
+  ouverts().forEach(function(b){
+    o.push({id:b.id, nom:tacheNom(b.t), sous:"en cours depuis "+hmin(new Date(b.deb))});
+  });
+  perOuvertes().forEach(function(pr){
+    o.push({id:pr.id, nom:discNom(pr.d), sous:"temps mis à part — "+dureePer(pr)});
+  });
+  return o;
+}
+function actesPdt(id){ return (db.nodes||[]).filter(function(n){ return n.pdt===id; }).sort(parDate); }
+/* Et par routine, sur la fenêtre regardée : combien de fois Il a répondu là-dedans. C'est ce que le lien permet enfin de déduire. */
+function actesParDisc(t0, t1){
+  const o={};
+  (db.nodes||[]).forEach(function(n){
+    if(!n.pdt || n.act!=="dieu") return;
+    const x=pdtDe(n.pdt);
+    if(!x || !x.d || x.deb>=t1 || x.fin<=t0) return;
+    o[x.d]=(o[x.d]||0)+1;
+  });
+  return o;
+}
+function choixPendant(d){
+  const cands=pdtCandidats(), cur=d.pdt ? pdtDe(d.pdt) : null;
+  if(!cands.length && !cur) return "";
+  const vus={}; let l="";
+  if(cur){
+    vus[cur.id]=1;
+    l+=ligne({titre:esc(cur.nom), sous:esc(cur.quand),
+      apres:`<span class="coche">✓</span>`, attr:'data-pdt="'+cur.id+'"'});
+  }
+  cands.forEach(function(c){
+    if(vus[c.id]) return;
+    l+=ligne({titre:esc(c.nom), sous:esc(c.sous), attr:'data-pdt="'+c.id+'"'});
+  });
+  return titreBloc("Pendant quoi")+liste(l)
+    + `<div class="block amorce">Ce que tu donnais quand c'est arrivé. Touche à nouveau pour le retirer.</div>`;
+}
+
 /* ---------- un temps mis à part ---------- */
 function vPerNeuf(){
   Z.titre="Mettre un temps à part"; Z.retour=true;
@@ -4690,6 +4786,13 @@ function vPeriode(){
   } else {
     h+=`<div class="block amorce">Personne ne referme un temps mis à part à ta place : touche la ligne du dessus quand il sera fini.</div>`;
   }
+  const ap=actesPdt(pr.id);
+  h+=titreBloc("Ce qu'Il y a fait","ecart");
+  h+= ap.length
+    ? liste(ap.map(function(x){ return ligneActe(x,{attr:'data-node="'+x.id+'"'}); }).join(""))
+    : `<div class="block amorce">Une retraite se juge à ce qu'on y a mis — et à ce qu'Il y a répondu.</div>`;
+  h+=liste(ligne({titre:`<span class="coche">Noter ce qu'Il a fait pendant</span>`,
+      attr:'data-pdtneuf="'+pr.id+'"'}));
   h+=liste(ligne({titre:`<span class="rouge">Effacer</span>`, attr:'data-act="perEffacer"'}));
   Z.html=h;
   Z.action=bouton("Garder", 'data-act="perGarder"');
@@ -4895,7 +4998,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -4973,6 +5076,13 @@ document.addEventListener("click", ev=>{
   if(g.lv){ empile(); S.lvId=g.lv; S.view="livre"; return render(); }
   if(g.au){ empile(); S.auId=g.au; S.view="auteur"; return render(); }
   if(g.prd){ empile(); S.perId=g.prd; S.view="periode"; return render(); }
+  if(g.vbloc){ if(!blocT(g.vbloc)) return; empile(); S.blocId=g.vbloc; S.view="bloc"; return render(); }
+  if(g.pdt){ if(S.draft) S.draft.pdt = (S.draft.pdt===g.pdt) ? null : g.pdt; return render(); }
+  /* Depuis un bloc ou une période : noter ce qu'Il y a fait, le lien déjà posé. C'est le chemin réel — on est dans la vidéo, Il parle. */
+  if(g.pdtneuf){
+    S.draft=neuf(null); S.draft.pdt=g.pdtneuf;
+    S.step=0; empile(); S.view="note"; return render();
+  }
   if(g.pgsup!==undefined){
     const b=blocT(S.blocId); if(!b || !b.pg) return;
     const r=b.pg[+g.pgsup]; if(!r) return;
@@ -5018,7 +5128,9 @@ document.addEventListener("click", ev=>{
     const a=S.draft||{}, prevu=(g.qui==="moiPrevu");
     S.draft=neuf(prevu?"moi":g.qui);
     S.draft.etat = prevu ? "prevu" : "fait";
-    S.draft.par=(a.par||[]).slice(); S.draft.fige=!!a.fige;
+    /* Changer d'acteur refait le brouillon : la circonstance doit traverser,
+       sinon le lien posé depuis un bloc se perd au premier choix (13.cx). */
+    S.draft.par=(a.par||[]).slice(); S.draft.fige=!!a.fige; S.draft.pdt=a.pdt||null;
     S.step=1; return render();
   }
   if(g.dest){ S.draft.dest=g.dest; S.step++; return render(); }
@@ -5453,6 +5565,7 @@ const actions={
     const n={id:nid(),act:d.act,gid:d.gid,dest:d.act==="moi"?d.dest:null,dgid:d.dgid,txt:d.txt.trim(),desc:(d.desc||"").trim(),man:d.man,
       kind:(d.act==="dieu"&&d.man==="parle")?"rhema":"acte",
       date:valDate("nDate", d.date),prec:d.prec||"j",etat:d.act==="moi"?(d.etat||"fait"):"fait",par:d.par.slice(),ts:ts(),maj:Date.now()};
+    if(d.pdt && pdtDe(d.pdt)) n.pdt=d.pdt;
     db.nodes.push(n); save();
     /* On repart là où l'acte est désormais rangé : le disciple le voit,
        et l'écran a ses onglets — il n'est jamais enfermé. */

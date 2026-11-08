@@ -566,3 +566,148 @@ test("13.cw — seules les périodes qui touchent la fenêtre sont montrées, le
   const tous = a.f.perDans(mois[0], mois[1]).map(function (x) { return x.id; });
   A.deepEqual(Array.from(tous), ["p2", "p1"], "sur le mois, les deux — l'ouverte en tête");
 });
+
+/* ========================================================================
+   13.cx — un acte peut nommer ce pendant quoi il est arrivé
+   ======================================================================== */
+
+function acte(a, id, txt, pdt) {
+  const n = { id: id, act: "dieu", man: "parle", kind: "rhema", txt: txt,
+              par: [], date: "2026-11-08", prec: "j", etat: "fait", ts: 1, maj: 1 };
+  if (pdt) n.pdt = pdt;
+  a.db.nodes.push(n);
+  return n;
+}
+
+test("13.cx — le lien désigne aussi bien un bloc qu'un temps mis à part", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Enseignements de TA", cat: "dieu", d: "litt", m: 0, maj: 1 }];
+  a.db.temps = [bloc("b1", "a1", j(9, 0), j(11, 0))];
+  a.db.periodes = [{ id: "p1", d: "retraite", deb: jour(7, 7, 0), maj: 1 }];
+
+  const vb = a.f.pdtDe("b1");
+  A.equal(vb.kind, "bloc");
+  A.equal(vb.nom, "Enseignements de TA");
+  A.equal(vb.d, "litt", "le bloc porte la routine de son activité");
+
+  const vp = a.f.pdtDe("p1");
+  A.equal(vp.kind, "periode");
+  A.equal(vp.d, "retraite");
+
+  A.equal(a.f.pdtDe("rien"), null, "un lien qui ne mène nulle part se tait");
+});
+
+test("13.cx — l'application propose ce qui tournait, elle ne le demande pas", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Enseignements de TA", cat: "dieu", d: "litt", maj: 1 }];
+  a.db.temps = [bloc("b1", "a1", j(11, 0), null), bloc("b2", "a1", j(8, 0), j(9, 0))];
+  a.db.periodes = [{ id: "p1", d: "retraite", deb: jour(7, 7, 0), maj: 1 }];
+
+  const ids = a.f.pdtCandidats().map(function (c) { return c.id; });
+  A.deepEqual(Array.from(ids), ["b1", "p1"],
+    "ce qui est en cours — le bloc fermé n'est pas un candidat");
+});
+
+test("13.cx — depuis un bloc, on note ce qu'Il y a fait et le lien est déjà posé", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Enseignements de TA", cat: "dieu", d: "litt", maj: 1 }];
+  a.db.temps = [bloc("b1", "a1", j(9, 0), j(11, 0))];
+
+  a.ctx.actions; /* le chemin réel passe par le délégué : on l'imite */
+  a.S.draft = null;
+  a.S.draft = a.ctx.__eben ? null : null;
+  /* Ce que fait data-pdtneuf : */
+  const d = { act: null, par: [], pdt: "b1", txt: "", date: "2026-11-08", prec: "j", etat: "fait" };
+  a.S.draft = d;
+  d.act = "dieu"; d.man = "parle"; d.txt = "Il m'a dit de reprendre Ésaïe 43";
+  a.ctx.document.getElementById("nDate").value = "2026-11-08";
+  a.actions.saveNote();
+
+  const n = a.db.nodes[a.db.nodes.length - 1];
+  A.equal(n.pdt, "b1", "l'acte sait d'où il est venu");
+  A.deepEqual(Array.from(a.f.actesPdt("b1").map(function (x) { return x.id; })), [n.id]);
+});
+
+test("13.cx — « pendant » n'est pas « en réponse à » : les deux ne se mélangent pas", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Enseignements de TA", cat: "dieu", d: "litt", maj: 1 }];
+  a.db.temps = [bloc("b1", "a1", j(9, 0), j(11, 0))];
+  const cause = acte(a, "n1", "Je lui ai demandé une direction");
+  const recu = acte(a, "n2", "Il a répondu", "b1");
+  recu.par = [cause.id];
+
+  A.deepEqual(Array.from(a.f.enfants("n1").map(function (x) { return x.id; })), ["n2"],
+    "le graphe des actes ne voit que les liens de cause");
+  A.equal(a.f.pdtDe(recu.pdt).kind, "bloc", "la circonstance vit à côté, pas dedans");
+});
+
+test("13.cx — un lien gardé par un acte ne survit pas à l'effacement de sa circonstance", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Enseignements de TA", cat: "dieu", d: "litt", maj: 1 }];
+  a.db.temps = [bloc("b1", "a1", j(9, 0), j(11, 0))];
+  acte(a, "n1", "Il a parlé", "b1");
+
+  /* L'autre appareil a effacé le bloc — après l'avoir connu : une pierre
+     tombale plus ancienne que la fiche ne vaut rien (13.be). */
+  const autre = a.f.sane({ taches: a.db.taches, temps: [], nodes: [], morts: { b1: j(23, 0) } });
+  const out = a.f.fusionne(a.f.sane(JSON.parse(JSON.stringify(a.db))), autre);
+  A.equal(out.nodes.length, 1, "l'acte reste — c'est le mémorial");
+  A.equal(out.nodes[0].pdt, undefined, "mais il a perdu sa circonstance, jamais l'inverse");
+});
+
+test("13.cx — ce que le lien permet de déduire : par routine, combien de fois Il a parlé", () => {
+  const a = app();
+  a.db.taches = [
+    { id: "a1", nom: "Enseignements de TA", cat: "dieu", d: "litt", maj: 1 },
+    { id: "a2", nom: "Prière du matin", cat: "dieu", d: "priere", maj: 1 }
+  ];
+  a.db.temps = [
+    bloc("b1", "a1", j(9, 0), j(11, 0)),
+    bloc("b2", "a2", j(6, 0), j(7, 0))
+  ];
+  acte(a, "n1", "Il a parlé pendant la vidéo", "b1");
+  acte(a, "n2", "Encore", "b1");
+  acte(a, "n3", "Pendant la prière", "b2");
+  /* Un acte de moi ne compte pas : la question est ce qu'IL a fait. */
+  const mien = acte(a, "n4", "J'ai jeûné", "b1"); mien.act = "moi";
+
+  const r = a.f.actesParDisc(j(0, 0), j(23, 59));
+  A.equal(r.litt, 2);
+  A.equal(r.priere, 1);
+
+  const hier = a.f.bornes("jour", jour(7, 12, 0));
+  A.equal(Object.keys(a.f.actesParDisc(hier[0], hier[1])).length, 0,
+    "et la fenêtre regardée décide, comme partout ailleurs");
+});
+
+test("13.cx — changer d'acteur ne perd pas la circonstance déjà posée", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Enseignements de TA", cat: "dieu", d: "litt", maj: 1 }];
+  a.db.temps = [bloc("b1", "a1", j(9, 0), j(11, 0))];
+
+  /* « Noter ce qu'Il a fait pendant ce temps », depuis l'écran du bloc. */
+  a.geste({ pdtneuf: "b1" });
+  A.equal(a.S.draft.pdt, "b1");
+  A.equal(a.S.view, "note");
+
+  /* Puis la première question de l'écran : qui a fait ? */
+  a.geste({ qui: "dieu" });
+  A.equal(a.S.draft.act, "dieu");
+  A.equal(a.S.draft.pdt, "b1",
+    "le brouillon est refait à ce moment-là : le lien doit traverser");
+});
+
+test("13.cx — toucher la circonstance la pose, la retoucher la retire", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Enseignements de TA", cat: "dieu", d: "litt", maj: 1 }];
+  a.db.temps = [bloc("b1", "a1", j(11, 0), null)];
+
+  a.geste({ go: "note" });
+  a.geste({ qui: "dieu" });
+  A.equal(a.S.draft.pdt, null, "rien n'est posé d'office");
+
+  a.geste({ pdt: "b1" });
+  A.equal(a.S.draft.pdt, "b1");
+  a.geste({ pdt: "b1" });
+  A.equal(a.S.draft.pdt, null, "on retire ce qu'on a posé par erreur");
+});

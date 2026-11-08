@@ -47,10 +47,15 @@ function elem() {
   /* Tout nom de méthode qu'on n'a pas prévu rend une fonction inoffensive :
      le harnais ne doit pas tomber parce que l'app a appelé un geste de plus.
      Les propriétés, elles, restent indéfinies comme dans un vrai navigateur. */
+  const PARENTE = ["firstElementChild", "lastElementChild", "parentElement",
+                  "parentNode", "nextElementSibling", "previousElementSibling"];
   return new Proxy(o, {
     get(cible, cle) {
       if (cle in cible) return cible[cle];
       if (typeof cle !== "string") return undefined;
+      /* Un voisin dans l'arbre : on le fabrique une fois, paresseusement,
+         sinon un élément qui se crée des parents à l'infini. */
+      if (PARENTE.indexOf(cle) !== -1) { cible[cle] = elem(); return cible[cle]; }
       if (/^(on|[a-z]+[A-Z])/.test(cle)) return function () {};
       return undefined;
     }
@@ -72,6 +77,10 @@ function faitContexte(opts) {
     get length() { return sto.size; }
   };
 
+  /* Les gestes de l'application passent par un seul écouteur posé sur le
+     document. On le retient, pour que les tests puissent toucher une ligne
+     comme le ferait un doigt — et non réécrire sa logique à côté. */
+  const ecouteurs = {};
   const document = {
     hidden: false, title: "", cookie: "", readyState: "complete",
     body: elem(), head: elem(), documentElement: elem(), activeElement: null,
@@ -84,7 +93,8 @@ function faitContexte(opts) {
     createDocumentFragment() { return elem(); },
     querySelector() { return null; },
     querySelectorAll() { return []; },
-    addEventListener() {}, removeEventListener() {},
+    addEventListener(type, fn) { (ecouteurs[type] = ecouteurs[type] || []).push(fn); },
+    removeEventListener() {},
     execCommand() { return false; }
   };
 
@@ -119,6 +129,7 @@ function faitContexte(opts) {
     alert() {}, confirm() { return false; }, prompt() { return null; },
     getComputedStyle() { return { getPropertyValue() { return ""; } }; }
   };
+  ctx.__ecouteurs = ecouteurs;
   ctx.window = ctx;
   ctx.globalThis = ctx;
   ctx.self = ctx;
@@ -174,6 +185,7 @@ const PONT = `
        tache, tacheId, tacheNom, tacheCat, blocT, ouverts, fermeBloc,
        disc, discNom, discDeNom, discTache, parDisc, mesureDisc, mesureProposee,
        auteur, auteurId, auteurNom, auteursConnus, recuDe, recuTxt,
+       pdtDe, pdtCandidats, actesPdt, actesParDisc, node, enfants,
        periode, perOuverte, finPer, perOuvertes, perDans, dureePer, quandPer,
        perTxt, cumulPer, parDisc,
        livre, livreId, pageLue, nbLu, chapitresTxt, pagesTxt },
@@ -218,6 +230,16 @@ function charge(opts) {
   /* Ouvrir l'écran de correction d'un bloc, champs remplis comme à
      l'ouverture — c'est l'état d'où part toute correction réelle. */
   /* Ouvrir l'écran d'une période, champs remplis comme à l'ouverture. */
+  /* Toucher une ligne : on fabrique la cible que le délégué attend, et on
+     appelle le vrai écouteur. `app.geste({pdt: "b1"})` vaut `data-pdt="b1"`. */
+  app.geste = function (data) {
+    const cible = {
+      dataset: data, value: "", tagName: "A",
+      closest: function () { return cible; }
+    };
+    const ev = { target: cible, preventDefault: function () {}, stopPropagation: function () {} };
+    (ctx.__ecouteurs.click || []).forEach(function (fn) { fn(ev); });
+  };
   app.ouvrePeriode = function (pr) {
     app.S.perId = pr.id;
     app.poseHeure("pdDeb", pr.deb);

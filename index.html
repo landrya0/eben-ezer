@@ -768,7 +768,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v60";
+const VERSION = "v61";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -3407,20 +3407,18 @@ function vMonTemps(){
      parts vivent au-dessus, dans « La part de chacun », et nulle part
      ailleurs — c'est ce qui évite d'avoir deux chiffres qui se contredisent
      sur le même écran. */
-  /* Sept des seize disciplines se mesurent en durée ; les neuf autres sont
-     des actes ou des postures, et un compteur ne les atteindra jamais. On
-     montre donc les sept — plus celles qu'une activité a déclarées — et on
-     écrit en toutes lettres ce qui échappe, au lieu de laisser croire que le
-     temps couvre le tout (13.cm). */
+  /* Les seize, toutes, dans l'ordre du message — pas seulement celles qui ont
+     reçu quelque chose. Un compte rendu qui masquerait les vides ne dirait
+     que ce qu'on a déjà fait ; c'est le « — » qui porte la question (13.co).
+     Il reste honnête parce qu'il est dit en toutes lettres : ce tiret compte
+     le temps, et une routine vécue en actes attend encore son autre face. */
   const pd=parDisc(c.par);
-  if(Object.keys(pd).length){
+  if(routineDite()){
     h += titreBloc("Les routines","ecart");
-    h += liste(DISC.filter(function(x){ return x[2]==="d" || pd[x[0]]; }).map(function(x){
-      const o={titre:esc(x[1]), apres: pd[x[0]] ? esc(hm(pd[x[0]])) : "—"};
-      if(x[2]!=="d") o.sous = (x[2]==="e") ? "Se compte en actes" : "Se tient en posture";
-      return ligne(o);
+    h += liste(DISC.map(function(x){
+      return ligne({titre:esc(x[1]), apres: pd[x[0]] ? esc(hm(pd[x[0]])) : "—"});
     }).join(""));
-    h += `<div class="block amorce">Sur les seize routines du message de Bertoua, sept se mesurent en durée. Les autres se vivent en actes et en postures : le compteur ne les atteint pas — elles se compteront ailleurs.</div>`;
+    h += `<div class="block amorce">Les seize routines du message de Bertoua. On ne compte ici que <b>le temps</b> : un tiret dit que cette routine n'en a pas reçu ${esc(f.nom)}, pas qu'elle n'a pas été vécue. Ce qui se vit en actes — donner, une âme touchée, un compte-rendu — se comptera à côté.</div>`;
   }
 
   const pf=pagesFen(f.t0, f.t1);
@@ -3635,34 +3633,38 @@ function chapitresTxt(n){ return n+" chapitre"+(n>1?"s":""); }
    Parole » lit la Bible — et l'écran de l'activité tranche quand le nom se
    trompe. Son avis tient : un champ posé à la main vaut mieux qu'une
    devinette qui revient. */
-/* ---------- les seize disciplines ---------- */
+/* ---------- les seize routines ---------- */
 /* Le message de Bertoua (2008) nomme seize disciplines à revêtir. Elles ne
    sont pas de cette application : elles lui préexistent, et c'est pourquoi
    on les cite dans leur ordre et sous leurs noms, sans les réécrire.
-   Trois modes, et un seul regarde un compteur : sept se mesurent en durée,
-   cinq se comptent en actes, quatre se tiennent en posture. Ében-Ézer ne
-   prétend donc pas les couvrir — il répond de celles que le temps mesure,
-   et il dit lesquelles lui échappent (13.cm). */
+   On les avait d'abord rangées par mode — ce qui se mesure en durée, ce qui
+   se compte en actes, ce qui se tient en posture — et le disciple a tranché :
+   « toutes les routines peuvent avoir deux faces, on verra à l'usage. » Il
+   avait raison dès son premier exemple : prêcher l'Évangile prend du temps.
+   Aucune n'est donc fermée au compteur, et le mode a disparu (13.co). */
 const DISC = [
-  ["disciple","Devenir et être disciple de Jésus-Christ","p"],
-  ["priere","La prière seul","d"],
-  ["rdqd","Rencontres quotidiennes avec Dieu","d"],
-  ["parole","Lecture de la Bible","d"],
-  ["litt","Lecture de littérature chrétienne","d"],
-  ["retraite","Retraites pour le progrès spirituel","d"],
-  ["ensemble","Prière avec les autres","d"],
-  ["donner","Donner à Dieu","e"],
-  ["jeune","Le jeûne","d"],
-  ["ames","La conquête des âmes","e"],
-  ["former","Faire des disciples","e"],
-  ["cr","Le compte-rendu","e"],
-  ["eglise","Être membre fidèle d'une église locale","e"],
-  ["servir","Servir selon son appel","p"],
-  ["volonte","Vivre dans la volonté de Dieu en tout","p"],
-  ["gloire","Tout faire pour la gloire de Jésus-Christ","p"]
+  ["disciple","Devenir et être disciple de Jésus-Christ"],
+  ["priere","La prière seul"],
+  ["rdqd","Rencontres quotidiennes avec Dieu"],
+  ["parole","Lecture de la Bible"],
+  ["litt","Lecture de littérature chrétienne"],
+  ["retraite","Retraites pour le progrès spirituel"],
+  ["ensemble","Prière avec les autres"],
+  ["donner","Donner à Dieu"],
+  ["jeune","Le jeûne"],
+  ["ames","La conquête des âmes"],
+  ["former","Faire des disciples"],
+  ["cr","Le compte-rendu"],
+  ["eglise","Être membre fidèle d'une église locale"],
+  ["servir","Servir selon son appel"],
+  ["volonte","Vivre dans la volonté de Dieu en tout"],
+  ["gloire","Tout faire pour la gloire de Jésus-Christ"]
 ];
-const DISC_MODE = {d:"Ce que le temps mesure", e:"Ce qui se compte en actes",
-                   p:"Ce qui se tient en posture"};
+/* Une activité déclare-t-elle une routine ? C'est ce qui ouvre le compte
+   rendu : sans cela, seize lignes vides n'apprendraient rien. */
+function routineDite(){
+  return (db.taches||[]).some(function(t){ return !!discTache(t.id); });
+}
 function disc(id){ return DISC.filter(function(x){ return x[0]===id; })[0]; }
 function discNom(id){ const d=disc(id); return d ? d[1] : ""; }
 /* Le nom donne un premier avis — « Nuit de prière Paris » n'est pas la
@@ -3927,11 +3929,8 @@ function vTache(){
   h+=`<div class="block amorce">Les seize routines du message de Bertoua. L'activité garde son nom ; elle dit seulement de laquelle elle est la mise en œuvre — et c'est elle qui décide de ce qu'on te demandera en plus du temps.</div>`;
   h+=liste(champSel("tDisc","Routine",
       `<option value=""${dc?"":" selected"}>— aucune —</option>`
-      + ["d","e","p"].map(function(m){
-          return `<optgroup label="${esc(DISC_MODE[m])}">`
-            + DISC.filter(function(x){ return x[2]===m; }).map(function(x){
-                return `<option value="${x[0]}"${dc===x[0]?" selected":""}>${esc(x[1])}</option>`;
-              }).join("") + `</optgroup>`;
+      + DISC.map(function(x){
+          return `<option value="${x[0]}"${dc===x[0]?" selected":""}>${esc(x[1])}</option>`;
         }).join("")));
   h+=`<div class="block amorce">${
       sp==="bible" ? "On te demandera <b>les chapitres lus</b>, et la reprise là où tu t'es arrêté."

@@ -1,7 +1,7 @@
 /* Ében-Ézer — hors-ligne, mais jamais figé.
    La page : le réseau d'abord, le cache en secours (pour recevoir les corrections).
    Le reste (composants, icônes, police) : le cache d'abord. */
-const CACHE = "ebenezer-v68";
+const CACHE = "ebenezer-v69";
 const SOCLE = ["./", "./index.html", "./manifest.webmanifest",
                "./vendor/framework7-bundle.min.css",
                "./vendor/lora-latin.woff2",

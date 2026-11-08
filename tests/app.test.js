@@ -450,3 +450,119 @@ test("sane() rend toujours les listes attendues, même d'un fichier abîmé", ()
     A.ok(Array.isArray(d[k]), k + " doit être une liste");
   });
 });
+
+/* ========================================================================
+   13.cw — un temps mis à part : une période, pas un bloc
+   ======================================================================== */
+
+test("13.cw — une période ne pèse aucune heure : elle n'entre ni dans le total ni dans les parts", () => {
+  const a = app();
+  deuxActivites(a);
+  /* Une retraite de deux jours, et une heure de prière dedans. */
+  a.db.periodes = [{ id: "p1", d: "retraite", deb: jour(7, 7, 0), maj: 1 }];
+  a.db.temps = [bloc("b1", "a2", j(9, 0), j(10, 0))];
+
+  const c = a.f.cumul(j(0, 0), MIDI);
+  A.equal(c.tot, H, "la journée compte l'heure de prière, pas les douze heures de retraite");
+  A.equal(c.par.retraite, undefined, "une période n'a pas de part");
+  A.equal(Object.keys(c.par).length, 1);
+});
+
+test("13.cw — ce qu'on a donné dedans se compte, lui, et se range par routine", () => {
+  const a = app();
+  a.db.taches = [
+    { id: "a1", nom: "Prière", cat: "dieu", d: "priere", maj: 1 },
+    { id: "a2", nom: "Lecture de la Parole", cat: "dieu", d: "parole", maj: 1 }
+  ];
+  a.db.periodes = [{ id: "p1", d: "retraite", deb: jour(7, 7, 0), maj: 1 }];
+  a.db.temps = [
+    bloc("b1", "a1", jour(7, 8, 0), jour(7, 12, 0)),
+    bloc("b2", "a2", j(9, 0), j(11, 0)),
+    /* Avant la retraite : ne doit pas y entrer. */
+    bloc("b3", "a1", jour(6, 8, 0), jour(6, 9, 0))
+  ];
+  const pr = a.f.periode("p1");
+  const c = a.f.cumulPer(pr);
+  A.equal(c.tot, 6 * H, "quatre heures de prière et deux de Parole, dedans");
+  const pd = a.f.parDisc(c.par);
+  A.equal(pd.priere, 4 * H);
+  A.equal(pd.parole, 2 * H);
+});
+
+test("13.cw — une période ouverte dure jusqu'à maintenant et se dit en jours", () => {
+  const a = app();
+  a.db.periodes = [{ id: "p1", d: "retraite", deb: jour(7, 7, 0), maj: 1 }];
+  const pr = a.f.periode("p1");
+  A.equal(a.f.perOuverte(pr), true);
+  A.equal(a.f.finPer(pr), MIDI, "tant qu'elle n'est pas close, elle court jusqu'à maintenant");
+  A.equal(a.f.dureePer(pr), "1 jour 5 h");
+  A.match(a.f.perTxt(pr), /depuis hier à 7 h 00/);
+});
+
+test("13.cw — sous un jour, elle se dit en heures ; le jeûne y trouve son compte", () => {
+  const a = app();
+  a.db.periodes = [{ id: "p1", d: "jeune", deb: j(0, 0), fin: j(18, 0), maj: 1 }];
+  A.equal(a.f.dureePer(a.f.periode("p1")), "18 h");
+  A.equal(a.f.perOuverte(a.f.periode("p1")), false);
+});
+
+test("13.cw — on la commence, on la date en arrière, et personne ne la referme à ta place", () => {
+  const a = app();
+  a.actions.perNeuve();
+  a.ctx.document.getElementById("pdDisc").value = "retraite";
+  a.poseHeure("pdDeb", jour(7, 7, 0));
+  a.actions.perCommencer();
+
+  A.equal(a.db.periodes.length, 1);
+  const pr = a.db.periodes[0];
+  A.equal(pr.d, "retraite");
+  A.equal(pr.deb, jour(7, 7, 0), "datée d'hier, pas de maintenant");
+  A.equal(a.f.perOuverte(pr), true, "elle reste ouverte tant qu'on ne la ferme pas");
+
+  /* Et la fermer est un geste, pas une conséquence. */
+  a.ouvrePeriode(pr);
+  a.actions.perCours();
+  A.equal(a.f.perOuverte(a.f.periode(pr.id)), false);
+});
+
+test("13.cw — un début à venir est refusé", () => {
+  const a = app();
+  a.actions.perNeuve();
+  a.ctx.document.getElementById("pdDisc").value = "jeune";
+  a.poseHeure("pdDeb", jour(9, 7, 0));
+  a.actions.perCommencer();
+  A.equal(a.db.periodes.length, 0);
+});
+
+test("13.cw — effacer une période pose une pierre tombale", () => {
+  const a = app();
+  a.db.periodes = [{ id: "p1", d: "retraite", deb: jour(7, 7, 0), maj: 1 }];
+  a.S.perId = "p1";
+  a.actions.perEffacer();
+  A.equal(a.db.periodes.length, 0);
+  A.ok(a.db.morts.p1, "sinon l'autre appareil la ramènerait");
+});
+
+test("13.cw — les périodes voyagent à la synchronisation", () => {
+  const a = app();
+  const A1 = a.f.sane({ periodes: [{ id: "p1", d: "retraite", deb: 100, maj: 100 }] });
+  const B1 = a.f.sane({ periodes: [{ id: "p1", d: "retraite", deb: 100, fin: 500, maj: 200 }] });
+  const out = a.f.fusionne(A1, B1);
+  A.equal(out.periodes.length, 1);
+  A.equal(out.periodes[0].fin, 500, "l'appareil qui l'a close a parlé en dernier");
+});
+
+test("13.cw — seules les périodes qui touchent la fenêtre sont montrées, les ouvertes d'abord", () => {
+  const a = app();
+  a.db.periodes = [
+    { id: "p1", d: "jeune", deb: jour(1, 6, 0), fin: jour(1, 18, 0), maj: 1 },
+    { id: "p2", d: "retraite", deb: jour(7, 7, 0), maj: 1 }
+  ];
+  const jourJ = a.f.bornes("jour", MIDI);
+  const vus = a.f.perDans(jourJ[0], jourJ[1]).map(function (x) { return x.id; });
+  A.deepEqual(Array.from(vus), ["p2"], "le jeûne du 1er ne touche pas aujourd'hui");
+
+  const mois = a.f.bornes("mois", MIDI);
+  const tous = a.f.perDans(mois[0], mois[1]).map(function (x) { return x.id; });
+  A.deepEqual(Array.from(tous), ["p2", "p1"], "sur le mois, les deux — l'ouverte en tête");
+});

@@ -174,6 +174,8 @@ const PONT = `
        tache, tacheId, tacheNom, tacheCat, blocT, ouverts, fermeBloc,
        disc, discNom, discDeNom, discTache, parDisc, mesureDisc, mesureProposee,
        auteur, auteurId, auteurNom, auteursConnus, recuDe, recuTxt,
+       periode, perOuverte, finPer, perOuvertes, perDans, dureePer, quandPer,
+       perTxt, cumulPer, parDisc,
        livre, livreId, pageLue, nbLu, chapitresTxt, pagesTxt },
   c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY }
 };
@@ -215,6 +217,13 @@ function charge(opts) {
   };
   /* Ouvrir l'écran de correction d'un bloc, champs remplis comme à
      l'ouverture — c'est l'état d'où part toute correction réelle. */
+  /* Ouvrir l'écran d'une période, champs remplis comme à l'ouverture. */
+  app.ouvrePeriode = function (pr) {
+    app.S.perId = pr.id;
+    app.poseHeure("pdDeb", pr.deb);
+    app.poseHeure("pdFin", typeof pr.fin === "number" ? pr.fin : null);
+    ctx.document.getElementById("pdNote").value = pr.note || "";
+  };
   app.ouvreBloc = function (b) {
     app.S.blocId = b.id;
     app.poseHeure("bDeb", b.deb);

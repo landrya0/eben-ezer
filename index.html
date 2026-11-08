@@ -788,7 +788,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v68";
+const VERSION = "v69";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -829,14 +829,14 @@ const TACHES_SOCLE = [
   ["Attente","reste"],["Écrans","reste"]
 ];
 
-let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], livres:[], auteurs:[], exp:0, seq:1};
+let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], periodes:[], livres:[], auteurs:[], exp:0, seq:1};
 let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an", rev:"noms", pile:[], nodeId:null,
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
          per:"jour", anc:null, vue:"parts", tQ:"", tCat:"", blocId:null, medId:null, trou:null, quand:null,
          noteFocus:false, frisZ:null, enPlus:false, tchId:null,
          lu:null, luA:null, luZ:null, luPlein:false,
-         pgL:null, pgA:null, pgZ:null, lvId:null, auId:null};
+         pgL:null, pgA:null, pgZ:null, lvId:null, auId:null, perId:null};
 
 /* Un seul « écran précédent » ne suffisait pas : en ouvrant un retour depuis
    un acte, il finissait par désigner l'acte lui-même, et le bouton Retour ne
@@ -866,13 +866,15 @@ function sane(v){
           cats:Array.isArray(o.cats)?o.cats:[], taches:Array.isArray(o.taches)?o.taches:[],
           livres:Array.isArray(o.livres)?o.livres:[],
           auteurs:Array.isArray(o.auteurs)?o.auteurs:[],
-          temps:Array.isArray(o.temps)?o.temps:[], exp:(typeof o.exp==="number")?o.exp:0,
+          temps:Array.isArray(o.temps)?o.temps:[],
+          periodes:Array.isArray(o.periodes)?o.periodes:[],
+          exp:(typeof o.exp==="number")?o.exp:0,
           morts:(o.morts && typeof o.morts==="object")?o.morts:{},
           maj:(typeof o.maj==="number")?o.maj:0,
           seq:(typeof o.seq==="number"&&o.seq>0)?o.seq:1};
   /* Les fiches d'avant la synchronisation n'ont pas d'heure. On leur en donne
      la plus ancienne possible : la moindre écriture réelle les dépassera. */
-  [d.nodes,d.gens,d.noms,d.mans,d.cats,d.taches,d.temps,d.livres,d.auteurs].forEach(function(a){
+  [d.nodes,d.gens,d.noms,d.mans,d.cats,d.taches,d.temps,d.periodes,d.livres,d.auteurs].forEach(function(a){
     a.forEach(function(x){ if(x && typeof x.maj!=="number") x.maj=1; });
   });
   /* Le type de champs était un réglage à part ; il devient une conséquence de
@@ -899,6 +901,11 @@ function sane(v){
   d.temps = d.temps.filter(b=>b && typeof b.deb==="number" && b.t)
                    .sort((a,b)=>a.deb-b.deb);
   d.temps.forEach(b=>{ if(!b.id) b.id="b"+(d.seq++)+"-"+DEV; });
+  /* Une période n'est pas un bloc : elle n'a ni activité ni poids d'heures,
+     seulement une routine et deux bornes (13.cw). */
+  d.periodes = d.periodes.filter(x=>x && typeof x.deb==="number" && x.d)
+                         .sort((a,b)=>a.deb-b.deb);
+  d.periodes.forEach(x=>{ if(!x.id) x.id="p"+(d.seq++)+"-"+DEV; });
   /* La date d'un acte dit quand il est arrivé ; elle ne dit pas dans quel
      ordre on l'a gardé. Deux actes du même jour se présentaient donc dans
      l'ordre où ils dormaient en mémoire — c'est-à-dire le plus ancien
@@ -1697,6 +1704,7 @@ function render(){
   if(S.view!=="lecture"){ S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false; }
   if(S.view!=="pages" && S.view!=="livre"){ S.pgL=null; S.pgA=null; S.pgZ=null; }
   if(S.view!=="auteur") S.auId=null;
+  if(S.view!=="periode") S.perId=null;
   /* On ne rouvre jamais l'application sur une fenêtre passée : revenir à un
      onglet ramène au présent, comme on ouvre toujours sur Aujourd'hui. */
   if(ONGLETS.some(function(o){ return o[0]===S.view; })){ S.anc=null; S.vue="parts"; }
@@ -3109,6 +3117,7 @@ function fusionne(A, B){
     auteurs:fusionListe(A.auteurs, B.auteurs, morts),
     taches:fusionListe(A.taches, B.taches, morts),
     temps: fusionTemps(fusionListe(A.temps, B.temps, morts)),
+    periodes: fusionListe(A.periodes, B.periodes, morts),
     morts: morts,
     exp: Math.max(A.exp||0, B.exp||0),
     seq: Math.max(A.seq||1, B.seq||1),
@@ -3463,6 +3472,25 @@ function vMonTemps(){
      Il reste honnête parce qu'il est dit en toutes lettres : ce tiret compte
      le temps, et une routine vécue en actes attend encore son autre face. */
   const pd=parDisc(c.par);
+  /* Les temps mis à part passent avant les routines chronométrées : une
+     retraite en cours est le cadre dans lequel tout le reste se lit. */
+  if(v==="routines"){
+    const prs=perDans(f.t0, f.t1);
+    h += titreBloc("Un temps mis à part","ecart");
+    if(prs.length){
+      h += liste(prs.map(function(pr){
+        const cp=cumulPer(pr);
+        return ligne({titre:esc(discNom(pr.d)), sous:esc(perTxt(pr)),
+          apres: cp.tot ? esc(hm(cp.tot)) : "", attr:'data-prd="'+pr.id+'"'});
+      }).join(""));
+    }
+    h += liste(ligne({titre: prs.length ? "En mettre un autre" : "Mettre un temps à part",
+        sous:"Une retraite, un jeûne — ce qui dure et qui encadre",
+        attr:'data-act="perNeuve"'}), "lien");
+    if(!prs.length)
+      h += `<div class="block amorce">Une retraite, un jeûne, ne se chronomètrent pas : on ne les FAIT pas, on y EST. Ils ne pèsent aucune heure — ils disent à l'intérieur de quoi le reste s'est passé, et ce qu'on y a donné se compte dedans.</div>`;
+  }
+
   if(v==="routines" && routineDite()){
     h += titreBloc("Les routines","ecart");
     h += liste(DISC.map(function(x){
@@ -3602,7 +3630,7 @@ function vMonTemps(){
   }
   /* Une vue qui n'a rien à montrer le dit, plutôt que de laisser la page
      s'arrêter sur ses pastilles sans un mot. */
-  if(v==="routines" && !routineDite() && !pf.pg && !lf.ch && !lt)
+  if(v==="routines" && !routineDite() && !pf.pg && !lf.ch && !lt && !perDans(f.t0, f.t1).length)
     h += `<p class="vide">Rien à montrer ici tant qu'aucune activité n'a dit de quelle routine elle est la mise en œuvre. Touche-en une dans « Les parts », puis choisis sa routine.</p>`;
   Z.html=h;
 }
@@ -3653,6 +3681,12 @@ function nomVoisins(arr){
 }
 /* Ce qui est tapé et pas encore gardé doit survivre à un redessin : on le
    relit du champ avant chaque geste qui redessine l'écran. */
+function notePer(pr){
+  const e=document.getElementById("pdNote");
+  if(!pr || !e) return;
+  const v=e.value.trim();
+  if(v) pr.note=v; else delete pr.note;
+}
 function noteBloc(b){
   const e=document.getElementById("bNote");
   if(!b || !e) return;
@@ -3751,6 +3785,41 @@ function mesureDisc(id, t0, t1){
 }
 /* Une activité déclare-t-elle une routine ? C'est ce qui ouvre le compte
    rendu : sans cela, seize lignes vides n'apprendraient rien. */
+
+/* ---------- les temps mis à part ----------
+   On ne FAIT pas une retraite, on EST en retraite : pendant ces deux jours on
+   prie, on lit, on dort, et tout cela se passe DEDANS. Une activité occupe le
+   temps ; une retraite l'encadre. La mettre au chronomètre produirait d'ailleurs un chiffre faux — quarante-huit heures de << retraite >> écraseraient
+   la semaine entière, et la prière disparaîtrait dans son propre cadre.
+   D'où un troisieme objet, à côté de l'acte et du bloc : la période. Deux
+   bornes, une routine, et surtout AUCUN poids d'heures (13.cw). */
+function periode(id){ return (db.periodes||[]).filter(function(x){ return x.id===id; })[0]; }
+function perOuverte(p){ return !!p && typeof p.fin!=="number"; }
+function finPer(p){ return perOuverte(p) ? Date.now() : p.fin; }
+function perOuvertes(){ return (db.periodes||[]).filter(perOuverte); }
+/* Une période compte dans son unité propre : un jeûne se dit en heures, une
+   retraite en jours (13.cp). */
+function dureePer(p){
+  const ms=Math.max(0, finPer(p)-p.deb);
+  const j=Math.floor(ms/86400000), h=Math.floor((ms%86400000)/3600000);
+  if(!j) return hm(ms);
+  return j+" jour"+(j>1?"s":"")+(h ? " "+h+" h" : "");
+}
+function quandPer(p){
+  const c=courtFen("jour", bornes("jour", p.deb)[0]);
+  return c.charAt(0).toLowerCase()+c.slice(1)+" à "+hmin(new Date(p.deb));
+}
+function perTxt(p){
+  return perOuverte(p) ? dureePer(p)+" — depuis "+quandPer(p) : dureePer(p);
+}
+/* Ce qui a été donné à l'intérieur du cadre : c'est à cela qu'une retraite se juge, et c'est tout ce que la période apporte au compte. */
+function cumulPer(p){ return cumul(p.deb, finPer(p)); }
+/* Les périodes qui touchent la fenêtre regardée, les ouvertes en tête. */
+function perDans(t0, t1){
+  return (db.periodes||[]).filter(function(p){ return p.deb<t1 && finPer(p)>t0; })
+    .sort(function(a,b){ return (perOuverte(b)?1:0)-(perOuverte(a)?1:0) || b.deb-a.deb; });
+}
+
 function routineDite(){
   return (db.taches||[]).some(function(t){ return !!discTache(t.id); });
 }
@@ -4572,10 +4641,65 @@ function vData(){
 
 /* Depuis n'importe quel onglet, le geste reste à portée. */
 function vListe(f){ return function(){ f(); }; }
+
+/* ---------- un temps mis à part ---------- */
+function vPerNeuf(){
+  Z.titre="Mettre un temps à part"; Z.retour=true;
+  let h=`<div class="block amorce" style="margin-top:16px">Une retraite, un jeûne : ce n'est pas une activité qu'on chronomètre, c'est un cadre. Il ne pèse aucune heure — il dit seulement à l'intérieur de quoi tout le reste se passe.</div>`;
+  h+=titreBloc("Laquelle");
+  h+=liste(champSel("pdDisc","Routine",
+      DISC.map(function(x){
+        return `<option value="${x[0]}"${x[0]==="retraite"?" selected":""}>${esc(x[1])}</option>`;
+      }).join("")));
+  h+=titreBloc("Depuis quand","ecart");
+  h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
+      <input type="datetime-local" id="pdDeb" value="${dtl(Date.now())}"></div></div></li>`);
+  h+=`<div class="block amorce">Ce qui a commencé hier se date d'hier : une période n'a pas à commencer au moment où l'on pense à l'inscrire.</div>`;
+  Z.html=h;
+  Z.action=bouton("Commencer", 'data-act="perCommencer"');
+}
+function vPeriode(){
+  const pr=S.perId ? periode(S.perId) : null;
+  if(!pr){ depile("temps"); return render(); }
+  const c=cumulPer(pr), ouverte=perOuverte(pr);
+  Z.titre=discNom(pr.d); Z.retour=true;
+  let h=`<div class="block amorce" style="margin-top:16px"><b>${esc(dureePer(pr))}</b>, depuis ${esc(quandPer(pr))}${ouverte?" — et ce n'est pas fini":""}.</div>`;
+  /* Une retraite se juge à ce qu'on y a mis : c'est tout ce que la période
+     apporte au compte, et elle n'y ajoute pas une minute à elle. */
+  h+=titreBloc("Ce que tu y as donné");
+  if(!c.tot){
+    h+=`<p class="vide">Rien de compté dedans pour l'instant.</p>`;
+  } else {
+    const pd=parDisc(c.par);
+    h+=liste(ligne({titre:"En tout", apres:esc(hm(c.tot))})
+      + Object.keys(pd).sort(function(x,y){ return pd[y]-pd[x]; })
+          .map(function(k){ return ligne({titre:esc(discNom(k)), apres:esc(hm(pd[k]))}); }).join(""));
+  }
+  h+=titreBloc("Ce qui s'y passe","ecart");
+  h+=`<div class="block amorce">Ce que tu écris ici se garde tout seul.</div>`;
+  h+=`<div class="block"><textarea class="dicte petit" id="pdNote" placeholder="Ce que tu cherches, ce que tu as reçu…" style="min-height:84px">${esc(pr.note||"")}</textarea>${micBloc("pdNote")}</div>`;
+  h+=titreBloc("Le début","ecart");
+  h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
+      <input type="datetime-local" id="pdDeb" value="${dtl(pr.deb)}"></div></div></li>`);
+  h+=titreBloc("La fin","ecart");
+  h+=liste(ligne({titre:"C'est toujours en cours",
+      apres: ouverte ? `<span class="coche">✓</span>` : "", attr:'data-act="perCours"'}));
+  if(!ouverte){
+    h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
+        <input type="datetime-local" id="pdFin" value="${dtl(pr.fin)}"></div></div></li>`);
+  } else {
+    h+=`<div class="block amorce">Personne ne referme un temps mis à part à ta place : touche la ligne du dessus quand il sera fini.</div>`;
+  }
+  h+=liste(ligne({titre:`<span class="rouge">Effacer</span>`, attr:'data-act="perEffacer"'}));
+  Z.html=h;
+  Z.action=bouton("Garder", 'data-act="perGarder"');
+}
+
 const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), actes:vListe(vActes), chemin:vChemin, faits:vFaits,
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData,
               pointer:vPointer, temps:vMonTemps, bloc:vBloc, quand:vQuand, frise:vFrise,
               tache:vTache, lecture:vLecture, pages:vPages, livre:vLivre, auteur:vAuteur,
+              perNeuf:vPerNeuf, periode:vPeriode,
               sync:vSync, reglages:vReglages};
 
 /* ---------- dictée ---------- */
@@ -4632,6 +4756,13 @@ function micBascule(id){
 let noteT=null;
 function gardeNote(){
   clearTimeout(noteT); noteT=null;
+  if(S.view==="periode"){
+    const pr=periode(S.perId); if(!pr) return;
+    const av=pr.note||"";
+    notePer(pr);
+    if((pr.note||"")!==av){ touche(pr); save(); }
+    return;
+  }
   if(S.view!=="bloc") return;
   const b=blocT(S.blocId); if(!b) return;
   const av=b.note||"";
@@ -4639,7 +4770,7 @@ function gardeNote(){
   if((b.note||"")!==av){ touche(b); save(); }
 }
 document.addEventListener("focusout", function(ev){
-  if(ev.target && ev.target.id==="bNote") gardeNote();
+  if(ev.target && (ev.target.id==="bNote" || ev.target.id==="pdNote")) gardeNote();
 }, true);
 document.addEventListener("input", ev=>{
   const id=ev.target.id;
@@ -4764,7 +4895,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -4841,6 +4972,7 @@ document.addEventListener("click", ev=>{
   if(g.pgl){ S.pgL=g.pgl; S.pgA=null; S.pgZ=null; return render(); }
   if(g.lv){ empile(); S.lvId=g.lv; S.view="livre"; return render(); }
   if(g.au){ empile(); S.auId=g.au; S.view="auteur"; return render(); }
+  if(g.prd){ empile(); S.perId=g.prd; S.view="periode"; return render(); }
   if(g.pgsup!==undefined){
     const b=blocT(S.blocId); if(!b || !b.pg) return;
     const r=b.pg[+g.pgsup]; if(!r) return;
@@ -5156,6 +5288,46 @@ const actions={
   /* Les deux heures sont proposées, pas devinées : s'il y a un vide entre le
      début de la fenêtre et le premier bloc, c'est très probablement celui-là
      qu'on vient combler — la nuit qu'on a passée debout. */
+  perNeuve(){ empile(); S.view="perNeuf"; render(); },
+  perCommencer(){
+    const d=valHeure("pdDeb");
+    const quoi=(document.getElementById("pdDisc")||{}).value||"";
+    if(!quoi) return toast("Choisis la routine");
+    if(d===null) return toast("Pose une heure de début");
+    if(d>Date.now()) return toast("Ce début n'est pas encore arrivé");
+    const id=uid("p");
+    db.periodes=(db.periodes||[]).concat([{id:id, d:quoi, deb:d, maj:Date.now()}]);
+    db.periodes.sort(function(a,b){ return a.deb-b.deb; });
+    save(); toast("Commencé : "+discNom(quoi));
+    depile("temps"); empile(); S.perId=id; S.view="periode"; render();
+  },
+  /* Personne ne referme un temps mis à part à la place du disciple : la ligne
+     se touche, elle ne se déclenche pas toute seule (13.cf). */
+  perCours(){
+    const pr=periode(S.perId); if(!pr) return;
+    notePer(pr);
+    if(perOuverte(pr)) pr.fin=Math.max(Date.now(), pr.deb+60000);
+    else delete pr.fin;
+    touche(pr); save(); render();
+  },
+  perGarder(){
+    const pr=periode(S.perId); if(!pr) return;
+    const d=valHeure("pdDeb", pr.deb);
+    const f=perOuverte(pr) ? null : valHeure("pdFin", pr.fin);
+    if(d===null) return toast("Pose une heure de début");
+    if(!perOuverte(pr) && f===null) return toast("Pose une heure de fin");
+    if(f!==null && f<=d) return toast("La fin doit venir après le début");
+    if(d>Date.now()) return toast("Ce début n'est pas encore arrivé");
+    pr.deb=d; if(f!==null) pr.fin=f;
+    notePer(pr); touche(pr); save();
+    toast("Gardé."); depile("temps"); render();
+  },
+  perEffacer(){
+    const id=S.perId;
+    db.periodes=(db.periodes||[]).filter(function(x){ return x.id!==id; });
+    tue(id); S.perId=null; save(); toast("Effacé.");
+    depile("temps"); render();
+  },
   fenIci(){ fermeMenu(); S.anc=null; render(); },
   /* Le grain et le retour au présent tiennent dans la même feuille : ils
      répondent tous deux à la question « quelle portion ? ». */

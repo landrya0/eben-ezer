@@ -768,7 +768,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v65";
+const VERSION = "v66";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -816,7 +816,7 @@ let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an"
          per:"jour", anc:null, vue:"parts", tQ:"", tCat:"", blocId:null, medId:null, trou:null, quand:null,
          noteFocus:false, frisZ:null, enPlus:false, tchId:null,
          lu:null, luA:null, luZ:null, luPlein:false,
-         pgL:null, pgA:null, pgZ:null, lvId:null};
+         pgL:null, pgA:null, pgZ:null, lvId:null, auId:null};
 
 /* Un seul « écran précédent » ne suffisait pas : en ouvrant un retour depuis
    un acte, il finissait par désigner l'acte lui-même, et le bouton Retour ne
@@ -1667,6 +1667,7 @@ function render(){
      && S.view!=="lecture" && S.view!=="pages" && S.view!=="livre"){ S.blocId=null; S.trou=null; }
   if(S.view!=="lecture"){ S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false; }
   if(S.view!=="pages" && S.view!=="livre"){ S.pgL=null; S.pgA=null; S.pgZ=null; }
+  if(S.view!=="auteur") S.auId=null;
   /* On ne rouvre jamais l'application sur une fenêtre passée : revenir à un
      onglet ramène au présent, comme on ouvre toujours sur Aujourd'hui. */
   if(ONGLETS.some(function(o){ return o[0]===S.view; })){ S.anc=null; S.vue="parts"; }
@@ -3462,6 +3463,16 @@ function vMonTemps(){
         }).join(""));
   }
 
+  /* La liste des auteurs vit sous les lectures : c'est là qu'on se demande de
+     qui l'on reçoit, et c'est de là qu'on atteint leur fiche. */
+  if(v==="routines" && (db.auteurs||[]).length){
+    h += titreBloc("Ceux dont tu reçois","ecart");
+    h += liste(auteursConnus().map(function(x){
+      const r=recuDe(x.id);
+      return ligne({titre:esc(x.nom), sous:esc(recuTxt(r)), attr:'data-au="'+x.id+'"'});
+    }).join(""));
+  }
+
   const tids=Object.keys(c.par).sort((a,b)=>c.par[b]-c.par[a]);
   if(v==="parts"){
   h += titreBloc("Activité par activité","ecart");
@@ -4049,7 +4060,7 @@ function vTache(){
    touche plus à rien — « d'Aubigné », « van Dyke » sont des noms qu'on n'a pas
    à corriger, et un nom mal recapitalisé est un manque d'égard. */
 function capNom(t){
-  const v=String(t||"").trim();
+  const v=String(t||"").trim().replace(/\s+/g, " ");
   if(/[A-ZÀ-Þ]/.test(v)) return v;
   return v.replace(/(^|[\s\-'’])([a-zà-ÿ])/g, function(m,a,b){ return a+b.toUpperCase(); });
 }
@@ -4071,6 +4082,28 @@ function auteursConnus(){
   (db.taches||[]).forEach(function(t){ if(t.au) poids[t.au]=(poids[t.au]||0)+1; });
   return (db.auteurs||[]).slice().sort(function(x,y){
     return (poids[y.id]||0)-(poids[x.id]||0) || x.nom.localeCompare(y.nom); });
+}
+/* Ce qu'on a reçu d'un homme : ses livres, les pages qu'on y a lues, et les
+   heures passées avec ce qu'il enseigne — par le livre ou par la vidéo. */
+function recuDe(aid){
+  const lv=(db.livres||[]).filter(function(l){ return l.a===aid; });
+  const ts=(db.taches||[]).filter(function(t){ return t.au===aid; });
+  let pages=0, ms=0;
+  const sien={};
+  lv.forEach(function(l){ sien[l.id]=1; pages+=pageLue(l.id); });
+  (db.temps||[]).forEach(function(b){
+    const t=tache(b.t);
+    const parLivre=(b.pg||[]).some(function(r){ return sien[r[0]]; });
+    if(parLivre || (t && t.au===aid)) ms+=Math.max(0, finDe(b)===SANSFIN ? Date.now()-b.deb : b.fin-b.deb);
+  });
+  return {livres:lv, taches:ts, pages:pages, ms:ms};
+}
+function recuTxt(r){
+  const p=[];
+  if(r.livres.length) p.push(r.livres.length+" livre"+(r.livres.length>1?"s":""));
+  if(r.pages) p.push(pagesTxt(r.pages));
+  if(r.ms) p.push(hm(r.ms));
+  return p.length ? p.join(" · ") : "Rien encore";
 }
 function pucesAuteurs(champId){
   const a=auteursConnus();
@@ -4226,6 +4259,49 @@ function vLivre(){
   }
   Z.html=h;
   Z.action=bouton(l?"Garder":"Ajouter ce livre", 'data-act="livreGarder"');
+}
+
+/* L'auteur avait une fiche sans écran : on pouvait le nommer, pas le
+   corriger, et deux orthographes d'un même homme restaient deux hommes. Ici
+   il se renomme, on voit ce qu'on a reçu de lui, et deux fiches se réunissent
+   (13.ct). */
+function vAuteur(){
+  const a=S.auId ? auteur(S.auId) : null;
+  if(!a){ depile("temps"); return render(); }
+  const r=recuDe(a.id);
+  Z.titre=a.nom; Z.retour=true;
+  let h=`<div class="block amorce" style="margin-top:16px">Ce que tu as reçu de lui : <b>${esc(recuTxt(r))}</b>.</div>`;
+  h+=titreBloc("Son nom");
+  h+=champ("auNom", "Son nom", "text", esc(a.nom), 'autocapitalize="words"');
+  if(r.livres.length){
+    h+=titreBloc("Ses livres","ecart");
+    h+=liste(r.livres.map(function(l){
+      const vu=pageLue(l.id), tot=l.pages||0;
+      return ligne({titre:esc(l.nom), sous: livreFini(l) ? "Fini" : "En cours",
+        apres:esc(tot ? vu+" / "+tot : String(vu)), attr:'data-lv="'+l.id+'"'});
+    }).join(""));
+  }
+  if(r.taches.length){
+    h+=titreBloc("Ce que tu suis de lui","ecart");
+    h+=liste(r.taches.map(function(t){
+      return ligne({titre:esc(t.nom), sous:esc(catNom(t.cat||"reste")),
+        attr:'data-tch="'+t.id+'"'});
+    }).join(""));
+  }
+  /* Réunir, et non supprimer : on ne perd jamais ce qui était rattaché, on le
+     transporte. C'est la seule façon de rattraper « T. Andoseh » écrit un
+     jour et « Theodore Andoseh » un autre. */
+  const autres=auteursConnus().filter(function(x){ return x.id!==a.id; });
+  if(autres.length){
+    h+=titreBloc("Réunir avec un autre","ecart");
+    h+=`<div class="block amorce">Si c'est le même homme écrit deux fois. Ses livres et ce que tu suis de lui passeront sur l'autre fiche, et celle-ci disparaîtra.</div>`;
+    h+=liste(champSel("auFus","L'autre fiche",
+        `<option value="">— choisis —</option>`
+        + autres.map(function(x){ return `<option value="${x.id}">${esc(x.nom)}</option>`; }).join("")));
+    h+=liste(ligne({titre:"Réunir les deux", attr:'data-act="auReunir"'}), "lien");
+  }
+  Z.html=h;
+  Z.action=bouton("Garder", 'data-act="auGarder"');
 }
 
 function vBloc(){
@@ -4469,7 +4545,7 @@ function vListe(f){ return function(){ f(); }; }
 const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), actes:vListe(vActes), chemin:vChemin, faits:vFaits,
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData,
               pointer:vPointer, temps:vMonTemps, bloc:vBloc, quand:vQuand, frise:vFrise,
-              tache:vTache, lecture:vLecture, pages:vPages, livre:vLivre,
+              tache:vTache, lecture:vLecture, pages:vPages, livre:vLivre, auteur:vAuteur,
               sync:vSync, reglages:vReglages};
 
 /* ---------- dictée ---------- */
@@ -4658,7 +4734,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-fdec]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -4733,6 +4809,7 @@ document.addEventListener("click", ev=>{
   }
   if(g.pgl){ S.pgL=g.pgl; S.pgA=null; S.pgZ=null; return render(); }
   if(g.lv){ empile(); S.lvId=g.lv; S.view="livre"; return render(); }
+  if(g.au){ empile(); S.auId=g.au; S.view="auteur"; return render(); }
   if(g.pgsup!==undefined){
     const b=blocT(S.blocId); if(!b || !b.pg) return;
     const r=b.pg[+g.pgsup]; if(!r) return;
@@ -4925,6 +5002,27 @@ const actions={
     const l=livre(S.lvId); if(!l) return;
     if(l.fini) delete l.fini; else l.fini=1;
     touche(l); save(); toast(l.fini ? "Fini." : "Remis en cours."); render();
+  },
+  auGarder(){
+    const a=auteur(S.auId); if(!a) return;
+    const nom=String(val("auNom")||"").trim();
+    if(!nom) return toast("Écris son nom");
+    const autre=(db.auteurs||[]).filter(function(x){
+      return x.id!==a.id && x.nom.toLowerCase()===nom.toLowerCase(); })[0];
+    if(autre) return toast("« "+autre.nom+" » existe déjà — réunis les deux fiches");
+    a.nom=capNom(nom); touche(a); save();
+    toast("Gardé."); depile("temps"); render();
+  },
+  auReunir(){
+    const a=auteur(S.auId), vers=auteur(val("auFus"));
+    if(!a) return;
+    if(!vers) return toast("Choisis l'autre fiche");
+    (db.livres||[]).forEach(function(l){ if(l.a===a.id){ l.a=vers.id; touche(l); } });
+    (db.taches||[]).forEach(function(t){ if(t.au===a.id){ t.au=vers.id; touche(t); } });
+    db.auteurs=(db.auteurs||[]).filter(function(x){ return x.id!==a.id; });
+    tue(a.id); save();
+    toast("Réunis sous « "+vers.nom+" »");
+    S.auId=vers.id; render();
   },
   livreGarder(){
     const nom=String(val("lvNom")||"").trim();

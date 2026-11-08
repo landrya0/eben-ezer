@@ -768,7 +768,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v61";
+const VERSION = "v62";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -3416,9 +3416,12 @@ function vMonTemps(){
   if(routineDite()){
     h += titreBloc("Les routines","ecart");
     h += liste(DISC.map(function(x){
-      return ligne({titre:esc(x[1]), apres: pd[x[0]] ? esc(hm(pd[x[0]])) : "—"});
+      const o={titre:esc(x[1]), apres: pd[x[0]] ? esc(hm(pd[x[0]])) : "—"};
+      const m=mesureDisc(x[0], f.t0, f.t1);
+      if(m) o.sous=esc(m);
+      return ligne(o);
     }).join(""));
-    h += `<div class="block amorce">Les seize routines du message de Bertoua. On ne compte ici que <b>le temps</b> : un tiret dit que cette routine n'en a pas reçu ${esc(f.nom)}, pas qu'elle n'a pas été vécue. Ce qui se vit en actes — donner, une âme touchée, un compte-rendu — se comptera à côté.</div>`;
+    h += `<div class="block amorce">Les seize routines du message de Bertoua : <b>le temps</b>, et ce que chacune compte en propre. Un tiret dit que cette routine n'a rien reçu ${esc(f.nom)}, pas qu'elle n'a pas été vécue — ce qui se vit en actes, une dîme, une âme touchée, un compte-rendu, se comptera à côté.</div>`;
   }
 
   const pf=pagesFen(f.t0, f.t1);
@@ -3660,6 +3663,25 @@ const DISC = [
   ["volonte","Vivre dans la volonté de Dieu en tout"],
   ["gloire","Tout faire pour la gloire de Jésus-Christ"]
 ];
+/* Le temps n'est pas la seule mesure d'une routine : la Bible se compte
+   aussi en chapitres, la littérature en pages, et demain un jeûne se comptera
+   en jours. Chaque routine rend donc ce qu'elle compte en propre, en plus de
+   ses heures (13.cp).
+   On ne prend que les blocs dont l'activité porte cette routine-là : sans
+   quoi deux routines se voleraient leurs nombres le jour où une autre
+   activité se met à lire des pages. */
+function mesureDisc(id, t0, t1){
+  let n=0;
+  (db.temps||[]).forEach(function(b){
+    if(b.deb<t0 || b.deb>=t1 || discTache(b.t)!==id) return;
+    if(id==="parole") (b.lu||[]).forEach(function(r){ n+=nbLu(r); });
+    else if(id==="litt") (b.pg||[]).forEach(function(r){ n+=r[2]-r[1]+1; });
+  });
+  if(!n) return "";
+  if(id==="parole") return chapitresTxt(n);
+  if(id==="litt") return pagesTxt(n);
+  return "";
+}
 /* Une activité déclare-t-elle une routine ? C'est ce qui ouvre le compte
    rendu : sans cela, seize lignes vides n'apprendraient rien. */
 function routineDite(){

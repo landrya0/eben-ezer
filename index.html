@@ -768,7 +768,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v63";
+const VERSION = "v64";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -809,7 +809,7 @@ const TACHES_SOCLE = [
   ["Attente","reste"],["Écrans","reste"]
 ];
 
-let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], livres:[], exp:0, seq:1};
+let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], livres:[], auteurs:[], exp:0, seq:1};
 let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an", rev:"noms", pile:[], nodeId:null,
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
@@ -845,13 +845,14 @@ function sane(v){
           noms:Array.isArray(o.noms)?o.noms:[], mans:Array.isArray(o.mans)?o.mans:[],
           cats:Array.isArray(o.cats)?o.cats:[], taches:Array.isArray(o.taches)?o.taches:[],
           livres:Array.isArray(o.livres)?o.livres:[],
+          auteurs:Array.isArray(o.auteurs)?o.auteurs:[],
           temps:Array.isArray(o.temps)?o.temps:[], exp:(typeof o.exp==="number")?o.exp:0,
           morts:(o.morts && typeof o.morts==="object")?o.morts:{},
           maj:(typeof o.maj==="number")?o.maj:0,
           seq:(typeof o.seq==="number"&&o.seq>0)?o.seq:1};
   /* Les fiches d'avant la synchronisation n'ont pas d'heure. On leur en donne
      la plus ancienne possible : la moindre écriture réelle les dépassera. */
-  [d.nodes,d.gens,d.noms,d.mans,d.cats,d.taches,d.temps,d.livres].forEach(function(a){
+  [d.nodes,d.gens,d.noms,d.mans,d.cats,d.taches,d.temps,d.livres,d.auteurs].forEach(function(a){
     a.forEach(function(x){ if(x && typeof x.maj!=="number") x.maj=1; });
   });
   /* Le type de champs était un réglage à part ; il devient une conséquence de
@@ -3074,6 +3075,7 @@ function fusionne(A, B){
     mans:  fusionListe(A.mans,   B.mans,   morts),
     cats:  fusionListe(A.cats,   B.cats,   morts),
     livres:fusionListe(A.livres, B.livres, morts),
+    auteurs:fusionListe(A.auteurs, B.auteurs, morts),
     taches:fusionListe(A.taches, B.taches, morts),
     temps: fusionTemps(fusionListe(A.temps, B.temps, morts)),
     morts: morts,
@@ -3436,9 +3438,10 @@ function vMonTemps(){
         .map(function(l){
           const vu=pageLue(l.id), tot=l.pages||0, reste=Math.max(0, tot-vu);
           return ligne({titre:esc(l.nom),
-            sous: livreFini(l) ? "Fini"
+            sous: (l.a?esc(auteurNom(l.a))+" · ":"")
+                + (livreFini(l) ? "Fini"
                 : (tot ? partPc(Math.min(vu,tot), tot)+" % — il reste "+pagesTxt(reste)
-                       : "Nombre de pages inconnu"),
+                       : "Nombre de pages inconnu")),
             apres: esc(tot ? vu+" / "+tot : String(vu)),
             attr:'data-lv="'+l.id+'"'});
         }).join(""));
@@ -3983,11 +3986,21 @@ function vTache(){
     h+=liste(ligne({titre:"Chapitres distincts", sous:"Relire ne l'agrandit pas",
         apres:esc(n+" / "+BIBLE_CH)}));
   }
+  /* Un enseignement suivi en vidéo n'a pas de pages (13.cq), mais il a
+     quelqu'un derrière : c'est par l'activité qu'on le nomme, puisqu'il n'y a
+     pas de livre pour le porter. */
+  if(dc==="litt" && !sp){
+    h+=titreBloc("L'auteur qu'on suit","ecart");
+    h+=`<div class="block amorce">Ce qu'on suit en vidéo ou en podcast n'a pas de pages, mais il a quelqu'un derrière. Ce que tu écris ici se garde tout seul.</div>`;
+    h+=champ("tAuteur", "Son nom", "text", t.au?esc(auteurNom(t.au)):"", 'autocapitalize="words"');
+    h+=pucesAuteurs("tAuteur");
+  }
   if(sp==="livre"){
     h+=titreBloc("Tes livres","ecart");
     h+=liste(((db.livres||[]).map(function(l){
         const vu=pageLue(l.id), tot=l.pages||0;
-        return ligne({titre:esc(l.nom), sous: livreFini(l) ? "Fini" : "En cours",
+        const au=l.a?esc(auteurNom(l.a))+" · ":"";
+        return ligne({titre:esc(l.nom), sous: au+(livreFini(l) ? "Fini" : "En cours"),
           apres:esc(tot ? vu+" / "+tot : String(vu)), attr:'data-lv="'+l.id+'"'});
       }).join("")) + ligne({titre:"Ajouter un livre", attr:'data-act="livreNeuf"'}));
   }
@@ -4003,15 +4016,62 @@ function vTache(){
    Et l'on mène plusieurs livres de front comme on mène plusieurs activités
    de front : chacun garde son propre signet, et c'est le dernier touché qui
    se propose, pour que le cas courant reste à un geste (13.ck). */
+/* ---------- ceux dont on reçoit ---------- */
+/* Un auteur n'est pas une colonne du livre : c'est quelqu'un dont on reçoit,
+   et dont on reçoit par plusieurs voies — trois de ses livres, et ses
+   enseignements suivis en vidéo. Une fiche à part, donc, que le livre et
+   l'activité désignent tous deux (13.cr). */
+/* Un nom propre n'a pas qu'une majuscule : « theodore andoseh » tapé vite
+   doit ressortir « Theodore Andoseh ». Mais dès qu'une majuscule est là, on ne
+   touche plus à rien — « d'Aubigné », « van Dyke » sont des noms qu'on n'a pas
+   à corriger, et un nom mal recapitalisé est un manque d'égard. */
+function capNom(t){
+  const v=String(t||"").trim();
+  if(/[A-ZÀ-Þ]/.test(v)) return v;
+  return v.replace(/(^|[\s\-'’])([a-zà-ÿ])/g, function(m,a,b){ return a+b.toUpperCase(); });
+}
+function auteur(id){ return (db.auteurs||[]).filter(function(a){ return a.id===id; })[0]; }
+function auteurNom(id){ const a=auteur(id); return a ? a.nom : ""; }
+function auteurId(nom){
+  const v=String(nom||"").trim(); if(!v) return "";
+  const a=(db.auteurs||[]).filter(function(x){ return x.nom.toLowerCase()===v.toLowerCase(); })[0];
+  if(a) return a.id;
+  const id=uid("u");
+  db.auteurs=(db.auteurs||[]).concat([{id:id, nom:capNom(v), maj:Date.now()}]);
+  return id;
+}
+/* Rangés sur ce qu'on en a reçu : celui qu'on lit le plus vient en tête, et
+   le geste le plus fréquent reste le plus court (13.bb). */
+function auteursConnus(){
+  const poids={};
+  (db.livres||[]).forEach(function(l){ if(l.a) poids[l.a]=(poids[l.a]||0)+1; });
+  (db.taches||[]).forEach(function(t){ if(t.au) poids[t.au]=(poids[t.au]||0)+1; });
+  return (db.auteurs||[]).slice().sort(function(x,y){
+    return (poids[y.id]||0)-(poids[x.id]||0) || x.nom.localeCompare(y.nom); });
+}
+function pucesAuteurs(champId){
+  const a=auteursConnus();
+  if(!a.length) return "";
+  return `<div class="puces">`+a.map(function(x){
+    return `<button class="puce" data-aut="${x.id}" data-pour="${champId}">${esc(x.nom)}</button>`;
+  }).join("")+`</div>`;
+}
 function livre(id){ return (db.livres||[]).filter(function(l){ return l.id===id; })[0]; }
 function livreNom(id){ const l=livre(id); return l ? l.nom : "—"; }
 function livrePages(id){ const l=livre(id); return (l && l.pages>0) ? l.pages : 0; }
-function livreId(nom, pages){
+function livreId(nom, pages, aut){
   const v=String(nom||"").trim(); if(!v) return "";
   const l=(db.livres||[]).filter(function(x){ return x.nom.toLowerCase()===v.toLowerCase(); })[0];
-  if(l){ if(pages>0 && l.pages!==pages){ l.pages=pages; touche(l); } return l.id; }
+  if(l){
+    let bouge=false;
+    if(pages>0 && l.pages!==pages){ l.pages=pages; bouge=true; }
+    if(aut!==undefined && l.a!==aut){ l.a=aut; bouge=true; }
+    if(bouge) touche(l);
+    return l.id;
+  }
   const id=uid("l");
-  db.livres=(db.livres||[]).concat([{id:id, nom:cap(v), pages:pages>0?pages:0, maj:Date.now()}]);
+  db.livres=(db.livres||[]).concat([{id:id, nom:cap(v), pages:pages>0?pages:0,
+                                     a:aut||"", maj:Date.now()}]);
   return id;
 }
 /* Le signet se lit dans l'archive, jamais tenu à jour à part : la page la
@@ -4126,6 +4186,10 @@ function vLivre(){
   let h=`<div class="block amorce" style="margin-top:16px">Le titre, et le nombre de pages — c'est lui qui permet de dire où tu en es, et ce qu'il te reste.</div>`;
   h+=titreBloc("Le titre");
   h+=champ("lvNom", "Le titre du livre", "text", l?esc(l.nom):"", 'autocapitalize="sentences"');
+  h+=titreBloc("L'auteur","ecart");
+  h+=`<div class="block amorce">Qui l'a écrit. On garde la liste, pour savoir de qui tu reçois.</div>`;
+  h+=champ("lvAuteur", "Son nom", "text", (l&&l.a)?esc(auteurNom(l.a)):"", 'autocapitalize="words"');
+  h+=pucesAuteurs("lvAuteur");
   h+=titreBloc("Le nombre de pages","ecart");
   h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
       <input type="number" id="lvPages" inputmode="numeric" min="1" max="9999" placeholder="240" value="${(l&&l.pages)?l.pages:""}"></div></div></li>`);
@@ -4518,6 +4582,17 @@ document.addEventListener("input", ev=>{
 
 /* ---------- gestes ---------- */
 document.addEventListener("change", function(ev){
+  if(ev.target.id==="tAuteur"){
+    const t=tache(S.tchId);
+    if(t){
+      const au=auteurId(ev.target.value);
+      if(t.au!==au){ t.au=au; touche(t); save(); toast(au?"Noté.":"Retiré."); }
+      /* On rend le nom tel qu'il est rangé : le disciple voit tout de suite
+         sous quelle orthographe son auteur a été retenu. */
+      ev.target.value = au ? auteurNom(au) : "";
+    }
+    return;
+  }
   if(ev.target.id==="medIn" || ev.target.id==="medCam" || ev.target.id==="medVid"){
     /* On recopie les fichiers AVANT de vider le champ : `files` est une liste
        vivante, attachée au champ, et la vider vide aussi ce qu'on croyait
@@ -4560,7 +4635,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup],[data-tch],[data-mes],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-fdec]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-fdec]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -4620,6 +4695,13 @@ document.addEventListener("click", ev=>{
   /* Une ligne d'« activité par activité » ne menait nulle part : elle est
      maintenant la porte de l'activité elle-même, et de ce qu'on y note. */
   if(g.tch){ empile(); S.tchId=g.tch; S.view="tache"; return render(); }
+  /* La pastille remplit le champ sans redessiner : un redessin perdrait le
+     titre qu'on vient de taper juste au-dessus. */
+  if(g.aut!==undefined){
+    const e=document.getElementById(g.pour||"lvAuteur");
+    if(e){ e.value=auteurNom(g.aut); e.dispatchEvent(new Event("change",{bubbles:true})); }
+    return;
+  }
   if(g.mes!==undefined){
     const t=tache(S.tchId); if(!t) return;
     if(g.mes==="0") t.m=0; else delete t.m;
@@ -4825,12 +4907,13 @@ const actions={
     const pg=parseInt(val("lvPages"), 10);
     if(!nom) return toast("Écris le titre du livre");
     if(!(pg>0)) return toast("Dis combien il a de pages");
+    const au=auteurId(val("lvAuteur"));
     if(S.lvId){
       const l=livre(S.lvId);
-      if(l){ l.nom=cap(nom); l.pages=pg; touche(l); save(); }
+      if(l){ l.nom=cap(nom); l.pages=pg; l.a=au; touche(l); save(); }
       toast("Gardé."); depile("temps"); return render();
     }
-    const id=livreId(nom, pg); save();
+    const id=livreId(nom, pg, au); save();
     S.pgL=id; S.pgA=null; S.pgZ=null;
     toast("Ajouté : "+livreNom(id));
     depile("pages"); render();

@@ -1184,3 +1184,64 @@ test("13.dc — une activité qui refuse la mesure de sa routine ne demande rien
   A.equal(a.f.raccourciArret(ts[1]), "");
   A.equal(a.f.raccourciSous(ts[1]), "Le compteur part");
 });
+
+/* ========================================================================
+   13.dd — un raccourci peut partir à côté de ce qui tourne
+   ======================================================================== */
+
+function deuxEpinglees(a) {
+  a.db.taches = [
+    { id: "t1", nom: "Marche", cat: "soi", ep: 1000, maj: 1 },
+    { id: "t2", nom: "Prière", cat: "dieu", d: "priere", ep: 2000, maj: 1 }
+  ];
+  a.db.temps = [{ id: "b1", t: "t1", deb: j(9, 0), maj: 1 }];
+}
+
+test("13.dd — par défaut, un raccourci arrête ce qui tourne", () => {
+  const a = app();
+  deuxEpinglees(a);
+  a.maintenant(j(9, 30));
+  a.geste({ ep: "t2" });
+
+  const marche = a.db.temps.filter(b => b.t === "t1")[0];
+  A.ok(marche.fin, "la marche s'est arrêtée");
+  A.equal(a.f.ouverts().length, 1);
+  A.equal(a.f.ouverts()[0].t, "t2");
+});
+
+test("13.dd — « en plus » le lance à côté, sans rien arrêter", () => {
+  const a = app();
+  deuxEpinglees(a);
+  a.maintenant(j(9, 30));
+  a.S.enPlus = true;
+  a.geste({ ep: "t2" });
+
+  A.equal(a.f.ouverts().length, 2, "on prie en marchant : les deux couvrent la journée");
+  A.equal(a.db.temps.filter(b => b.t === "t1")[0].fin, undefined);
+  A.equal(a.db.temps.filter(b => b.t === "t2")[0].deb, j(9, 30));
+});
+
+test("13.dd — l'interrupteur ne vaut que pour le geste qu'on vient de faire", () => {
+  const a = app();
+  deuxEpinglees(a);
+  a.db.taches.push({ id: "t3", nom: "Manger", cat: "soi", ep: 3000, maj: 1 });
+  a.maintenant(j(9, 30));
+  a.S.enPlus = true;
+  a.geste({ ep: "t2" });
+  A.equal(a.S.enPlus, false, "il retombe aussitôt");
+
+  a.maintenant(j(10, 0));
+  a.geste({ ep: "t3" });
+  A.equal(a.f.ouverts().length, 1, "manger arrête les deux : on n'a rien demandé d'autre");
+  A.equal(a.f.ouverts()[0].t, "t3");
+});
+
+test("13.dd — toucher un raccourci qui tourne l'arrête, quel que soit l'interrupteur", () => {
+  const a = app();
+  deuxEpinglees(a);
+  a.maintenant(j(9, 30));
+  a.S.enPlus = true;
+  a.geste({ ep: "t1" });
+  A.ok(a.db.temps.filter(b => b.t === "t1")[0].fin, "c'est la même ligne qui arrête");
+  A.equal(a.f.ouverts().length, 0);
+});

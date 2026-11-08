@@ -660,16 +660,30 @@ function porteRaccourci(t){
    pas. */
 function portePointage(){
   const o=ouvert();
-  return titreBloc("Ou bien","ecart") + liste(ligne(o
+  let h = titreBloc("Ou bien","ecart") + liste(ligne(o
     ? {titre:"« "+esc(tacheNom(o.t))+" » tourne",
        sous:esc(hm(Date.now()-o.deb))+" pour l'instant — changer ou arrêter",
        attr:'data-go="pointer"'}
     : {titre:"Compter mon temps", sous:"Dire à quoi va ton temps",
-       attr:'data-go="pointer"'})
-    + epingles().map(porteRaccourci).join("")
+       attr:'data-go="pointer"'}), "lien");
+  /* Un raccourci arrêtait toujours ce qui tournait. Mais on prie en marchant,
+     on écoute un enseignement en cuisinant : deux choses de front ne se
+     disputent pas la journée, elles la couvrent toutes les deux (13.by). Le
+     choix revient donc ici, sous la forme qu'il a déjà ailleurs — et seulement
+     quand quelque chose tourne, puisque « en plus » de rien ne veut rien dire
+     (13.dd). */
+  if(o)
+    h += `<div class="puces" style="padding-top:2px">`
+      + `<button class="puce" data-plus="0" aria-pressed="${!S.enPlus}">À la place</button>`
+      + `<button class="puce" data-plus="1" aria-pressed="${!!S.enPlus}">En plus</button></div>`
+      + `<div class="block amorce">${S.enPlus
+          ? "Ce que tu lances ici tournera <b>à côté</b> de « "+esc(tacheNom(o.t))+" »."
+          : "Ce que tu lances ici <b>arrêtera</b> « "+esc(tacheNom(o.t))+" »."}</div>`;
+  h += liste(epingles().map(porteRaccourci).join("")
     + ligne({titre:"Choisir ce qui est ici",
              sous:"Les activités que tu veux sous le pouce",
              attr:'data-go="epingles"'}), "lien");
+  return h;
 }
 /* Piloter la liste, c'est répondre à une seule question : qu'est-ce que je
    veux sous le pouce ? Donc une liste de toutes les activités, une coche, et

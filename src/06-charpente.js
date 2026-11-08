@@ -57,7 +57,10 @@ function render(){
   if(!surCause){ S.cNeuf=false; S.cTxt=""; S.cType=""; S.cQ=""; }
   /* L'interrupteur ne se garde pas : « en plus » oublié d'hier ferait
      démarrer une activité par-dessus une autre sans qu'on l'ait voulu. */
-  if(S.view!=="pointer"){ S.tQ=""; S.tCat=""; S.enPlus=false; S.vifPrend=false; }
+  /* « En plus » vit maintenant sur deux écrans — le pointage et le bouton du
+     milieu — et ne survit à aucun des deux : oublié d'hier, il ferait démarrer
+     une activité par-dessus une autre sans qu'on l'ait voulu. */
+  if(S.view!=="pointer" && S.view!=="note"){ S.tQ=""; S.tCat=""; S.enPlus=false; S.vifPrend=false; }
   if(S.view!=="pointer" && S.view!=="temps" && S.view!=="bloc" && S.view!=="frise"
      && S.view!=="lecture" && S.view!=="pages" && S.view!=="livre"){ S.blocId=null; S.trou=null; }
   if(S.view!=="lecture"){ S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false; }

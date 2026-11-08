@@ -84,8 +84,13 @@ document.addEventListener("click", ev=>{
     const b=ouverts().filter(function(x){ return x.t===g.ep; })[0];
     if(b){ arreteUn(b); S.pile=[]; S.view="today";
            toast("Arrêté : "+tacheNom(g.ep)); apresArret([b]); return render(); }
-    pointe(g.ep, !!S.enPlus); S.pile=[]; S.view="today";
-    toast("On compte : "+tacheNom(g.ep)); return render();
+    /* L'interrupteur ne vaut que pour le geste qu'on vient de faire : laissé
+       en place, il lancerait la prochaine activité par-dessus une autre sans
+       qu'on l'ait voulu (13.db, 13.dd). */
+    const enPlus=!!S.enPlus; S.enPlus=false;
+    pointe(g.ep, enPlus); S.pile=[]; S.view="today";
+    toast(enPlus ? "En plus : "+tacheNom(g.ep) : "On compte : "+tacheNom(g.ep));
+    return render();
   }
   /* Épingler, c'est une date : elle dit aussi dans quel ordre les lignes se
      rangent. Zéro, et non « absent », pour qu'un décochage voyage à la

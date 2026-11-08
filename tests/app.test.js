@@ -711,3 +711,32 @@ test("13.cx — toucher la circonstance la pose, la retoucher la retire", () => 
   a.geste({ pdt: "b1" });
   A.equal(a.S.draft.pdt, null, "on retire ce qu'on a posé par erreur");
 });
+
+test("13.cw — une routine encadrée ne porte plus le tiret du « rien reçu »", () => {
+  const a = app();
+  a.db.periodes = [{ id: "p1", d: "retraite", deb: jour(7, 7, 0), maj: 1 }];
+  const ps = a.f.perDisc("retraite", a.f.bornes("jour", MIDI)[0], MIDI);
+  A.equal(ps.length, 1);
+  A.match(a.f.perDiscTxt(ps), /en cours depuis hier à 7 h 00 · 1 jour 5 h/);
+
+  A.equal(a.f.perDisc("jeune", a.f.bornes("jour", MIDI)[0], MIDI).length, 0);
+  A.equal(a.f.perDiscTxt([]), "", "une routine sans cadre ne dit rien de plus");
+});
+
+test("13.cw — une période close se dit au passé ; plusieurs se comptent", () => {
+  const a = app();
+  a.db.periodes = [
+    { id: "p1", d: "jeune", deb: jour(2, 6, 0), fin: jour(2, 18, 0), maj: 1 },
+    { id: "p2", d: "jeune", deb: jour(5, 6, 0), fin: jour(5, 20, 0), maj: 1 }
+  ];
+  const mois = a.f.bornes("mois", MIDI);
+  const un = a.f.perDisc("jeune", jour(2, 0, 0), jour(3, 0, 0));
+  A.match(a.f.perDiscTxt(un), /^12 h, depuis/);
+
+  const deux = a.f.perDisc("jeune", mois[0], mois[1]);
+  A.equal(deux.length, 2);
+  A.equal(a.f.perDiscTxt(deux), "2 fois");
+
+  a.db.periodes.push({ id: "p3", d: "jeune", deb: jour(8, 6, 0), maj: 1 });
+  A.equal(a.f.perDiscTxt(a.f.perDisc("jeune", mois[0], mois[1])), "3 fois, dont une en cours");
+});

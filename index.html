@@ -788,7 +788,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v70";
+const VERSION = "v71";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -3517,15 +3517,23 @@ function vMonTemps(){
     h += titreBloc("Les routines","ecart");
     const rep=actesParDisc(f.t0, f.t1);
     h += liste(DISC.map(function(x){
-      const o={titre:esc(x[1]), apres: pd[x[0]] ? esc(hm(pd[x[0]])) : "—"};
+      const ps=perDisc(x[0], f.t0, f.t1), pt=perDiscTxt(ps);
+      /* Le tiret dit « rien reçu ». Devant une retraite en cours, ce serait
+         faux : la routine est vécue, elle ne se compte simplement pas en
+         heures. On le tait donc, et le cadre parle en dessous (13.cw). */
+      const o={titre:esc(x[1]),
+               apres: pd[x[0]] ? esc(hm(pd[x[0]])) : (pt ? "" : "—")};
       const m=mesureDisc(x[0], f.t0, f.t1), r=rep[x[0]];
       /* Ce que le lien « pendant » permet enfin de dire : non plus seulement
          ce que j'ai donné, mais ce qu'Il y a répondu (13.cx). */
-      const sous=[m, r ? (r+" fois qu'Il y a parlé ou agi") : ""].filter(Boolean).join(" · ");
+      const sous=[pt, m, r ? (r+" fois qu'Il y a parlé ou agi") : ""].filter(Boolean).join(" · ");
       if(sous) o.sous=esc(sous);
+      /* Une seule période : la ligne y mène. Plusieurs, et c'est la section
+         du dessus qui les tient — on ne choisit pas à la place du disciple. */
+      if(ps.length===1) o.attr='data-prd="'+ps[0].id+'"';
       return ligne(o);
     }).join(""));
-    h += `<div class="block amorce">Les seize routines du message de Bertoua : <b>le temps</b>, et ce que chacune compte en propre. Un tiret dit que cette routine n'a rien reçu ${esc(f.nom)}, pas qu'elle n'a pas été vécue — ce qui se vit en actes, une dîme, une âme touchée, un compte-rendu, se comptera à côté.</div>`;
+    h += `<div class="block amorce">Les seize routines du message de Bertoua : <b>le temps</b>, et ce que chacune compte en propre. Un tiret dit que cette routine n'a rien reçu ${esc(f.nom)}, pas qu'elle n'a pas été vécue — un temps mis à part ne pèse aucune heure et se lit en dessous, et ce qui se vit en actes, une dîme, une âme touchée, se comptera à côté.</div>`;
   }
 
   const pf=pagesFen(f.t0, f.t1);
@@ -3840,6 +3848,23 @@ function perTxt(p){
 }
 /* Ce qui a été donné à l'intérieur du cadre : c'est à cela qu'une retraite se juge, et c'est tout ce que la période apporte au compte. */
 function cumulPer(p){ return cumul(p.deb, finPer(p)); }
+/* Les périodes d'une routine donnée, dans la fenêtre regardée. */
+function perDisc(d, t0, t1){
+  return perDans(t0, t1).filter(function(p){ return p.d===d; });
+}
+/* Ce qu'une routine encadrée dit d'elle-même : « en cours depuis hier à
+   7 h 00 · 1 jour 5 h », ou la somme quand il y en a eu plusieurs. */
+function perDiscTxt(ps){
+  if(!ps.length) return "";
+  if(ps.length===1){
+    const p=ps[0];
+    return perOuverte(p)
+      ? "en cours depuis "+quandPer(p)+" · "+dureePer(p)
+      : dureePer(p)+", depuis "+quandPer(p);
+  }
+  const ouv=ps.filter(perOuverte).length;
+  return ps.length+" fois"+(ouv?", dont une en cours":"");
+}
 /* Les périodes qui touchent la fenêtre regardée, les ouvertes en tête. */
 function perDans(t0, t1){
   return (db.periodes||[]).filter(function(p){ return p.deb<t1 && finPer(p)>t0; })

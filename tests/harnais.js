@@ -186,7 +186,8 @@ const PONT = `
        disc, discNom, discDeNom, discTache, parDisc, mesureDisc, mesureProposee,
        auteur, auteurId, auteurNom, auteursConnus, recuDe, recuTxt,
        pdtDe, pdtCandidats, actesPdt, actesParDisc, node, enfants,
-       periode, perOuverte, finPer, perOuvertes, perDans, dureePer, quandPer,
+       periode, perOuverte, finPer, perOuvertes, perDans, perDisc, perDiscTxt,
+       dureePer, quandPer,
        perTxt, cumulPer, parDisc,
        livre, livreId, pageLue, nbLu, chapitresTxt, pagesTxt },
   c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY }

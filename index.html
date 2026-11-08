@@ -768,7 +768,7 @@ textarea.dicte:focus{outline:0}
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v62";
+const VERSION = "v63";
 const KEY = "ebenezer.v1";
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
@@ -3727,11 +3727,19 @@ function parDisc(par){
    en découlent — les chapitres pour la Bible, les pages pour la littérature
    — au lieu d'être un second réglage qu'il faudrait tenir d'accord avec le
    premier (13.cn). */
-function spTache(id){
-  const d=discTache(id);
+function mesureProposee(d){
   if(d==="parole") return "bible";
   if(d==="litt") return "livre";
   return "";
+}
+/* Mais une routine se vit sous plusieurs supports, et le support commande la
+   mesure : un enseignement suivi en vidéo est de la littérature chrétienne et
+   n'a pas de pages. La routine propose donc sa mesure ; l'activité peut la
+   refuser, et ne garder que le temps (13.cq). */
+function spTache(id){
+  const t=tache(id);
+  if(!t || t.m===0) return "";
+  return mesureProposee(discTache(id));
 }
 /* L'activité qui porte la lecture : celle qu'on a déclarée telle, et s'il y
    en a plusieurs, celle où l'on passe le plus de temps. */
@@ -3954,10 +3962,21 @@ function vTache(){
       + DISC.map(function(x){
           return `<option value="${x[0]}"${dc===x[0]?" selected":""}>${esc(x[1])}</option>`;
         }).join("")));
-  h+=`<div class="block amorce">${
-      sp==="bible" ? "On te demandera <b>les chapitres lus</b>, et la reprise là où tu t'es arrêté."
-    : sp==="livre" ? "On te demandera <b>les pages lues</b>, avec un signet par livre."
-    : "Rien de plus que le temps et la note du bloc."}</div>`;
+  const prop=mesureProposee(dc);
+  if(!prop){
+    h+=`<div class="block amorce">Rien de plus que le temps et la note du bloc.</div>`;
+  }else{
+    h+=titreBloc("Ce qu'on y compte","ecart");
+    h+=`<div class="block amorce">${prop==="bible"
+      ? "La lecture de la Bible se compte aussi en chapitres — sauf si cette activité-là ne les suit pas."
+      : "La lecture de littérature chrétienne se compte aussi en pages. Mais une vidéo, un podcast, un enseignement suivi en ligne n'en ont pas : là, le temps suffit."}</div>`;
+    h+=liste(ligne({titre: prop==="bible" ? "Les chapitres lus" : "Les pages lues",
+        sous: prop==="bible" ? "Avec la reprise là où tu t'es arrêté" : "Avec un signet par livre",
+        apres: sp ? `<span class="coche">✓</span>` : "", attr:'data-mes="1"'})
+      + ligne({titre:"Rien de plus que le temps",
+        sous:"Pour ce qui ne se compte ni en chapitres ni en pages",
+        apres: !sp ? `<span class="coche">✓</span>` : "", attr:'data-mes="0"'}));
+  }
   if(sp==="bible"){
     const n=chapDistincts(t.id);
     h+=titreBloc("Ce que tu as traversé","ecart");
@@ -4541,7 +4560,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup],[data-tch],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-fdec]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-medsup],[data-tch],[data-mes],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-fdec]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -4601,6 +4620,11 @@ document.addEventListener("click", ev=>{
   /* Une ligne d'« activité par activité » ne menait nulle part : elle est
      maintenant la porte de l'activité elle-même, et de ce qu'on y note. */
   if(g.tch){ empile(); S.tchId=g.tch; S.view="tache"; return render(); }
+  if(g.mes!==undefined){
+    const t=tache(S.tchId); if(!t) return;
+    if(g.mes==="0") t.m=0; else delete t.m;
+    touche(t); save(); toast("Noté."); return render();
+  }
   if(g.pgl){ S.pgL=g.pgl; S.pgA=null; S.pgZ=null; return render(); }
   if(g.lv){ empile(); S.lvId=g.lv; S.view="livre"; return render(); }
   if(g.pgsup!==undefined){

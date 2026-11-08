@@ -210,6 +210,7 @@ const PONT = `
        sujet, sujetId, sujetTxt, sujetsTxt, sujetsDerniers, apresArret, spTache,
        gensId, gensNom, gensTxt,
        exaucesDe, exauceTxt, sujetDepuis, sujetFois, sujetHist, vActes, minuit,
+       sujetDernier, seancesDe, vCahier, vSujet,
        livre, livreId, pageLue, nbLu, chapitresTxt, pagesTxt },
   c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY }
 };
@@ -254,6 +255,9 @@ function charge(opts) {
   /* Ouvrir l'écran d'une période, champs remplis comme à l'ouverture. */
   /* Toucher une ligne : on fabrique la cible que le délégué attend, et on
      appelle le vrai écouteur. `app.geste({pdt: "b1"})` vaut `data-pdt="b1"`. */
+  /* Écrire dans un champ, comme un doigt le ferait : le faux document rend
+     toujours un élément, et c'est sa valeur que l'application relit. */
+  app.ecrit = function (id, v) { ctx.document.getElementById(id).value = v; };
   app.geste = function (data) {
     const cible = {
       dataset: data, value: "", tagName: "A",

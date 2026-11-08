@@ -364,9 +364,18 @@ function vActes(){
   Z.file = true;
   Z.haut = `<p class="titre-page">Mes actes</p>`;
   const cj=cumul(minuit(0), Date.now());
+  /* Deux registres se tiennent à côté du mémorial sans en être : les heures
+     données, et les sujets portés. Ils partagent donc la même porte, en haut
+     de l'écran qui dit ce qui est à moi (13.di). */
+  const nsj=(db.sujets||[]).length;
+  const nex=(db.sujets||[]).filter(function(s){ return exaucesDe(s.id).length; }).length;
   Z.html = liste(ligne({titre:"Mon temps",
       sous: cj.tot ? esc(hm(cj.tot))+" compté aujourd'hui" : "Rien de compté aujourd'hui",
-      attr:'data-go="temps"'}), "lien")
+      attr:'data-go="temps"'})
+    + ligne({titre:"Mes sujets",
+      sous: nsj ? esc(sujetsTxt(nsj))+(nex?" · "+nex+" exaucé"+(nex>1?"s":""):"")
+                : "Ce que tu portes devant Lui",
+      attr:'data-go="cahier"'}), "lien")
     + bloc("En cours", mien.filter(n=>n.etat==="encours").sort(parDate), 0,
       "Rien ne dure en ce moment. Ouvre un de tes actes et dis où il en est : il passera ici.")
     + (prevus.length

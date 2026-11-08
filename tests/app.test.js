@@ -1601,3 +1601,93 @@ test("13.dh — un acte prévu « en novembre » n'est pas en retard avant déce
   A.deepEqual(s.filter(x => x.titre === "Ce qui attend")[0].ids, ["jour"],
     "le jour, lui, est passé");
 });
+
+/* ---------- 13.di — le cahier, feuilletable ---------- */
+
+function registre(a) {
+  a.db.taches = [{ id: "p1", nom: "Actions de grâces", cat: "dieu", d: "priere", maj: 1 }];
+  const q = a.f.sujetId("Que le projet de Qualitas aboutisse");
+  const m = a.f.sujetId("La santé de maman");
+  const c = a.f.sujetId("Que la chorale soit établie");
+  a.db.temps = [
+    bloc("b1", "p1", jour(1, 6, 0), jour(1, 6, 30), { sj: [q, m, c] }),
+    bloc("b2", "p1", jour(5, 6, 0), jour(5, 6, 30), { sj: [q, m] }),
+    bloc("b3", "p1", j(6, 0), j(6, 30), { sj: [q] })
+  ];
+  a.db.nodes = [{ id: "n1", act: "dieu", txt: "Le contrat est signé", man: "pourvu",
+                  kind: "acte", date: "2026-11-08", prec: "j", etat: "fait",
+                  par: [], suj: [q], ts: 1, maj: 1 }];
+  return { q: q, m: m, c: c };
+}
+/* Les sujets listés par le cahier, dans l'ordre où il les rend. */
+function listeCahier(a) {
+  a.S.view = "cahier";
+  a.f.vCahier();
+  return (a.Z.html.match(/data-sujo="([^"]+)"/g) || []).map(x => x.slice(11, -1));
+}
+
+test("13.di — le cahier s'ouvre sur ce qui attend encore une réponse", () => {
+  const a = app();
+  const s = registre(a);
+  A.equal(a.S.sjF, "attente", "c'est l'état d'ouverture");
+  A.deepEqual(listeCahier(a), [s.m, s.c], "l'exaucé n'y est pas");
+  a.geste({ sjf: "exauces" });
+  A.deepEqual(listeCahier(a), [s.q]);
+  a.geste({ sjf: "tout" });
+  A.equal(listeCahier(a).length, 3);
+});
+
+test("13.di — du dernier nommé au premier", () => {
+  const a = app();
+  const s = registre(a);
+  a.geste({ sjf: "tout" });
+  A.deepEqual(listeCahier(a), [s.q, s.m, s.c],
+    "ce qu'on porte en ce moment remonte, ce qu'on a cessé de dire descend");
+  A.equal(a.f.sujetDernier(s.c), jour(1, 6, 0));
+});
+
+test("13.di — la fiche déplie la ligne du cahier", () => {
+  const a = app();
+  const s = registre(a);
+  a.geste({ sujo: s.q });
+  A.equal(a.S.view, "sujet");
+  a.f.vSujet();
+  A.match(a.Z.html, /nommé 3 fois, depuis le 1er novembre/);
+  A.match(a.Z.html, /Le contrat est signé/);
+  A.deepEqual(Array.from(a.f.seancesDe(s.q), b => b.id), ["b3", "b2", "b1"],
+    "les séances, de la plus récente à la plus ancienne");
+});
+
+test("13.di — « Il y a répondu » ouvre l'assistant déjà lié, et l'acte gardé ramène sur lui", () => {
+  const a = app();
+  const s = registre(a);
+  a.geste({ sujrep: s.m });
+  A.equal(a.S.view, "note");
+  A.equal(a.S.draft.act, "dieu", "la réponse est de Lui, pas de moi");
+  A.ok(a.S.draft.fige, "le lien est posé : on ne redemande pas en réponse à quoi");
+  A.deepEqual(Array.from(a.S.draft.suj), [s.m]);
+
+  a.S.draft.txt = "Elle est sortie de l'hôpital";
+  a.S.draft.man = "delivre";
+  a.actions.saveNote();
+  const n = a.db.nodes.filter(x => x.id !== "n1")[0];
+  A.equal(a.S.view, "node");
+  A.equal(a.S.nodeId, n.id, "un acte né d'un sujet n'a pas de cause : on revient sur lui");
+  A.deepEqual(Array.from(n.suj), [s.m]);
+  A.match(a.f.exauceTxt(s.m), /délivré/);
+});
+
+test("13.di — un sujet se corrige, mais rien ne se réunit à sa place", () => {
+  const a = app();
+  const s = registre(a);
+  a.S.view = "sujet"; a.S.sujId = s.c;
+  a.ecrit("sjTxt", "Que la chorale de France soit établie");
+  a.actions.sjGarder();
+  A.equal(a.f.sujetTxt(s.c), "Que la chorale de France soit établie");
+
+  a.ecrit("sjTxt", "La santé de maman");
+  a.actions.sjGarder();
+  A.equal(a.f.sujetTxt(s.c), "Que la chorale de France soit établie",
+    "un autre sujet porte déjà ce texte : on le dit, on ne fusionne pas (13.ct)");
+  A.equal(a.db.sujets.length, 3);
+});

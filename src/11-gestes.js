@@ -61,7 +61,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", ev=>{
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup],[data-qadd],[data-qsup],[data-sujp]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep]");
   if(!t) return;
   const g=t.dataset;
   if(g.mic) return micBascule(g.mic);
@@ -122,6 +122,16 @@ document.addEventListener("click", ev=>{
     const i=+g.qsup;
     b.qui=(b.qui||[]).filter(function(x,k){ return k!==i; });
     touche(b); save(); return render();
+  }
+  if(g.sujo){ empile(); S.sujId=g.sujo; S.view="sujet"; return render(); }
+  if(g.sjf){ const e=document.getElementById("sjQ"); if(e) S.sjQ=e.value;
+    S.sjF=g.sjf; return render(); }
+  /* Le geste du cahier de prière : la réponse vient, on l'écrit, et le lien
+     est déjà posé — c'est le sujet qui a ouvert l'assistant (13.di). */
+  if(g.sujrep){
+    if(!sujet(g.sujrep)) return;
+    S.draft=neuf("dieu"); S.draft.fige=true; S.draft.suj=[g.sujrep];
+    S.step=0; empile(); S.view="note"; return render();
   }
   if(g.eptog){
     const t=tache(g.eptog);
@@ -409,6 +419,20 @@ const actions={
     S.view="pages"; render(); },
   direSj(){ fermeMenu(); empile(); S.sjQ=""; S.view="sujets"; render(); },
   direQui(){ fermeMenu(); empile(); S.gQ=""; S.view="annonce"; render(); },
+  /* Un sujet qu'on ne peut pas corriger n'est pas une fiche (13.ct). Mais on
+     ne réunit rien à sa place : si le texte est déjà celui d'un autre sujet,
+     on le dit et on s'arrête là. */
+  sjGarder(){
+    const s=sujet(S.sujId); if(!s) return;
+    const v=String(val("sjTxt")||"").trim().replace(/\s+/g," ");
+    if(!v) return toast("Un sujet ne peut pas être vide");
+    if(v===s.txt) return;
+    const k=v.toLowerCase();
+    if((db.sujets||[]).some(function(x){
+        return x.id!==s.id && String(x.txt).trim().toLowerCase()===k; }))
+      return toast("Un autre sujet porte déjà ce texte");
+    s.txt=v; touche(s); save(); toast("Noté."); render();
+  },
   qAdd(){
     const b=blocT(S.blocId); if(!b) return;
     const e=document.getElementById("gQ");
@@ -742,7 +766,7 @@ const actions={
     const ou = n.act==="moi" ? "Mes actes" : "Ses œuvres";
     const fige=d.fige;
     S.draft=null; S.step=0;
-    if(fige){ S.view="node"; S.nodeId=d.par[0]; }
+    if(fige){ S.view="node"; S.nodeId=d.par[0] || n.id; }
     else { S.pile=[]; S.view=onglet; S.nodeId=n.id; }
     toast(fige ? "Rattaché · dans "+ou : "Gardé dans "+ou); render();
   },

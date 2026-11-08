@@ -64,7 +64,8 @@ function render(){
   if(S.view!=="pointer" && S.view!=="temps" && S.view!=="bloc" && S.view!=="frise"
      && S.view!=="lecture" && S.view!=="pages" && S.view!=="livre"
      && S.view!=="sujets" && S.view!=="annonce"){ S.blocId=null; S.trou=null; }
-  if(S.view!=="sujets") S.sjQ="";
+  if(S.view!=="sujets" && S.view!=="cahier") S.sjQ="";
+  if(S.view!=="sujet") S.sujId=null;
   if(S.view!=="annonce") S.gQ="";
   if(S.view!=="lecture"){ S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false; }
   if(S.view!=="pages" && S.view!=="livre"){ S.pgL=null; S.pgA=null; S.pgZ=null; }

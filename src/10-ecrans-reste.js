@@ -147,6 +147,20 @@ function sujetFois(sid){
   (db.temps||[]).forEach(function(b){ if((b.sj||[]).indexOf(sid)!==-1) n++; });
   return n;
 }
+function sujetDernier(sid){
+  let d=null;
+  (db.temps||[]).forEach(function(b){
+    if((b.sj||[]).indexOf(sid)===-1) return;
+    if(d===null || b.deb>d) d=b.deb;
+  });
+  return d;
+}
+/* Les séances où ce sujet a été nommé, de la plus récente à la plus
+   ancienne — la colonne NUMÉRO du cahier, mais déroulée. */
+function seancesDe(sid){
+  return (db.temps||[]).filter(function(b){ return (b.sj||[]).indexOf(sid)!==-1; })
+    .slice().sort(function(a,b){ return b.deb-a.deb; });
+}
 function sujetHist(sid){
   const d=sujetDepuis(sid), f=sujetFois(sid);
   if(!d) return "";
@@ -694,6 +708,83 @@ function vAnnonce(){
   Z.action=bouton("Terminé", 'data-back="1"');
 }
 
+/* Le cahier, enfin feuilletable. Jusqu'ici un sujet ne se lisait que sur la
+   séance qui l'avait nommé ou sur l'acte qui l'avait exaucé : on ne pouvait
+   pas poser la question que ce cahier pose depuis des années — « qu'est-ce
+   que je porte encore devant Lui ? » (13.di).
+   « En attente » ouvre, et non « Tout » : un cahier de prière se tient pour
+   ce qui n'a pas encore reçu de réponse. Ce qui est exaucé a déjà sa place
+   dans Ses œuvres. */
+const SJF = [["attente","En attente"],["exauces","Exaucés"],["tout","Tout"]];
+function vCahier(){
+  const tous=(db.sujets||[]).slice();
+  const exauce=function(s){ return exaucesDe(s.id).length>0; };
+  const nEx=tous.filter(exauce).length;
+  /* Du dernier nommé au premier : ce qu'on porte en ce moment remonte, ce
+     qu'on a cessé de dire descend tout seul. L'ancienneté ne se perd pas
+     pour autant — chaque ligne dit depuis quand. */
+  const vus=tous.filter(function(s){
+      return S.sjF==="tout" || (S.sjF==="exauces" ? exauce(s) : !exauce(s));
+    }).sort(function(a,b){
+      return (sujetDernier(b.id)||b.maj||0)-(sujetDernier(a.id)||a.maj||0);
+    });
+  Z.titre="Mes sujets"; Z.retour=true;
+  if(!tous.length){
+    Z.html=`<div class="block amorce" style="margin-top:16px">Les sujets viennent en priant : à l'arrêt d'une prière, l'app te demande ce que tu as nommé, et chaque ligne se range ici.</div>`;
+    return;
+  }
+  let h=`<div class="block amorce" style="margin-top:16px">${
+      esc(sujetsTxt(tous.length))+(nEx?" · "+nEx+" exaucé"+(nEx>1?"s":""):"")}</div>`
+    + `<div class="puces">${SJF.map(function(f){
+        return `<button class="puce" data-sjf="${f[0]}" aria-pressed="${S.sjF===f[0]}">${f[1]}</button>`;
+      }).join("")}</div>`
+    + champ("sjQ","Chercher un sujet","text",esc(S.sjQ||""),'autocomplete="off" autocapitalize="sentences"');
+  if(!vus.length){
+    h+=`<p class="vide">${S.sjF==="exauces" ? "Aucun sujet exaucé pour l'instant."
+        : "Tout ce que tu as nommé a reçu sa réponse."}</p>`;
+  } else {
+    h+=liste(vus.map(function(s){
+      const ex=exauceTxt(s.id), hi=sujetHist(s.id);
+      return ligne({titre:esc(s.txt),
+        sous:[hi?esc(hi):"", ex?`<span class="exauce">${esc(ex)}</span>`:""].filter(Boolean).join(""),
+        attr:'data-sujo="'+s.id+'" data-sjn="'+esc(String(s.txt).toLowerCase())+'"'});
+    }).join(""), "lien");
+    h+=`<p class="vide" id="sjRien" hidden>Rien ne correspond.</p>`;
+  }
+  Z.html=h;
+}
+
+/* La fiche d'un sujet, c'est la ligne du cahier dépliée : ce qu'on a
+   demandé, depuis quand, combien de fois — et ce qu'Il a fait. Tout s'y lit,
+   rien ne s'y tient à jour (13.di). */
+function vSujet(){
+  const s=sujet(S.sujId);
+  if(!s){ depile("cahier"); return render(); }
+  const ex=exaucesDe(s.id), se=seancesDe(s.id);
+  Z.titre="Un sujet"; Z.retour=true;
+  let h=`<div class="block" style="margin-top:20px">
+      <p class="grand" style="font-size:21px">${esc(s.txt)}</p>
+      <p class="meta">${esc(sujetHist(s.id) || "jamais nommé dans une séance")}</p>
+    </div>`;
+  h+=titreBloc("Ce qu'Il a fait");
+  h+= ex.length
+    ? liste(ex.map(function(n){ return ligneActe(n,{attr:'data-node="'+n.id+'"'}); }).join(""))
+    : `<p class="vide">Rien encore. Tu le portes toujours.</p>`;
+  if(se.length){
+    h+=titreBloc("Les fois où tu l'as nommé","ecart");
+    h+=liste(se.map(function(b){
+      return ligne({titre:esc(dateJour(b.deb)), sous:esc(tacheNom(b.t))+" · "+hmin(new Date(b.deb)),
+        attr:'data-vbloc="'+b.id+'"'});
+    }).join(""), "lien");
+  }
+  h+=titreBloc("Le dire autrement","ecart");
+  h+=champ("sjTxt","Le sujet, dans tes mots","text",esc(s.txt),'autocapitalize="sentences"');
+  h+=`<div class="block">${bouton("Garder ce texte", 'data-act="sjGarder"')}</div>`;
+  Z.html=h;
+  Z.action = bouton(ex.length ? "Il y a répondu encore" : "Il y a répondu",
+    'data-sujrep="'+s.id+'"');
+}
+
 /* Une seule liste, comme pour l'Écriture : le départ est le signet, et la
    seule question est jusqu'où. Les autres livres entamés sont là, en
    pastilles — changer de livre reste un geste, pas un écran. */
@@ -1204,7 +1295,7 @@ const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), acte
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData,
               pointer:vPointer, temps:vMonTemps, bloc:vBloc, quand:vQuand, frise:vFrise,
               tache:vTache, lecture:vLecture, pages:vPages, livre:vLivre, auteur:vAuteur,
-              sujets:vSujets, annonce:vAnnonce,
+              sujets:vSujets, annonce:vAnnonce, cahier:vCahier, sujet:vSujet,
               perNeuf:vPerNeuf, periode:vPeriode, epingles:vEpingles,
               sync:vSync, reglages:vReglages};
 
@@ -1366,6 +1457,11 @@ document.addEventListener("input", ev=>{
       const bq=nf.querySelector(".qn");
       if(bq) bq.textContent="Nommer « "+cap(ev.target.value.trim())+" »";
     }
+    /* Sur le cahier, on ne nomme rien : on cherche. Une recherche qui ne
+       trouve rien doit le dire, sinon l'écran paraît vide pour de bon. */
+    const rn=document.getElementById("sjRien");
+    if(rn) rn.hidden = !q || [].some.call(document.querySelectorAll("[data-sujo]"),
+                              function(el){ return !(el.closest("li")||el).hidden; });
     return;
   }
   if(id==="gQ"){

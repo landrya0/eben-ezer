@@ -413,6 +413,7 @@ function fusionne(A, B){
     auteurs:fusionListe(A.auteurs, B.auteurs, morts),
     sujets:fusionListe(A.sujets, B.sujets, morts),
     sous:  fusionListe(A.sous,   B.sous,   morts),
+    portes:fusionListe(A.portes, B.portes, morts),
     taches:fusionListe(A.taches, B.taches, morts),
     temps: fusionTemps(fusionListe(A.temps, B.temps, morts)),
     periodes: fusionListe(A.periodes, B.periodes, morts),

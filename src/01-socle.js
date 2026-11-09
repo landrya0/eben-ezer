@@ -9,7 +9,7 @@
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v89";
+const VERSION = "v90";
 const KEY = "ebenezer.v1";
 /* Les sondes vivent dans le 12, chargé APRÈS celui-ci : le socle ne peut
    pas en dépendre, l'ordre est porteur. On appelle donc à travers un
@@ -55,7 +55,7 @@ const TACHES_SOCLE = [
   ["Attente","reste"],["Écrans","reste"]
 ];
 
-let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], periodes:[], livres:[], auteurs:[], sujets:[], sous:[], dev:"EUR", exp:0, seq:1};
+let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], periodes:[], livres:[], auteurs:[], sujets:[], sous:[], portes:[], dev:"EUR", exp:0, seq:1};
 let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an", rev:"noms", pile:[], nodeId:null,
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
@@ -95,6 +95,7 @@ function sane(v){
           auteurs:Array.isArray(o.auteurs)?o.auteurs:[],
           sujets:Array.isArray(o.sujets)?o.sujets:[],
           sous:Array.isArray(o.sous)?o.sous:[],
+    portes:Array.isArray(o.portes)?o.portes:[],
           /* La monnaie n'est pas une donnée du mémorial, c'est un réglage :
              on n'y garde que le code, et on ne devine aucun taux (13.dk). */
           dev:(typeof o.dev==="string" && /^[A-Z]{3}$/.test(o.dev))?o.dev:"EUR",
@@ -106,7 +107,7 @@ function sane(v){
           seq:(typeof o.seq==="number"&&o.seq>0)?o.seq:1};
   /* Les fiches d'avant la synchronisation n'ont pas d'heure. On leur en donne
      la plus ancienne possible : la moindre écriture réelle les dépassera. */
-  [d.nodes,d.gens,d.noms,d.mans,d.cats,d.taches,d.temps,d.periodes,d.livres,d.auteurs,d.sujets,d.sous].forEach(function(a){
+  [d.nodes,d.gens,d.noms,d.mans,d.cats,d.taches,d.temps,d.periodes,d.livres,d.auteurs,d.sujets,d.sous,d.portes].forEach(function(a){
     a.forEach(function(x){ if(x && typeof x.maj!=="number") x.maj=1; });
   });
   /* Le type de champs était un réglage à part ; il devient une conséquence de
@@ -144,6 +145,25 @@ function sane(v){
   d.sous = d.sous.filter(x=>x && typeof x.t==="number" && typeof x.m==="number" && x.m && x.p)
                  .sort((a,b)=>a.t-b.t);
   d.sous.forEach(x=>{ if(!x.id) x.id="mv"+(d.seq++)+"-"+DEV; });
+  /* Deux fois la même porte n'est pas deux raccourcis : deux appareils
+     peuvent l'avoir épinglée chacun de son côté (13.do). On ne juge pas ici
+     si l'écran existe encore — le socle ne connaît pas la liste des écrans,
+     elle vit dans la charpente, chargée après lui ; c'est l'écran qui ne
+     montre que ce qu'il sait ouvrir.
+     `ep` est un RANG, pas une date : c'est ce qui permet de régler l'ordre à
+     la main. Les anciennes épingles portaient l'heure où elles avaient été
+     posées — de grands nombres qui se rangent dans le même sens, donc rien à
+     reprendre. */
+  const dejaVue={};
+  d.portes = d.portes.filter(function(p){
+    if(!p || typeof p.v!=="string" || !p.v || dejaVue[p.v]) return false;
+    dejaVue[p.v]=1; return true;
+  });
+  d.portes.sort(function(a,b){ return (a.ep||0)-(b.ep||0); });
+  d.portes.forEach(function(p,i){
+    if(!p.id) p.id="po"+(d.seq++)+"-"+DEV;
+    if(typeof p.ep!=="number" || !p.ep) p.ep=i+1;
+  });
   /* La date d'un acte dit quand il est arrivé ; elle ne dit pas dans quel
      ordre on l'a gardé. Deux actes du même jour se présentaient donc dans
      l'ordre où ils dormaient en mémoire — c'est-à-dire le plus ancien

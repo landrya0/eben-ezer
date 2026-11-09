@@ -232,9 +232,12 @@ const PONT = `
        chLis, chJour, chPoste, chNu, chDeja, vCharger, porteCharger,
        vTache, heuresTache, heuresTxt, catNom, CATS, tacheCat, finDe, cap,
        soBilan, soSauf, soSigne, soVide, soBascule, soEcris, soLoad, soRate,
-       soEtat, soNom, soDepuis, vSondes, vReglages },
+       soEtat, soNom, soDepuis, soPropose, vSondes, vReglages,
+       portesEp, porteEp, epinglePorte, decrochePorte, enPremier,
+       epinglesTaches, portables, nomVue, porteBlocEp, portesReglage,
+       vOrdre, vEpingles, portePointage },
   c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY, POSTES, DEVISES, CAT_SOCLE, ONG_ARG,
-       CONSIGNE, SO_KEY, SO_MAX, SO_NOMS, SO_LIBRE, ONGLETS }
+       CONSIGNE, SO_KEY, SO_MAX, ONGLETS, NOM_VUE, SEULES }
 };
 `;
 

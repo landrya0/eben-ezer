@@ -83,7 +83,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", function(ev){
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-sou],[data-poste],[data-vuea],[data-dev]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-sou],[data-poste],[data-vuea],[data-dev],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
   if(!t) return;
   /* UN SEUL entonnoir pour tous les gestes de l'application : la sonde se
      tient ici, et nulle part ailleurs. Le `finally` est ce qui la rend
@@ -134,6 +134,28 @@ function geste(g, t){
     pointe(g.ep, enPlus); S.pile=[]; S.view="today";
     toast(enPlus ? "En plus : "+tacheNom(g.ep) : "On compte : "+tacheNom(g.ep));
     return render();
+  }
+  /* Une porte s'épingle et se décroche d'une tape, comme une activité — et
+     dans sa propre liste, parce que ce n'est pas la même sorte de chose
+     (13.cu, 13.do). */
+  if(g.potog){
+    if(porteEp(g.potog)){ decrochePorte(g.potog); save(); toast("Retiré."); }
+    else if(epinglePorte(g.potog)){ save(); toast("Sous le pouce : "+nomVue(g.potog)); }
+    return render();
+  }
+  /* Le bilan propose, le disciple épingle : l'application ne range pas son
+     accueil à sa place (13.bc, 13.dn). */
+  if(g.eppo){
+    if(epinglePorte(g.eppo)){ save(); toast("Sous le pouce : "+nomVue(g.eppo)); }
+    return render();
+  }
+  if(g.ephaut){
+    const t=tache(g.ephaut); if(!t || !t.ep) return;
+    enPremier(epinglesTaches(), t); save(); toast("En premier."); return render();
+  }
+  if(g.pohaut){
+    const p=porteEp(g.pohaut); if(!p) return;
+    enPremier(portesEp(), p); save(); toast("En premier."); return render();
   }
   /* Épingler, c'est une date : elle dit aussi dans quel ordre les lignes se
      rangent. Zéro, et non « absent », pour qu'un décochage voyage à la
@@ -188,7 +210,13 @@ function geste(g, t){
   }
   if(g.eptog){
     const t=tache(g.eptog);
-    if(t){ t.ep = t.ep ? 0 : Date.now(); touche(t); save(); }
+    if(t){
+      /* `ep` est un rang, et il se prend à la suite : la nouvelle épingle
+         arrive en dernier, et l'ordre déjà réglé ne bouge pas (13.do). */
+      if(t.ep) t.ep = 0;
+      else t.ep = epinglesTaches().reduce(function(m,x){ return Math.max(m, x.ep||0); }, 0) + 1;
+      touche(t); save();
+    }
     return render();
   }
   if(g.medsup){

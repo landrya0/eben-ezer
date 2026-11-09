@@ -2552,3 +2552,209 @@ test("13.dn — un chemin se lit sans être décodé", () => {
   A.equal(c.suite, "Mon argent → Charger un relevé → Retour",
     "en mots, pas en noms d'attributs");
 });
+
+/* ---------- 13.do — une porte s'épingle, et l'ordre se règle à la main ---------- */
+
+/* L'écran du bouton du milieu : c'est là que tout ce qui est « sous le
+   pouce » se présente, à une tape des quatre onglets. */
+function sousLePouce(a) {
+  a.geste({ go: "note" });
+  return a.Z.html;
+}
+
+test("13.do — une porte épinglée s'ouvre d'une tape, sous le pouce", () => {
+  const a = app();
+  A.ok(!/Aller tout de suite/.test(sousLePouce(a)), "rien tant que rien n'est épinglé");
+
+  a.geste({ potog: "charger" });
+  const h = sousLePouce(a);
+  A.match(h, /Aller tout de suite/);
+  A.match(h, /data-go="charger"/, "la ligne mène à l'écran");
+  A.match(h, /Charger un relevé/);
+  A.equal(a.f.portesEp().length, 1);
+});
+
+test("13.do — une porte et un raccourci ne portent pas la même forme", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Prière", cat: "dieu", ep: 1, maj: 1 }];
+  a.geste({ potog: "argent" });
+  const h = sousLePouce(a);
+  /* Un raccourci d'activité fait partir le compteur ; une porte ouvre un
+     écran. Deux blocs, deux titres : les mêler ferait démarrer un compteur
+     à qui voulait seulement regarder (13.cu). */
+  A.match(h, /data-ep="a1"/, "le raccourci d'activité est là");
+  A.match(h, /Le compteur part/, "et il dit ce qu'il fait");
+  A.match(h, /data-go="argent"/, "la porte aussi");
+  A.ok(a.Z.html.indexOf("Le compteur part") < a.Z.html.indexOf("Aller tout de suite"),
+    "chacune dans son bloc, et le compteur d'abord");
+  A.ok(!/data-ep="argent"/.test(h), "une porte ne démarre rien");
+});
+
+test("13.do — décrocher laisse une pierre tombale", () => {
+  const a = app();
+  a.geste({ potog: "argent" });
+  const id = a.f.portesEp()[0].id;
+  a.geste({ potog: "argent" });
+  A.equal(a.f.portesEp().length, 0, "la seconde tape décroche");
+  A.ok(a.db.morts[id], "et laisse sa pierre (13.be)");
+
+  /* Sans elle, l'autre appareil la remettrait à la synchronisation. */
+  const B = JSON.parse(JSON.stringify(a.db));
+  B.morts = {};
+  B.portes = [{ id: id, v: "argent", ep: 1, maj: 1 }];
+  const d = a.f.fusionne(JSON.parse(JSON.stringify(a.db)), B);
+  A.equal(Array.from(d.portes).length, 0, "elle ne ressuscite pas");
+});
+
+test("13.do — les portes voyagent à la synchronisation", () => {
+  const a = app();
+  a.geste({ potog: "argent" });
+  const B = a.f.sane({ portes: [{ id: "po9-zz", v: "cahier", ep: 1, maj: 2 }] });
+  const d = a.f.fusionne(JSON.parse(JSON.stringify(a.db)), B);
+  const vs = Array.from(d.portes).map(function (p) { return p.v; }).sort();
+  A.deepStrictEqual(vs, ["argent", "cahier"], "les deux appareils se réunissent");
+});
+
+test("13.do — deux fois la même porte n'est pas deux raccourcis", () => {
+  const a = app();
+  /* Deux appareils peuvent l'avoir épinglée chacun de son côté. */
+  const d = a.f.sane({ portes: [
+    { id: "po1-aa", v: "argent", ep: 1, maj: 1 },
+    { id: "po2-bb", v: "argent", ep: 2, maj: 1 },
+    { id: "po3-cc", v: "cahier", ep: 3, maj: 1 }
+  ] });
+  A.equal(Array.from(d.portes).length, 2);
+  A.equal(Array.from(d.portes)[0].v, "argent");
+
+  /* Et la même tape deux fois n'ajoute rien non plus. */
+  a.geste({ potog: "cahier" });
+  A.equal(a.f.epinglePorte("cahier"), false);
+  A.equal(a.f.portesEp().length, 1);
+});
+
+test("13.do — on n'épingle pas une porte qui ne mène nulle part", () => {
+  const a = app();
+  /* Un onglet est déjà sous le pouce ; « Un acte » attend qu'on lui en
+     désigne un, et y mener sans ça ouvrirait un écran vide. */
+  A.equal(a.f.epinglePorte("actes"), false, "un onglet");
+  A.equal(a.f.epinglePorte("reglages"), false, "le rouage est sur les quatre onglets");
+  A.equal(a.f.epinglePorte("node"), false, "un écran qui attend un acte");
+  A.equal(a.f.epinglePorte("pointer"), false, "déjà une ligne de cet écran-là");
+  A.equal(a.f.portesEp().length, 0);
+  /* Et ce qu'on propose de cocher est exactement ça. */
+  const vs = Array.from(a.f.portables());
+  A.ok(vs.indexOf("charger") !== -1);
+  A.equal(vs.indexOf("actes"), -1);
+  A.equal(vs.indexOf("node"), -1);
+});
+
+test("13.do — l'ordre se règle à la main : ce qu'on touche passe en premier", () => {
+  const a = app();
+  a.geste({ potog: "argent" });
+  a.geste({ potog: "cahier" });
+  a.geste({ potog: "charger" });
+  A.deepStrictEqual(Array.from(a.f.portesEp()).map(function (p) { return p.v; }),
+    ["argent", "cahier", "charger"], "d'abord l'ordre où on les a posées");
+
+  a.geste({ go: "ordre" });
+  A.match(a.Z.html, /Dans quel ordre|en premier/);
+  a.geste({ pohaut: "charger" });
+  A.deepStrictEqual(Array.from(a.f.portesEp()).map(function (p) { return p.v; }),
+    ["argent", "cahier", "charger"].filter(function (v) { return v !== "charger"; })
+      .reduce(function (o, v) { o.push(v); return o; }, ["charger"]),
+    "la touchée passe devant, les autres gardent leur ordre");
+
+  /* Et les rangs se suivent : c'est ce qui les réunit sans ambiguïté. */
+  A.deepStrictEqual(Array.from(a.f.portesEp()).map(function (p) { return p.ep; }), [1, 2, 3]);
+
+  /* La première ne bouge plus : elle n'a pas de ligne à toucher. */
+  a.f.vOrdre();
+  A.ok(!/data-pohaut="charger"/.test(a.Z.html));
+});
+
+test("13.do — l'ordre des activités se règle de la même main", () => {
+  const a = app();
+  a.db.taches = [
+    { id: "a1", nom: "Prière", cat: "dieu", maj: 1 },
+    { id: "a2", nom: "Lecture de la Parole", cat: "dieu", maj: 1 },
+    { id: "a3", nom: "Sport", cat: "moi", maj: 1 }
+  ];
+  a.geste({ eptog: "a1" });
+  a.geste({ eptog: "a2" });
+  a.geste({ eptog: "a3" });
+  A.deepStrictEqual(Array.from(a.f.epinglesTaches()).map(function (t) { return t.id; }),
+    ["a1", "a2", "a3"]);
+
+  a.geste({ ephaut: "a3" });
+  A.deepStrictEqual(Array.from(a.f.epinglesTaches()).map(function (t) { return t.id; }),
+    ["a3", "a1", "a2"]);
+  /* Ce que l'écran du pouce montre suit, puisque c'est la même liste. */
+  A.ok(sousLePouce(a).indexOf('data-ep="a3"') < sousLePouce(a).indexOf('data-ep="a1"'));
+
+  /* Une épingle neuve arrive en dernier : l'ordre réglé ne se refait pas. */
+  a.geste({ eptog: "a1" });   // décrochée
+  a.geste({ eptog: "a1" });   // puis remise
+  A.deepStrictEqual(Array.from(a.f.epinglesTaches()).map(function (t) { return t.id; }),
+    ["a3", "a2", "a1"]);
+});
+
+test("13.do — à une seule épingle, il n'y a pas d'ordre à régler", () => {
+  const a = app();
+  a.geste({ potog: "argent" });
+  a.f.vEpingles();
+  A.ok(!/data-go="ordre"/.test(a.Z.html), "une épingle, aucun ordre");
+  a.geste({ potog: "cahier" });
+  a.f.vEpingles();
+  A.match(a.Z.html, /data-go="ordre"/, "à deux, la question se pose");
+});
+
+test("13.do — le bilan propose ce qui vaut la peine, et rien d'autre", () => {
+  const a = app();
+  /* Trois gestes depuis un onglet : sous le pouce, il n'en coûterait que
+     deux. Ça vaut la peine. */
+  for (let i = 0; i < 3; i++) {
+    a.geste({ go: "actes" });
+    a.geste({ go: "argent" });
+    a.geste({ go: "charger" });
+    a.geste({ go: "devise" });
+  }
+  const b = a.f.soBilan();
+  A.match(a.f.soPropose(b), /Mettre « Ma monnaie » sous le pouce/);
+  /* Trois tapes réelles : l'onglet, puis deux. Sous le pouce : le bouton du
+     milieu, puis la ligne. Les deux comptent leur tape de rail. */
+  A.match(a.f.soPropose(b), /4 gestes aujourd'hui, 2 depuis n'importe où/);
+  A.match(a.f.soPropose(b), /data-eppo="devise"/);
+
+  /* Une fois épinglée, elle n'est plus proposée — et la suivante non plus,
+     si elle ne coûte que deux gestes : promettre un gain de rien serait un
+     chiffre faux. */
+  a.geste({ eppo: "devise" });
+  A.ok(a.f.porteEp("devise"), "le disciple épingle, l'application proposait");
+  const b2 = a.f.soBilan();
+  A.equal(b2.couts.filter(function (x) { return x.v === "argent"; }).length, 0,
+    "Mon argent est déjà à un geste du rail : une épingle ne rendrait rien");
+  /* Charger un relevé reste à deux gestes : c'est le suivant qu'on propose. */
+  A.match(a.f.soPropose(b2), /Mettre « Charger un relevé » sous le pouce/);
+  a.geste({ eppo: "charger" });
+  A.equal(a.f.soPropose(a.f.soBilan()), "", "et quand tout est épinglé, plus rien");
+});
+
+test("13.do — revenir sur un écran n'est pas s'y rendre", () => {
+  const a = app();
+  /* Le chemin réel : l'onglet, Mon argent, Charger un relevé, puis retour.
+     Le retour repasse par Mon argent — sans que ce soit un trajet vers lui. */
+  for (let i = 0; i < 3; i++) {
+    a.geste({ go: "actes" });
+    a.geste({ go: "argent" });
+    a.geste({ go: "charger" });
+    a.geste({ back: "1" });
+    a.geste({ back: "1" });
+  }
+  const b = a.f.soBilan();
+  A.equal(b.couts.filter(function (c) { return c.v === "argent"; }).length, 0,
+    "Mon argent est à un geste de l'onglet : il ne coûte rien");
+  A.equal(b.couts.filter(function (c) { return c.v === "charger"; })[0].med, 2,
+    "et Charger un relevé en coûte deux, pas davantage à chaque tour");
+  A.match(a.f.soPropose(b), /Mettre « Charger un relevé » sous le pouce/,
+    "c'est donc lui qu'on propose, pas celui par où l'on repasse");
+});

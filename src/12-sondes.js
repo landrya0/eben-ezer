@@ -142,8 +142,13 @@ SONDE = {
     /* La profondeur se remet à zéro sur un onglet : c'est là que tout départ
        commence, et c'est en gestes DEPUIS un onglet que se mesure ce qu'une
        porte coûte. Un retour qui ramène à un onglet se remet donc à zéro
-       tout seul. */
-    SO.prof = ONGLETS.some(function(x){ return x[0]===S.view; }) ? 0 : SO.prof+1;
+       tout seul.
+       Et un retour DÉFAIT un pas, il n'en ajoute pas : compté comme les
+       autres, il faisait grandir sans fin la profondeur d'un écran où l'on ne
+       fait que repasser en revenant — « Mon argent », à un geste de l'onglet,
+       se déclarait ainsi à trois (13.do). */
+    SO.prof = ONGLETS.some(function(x){ return x[0]===S.view; }) ? 0
+            : (o.k==="back" ? Math.max(0, SO.prof-1) : SO.prof+1);
     o.a = S.view; o.d = SO.prof;
     if(SO.sauve) o.s = 1;
     if(SO.dit) o.r = SO.dit;
@@ -158,28 +163,10 @@ SONDE = {
 
 /* ---------- ce que les sondes ont vu ---------- */
 
-const SO_NOMS = {
-  today:"Aujourd'hui", oeuvres:"Ses œuvres", actes:"Mes actes", revel:"Révélations",
-  note:"Garder un acte", node:"Un acte", edit:"Corriger un acte", lier:"Ce qui a précédé",
-  chemin:"Un chemin", faits:"Les faits", epingles:"Ce qui est ici",
-  pointer:"À quoi maintenant", temps:"Mon temps", bloc:"Ce bloc", quand:"Quand était-ce",
-  frise:"La journée", tache:"Une activité",
-  lecture:"Ce que tu as lu", pages:"Les pages lues", livre:"Un livre", auteur:"Un auteur",
-  sujets:"Ce que tu as nommé", annonce:"À qui tu as annoncé", cahier:"Mes sujets",
-  sujet:"Un sujet", perNeuf:"Mettre un temps à part", periode:"Un temps mis à part",
-  argent:"Mon argent", sou:"Un mouvement", devise:"Ma monnaie", charger:"Charger un relevé",
-  sync:"Synchronisation", reglages:"Réglages", data:"Mes données",
-  sondes:"Comment je m'en sers"
-};
-function soNom(v){ return SO_NOMS[v] || v; }
-/* Un chiffre qui accuse doit mener quelque part (13.cb) : chaque ligne du
-   bilan s'ouvre. Mais seuls ces écrans-là tiennent debout sans qu'on leur
-   désigne d'abord un acte, un bloc ou une fiche — les autres s'affichent
-   sans lien plutôt que de mener à un écran vide. */
-const SO_LIBRE = {today:1, oeuvres:1, actes:1, revel:1, faits:1, epingles:1,
-                  pointer:1, temps:1, cahier:1, sujets:1, annonce:1,
-                  lecture:1, pages:1, argent:1, charger:1, devise:1,
-                  perNeuf:1, sync:1, reglages:1, data:1, sondes:1};
+/* Les noms d'écrans et la liste de ceux qui tiennent debout seuls vivent
+   dans la charpente : les portes épinglées s'en servent aussi, et une table
+   recopiée deux fois diverge (13.do). */
+function soNom(v){ return nomVue(v); }
 
 /* « go:argent → back:1 » ne se lit pas. Un chemin qu'il faut décoder ne
    sert à personne, pas même à moi. */
@@ -216,6 +203,9 @@ function soBilan(){
   const parVue = {};
   g.forEach(function(x){
     if(!x.a || x.a===x.w || !x.d) return;
+    /* Revenir sur un écran n'est pas s'y rendre : ce qu'on mesure, c'est ce
+       qu'il en coûte d'y ALLER. */
+    if(x.k==="back") return;
     (parVue[x.a] = parVue[x.a] || []).push(x.d);
   });
   Object.keys(parVue).forEach(function(v){
@@ -324,7 +314,27 @@ function soLigneCout(c){
   return ligne({titre:esc(soNom(c.v)),
     sous:c.n+" fois · "+bout,
     apres:c.poids ? `<b>+${c.poids}</b>` : "",
-    attr: SO_LIBRE[c.v] ? `data-go="${c.v}"` : ""});
+    attr: SEULES.indexOf(c.v)!==-1 ? `data-go="${c.v}"` : ""});
+}
+
+/* L'application propose, elle n'épingle pas à sa place (13.bc).
+
+   Les deux chemins se comparent sans tricher, parce qu'ils paient la même
+   chose pour commencer : le bouton du milieu est dans le rail, exactement
+   comme un onglet, et l'un et l'autre sont là sur tous les écrans. Une porte
+   épinglée est donc à UN geste du rail, comme un onglet l'est de n'importe
+   où. `med` compte les gestes après le rail : le gain par visite est
+   `med − 1`, ce qui est précisément le chiffre de la colonne de droite. En
+   proposer une qui est déjà à un geste serait promettre un gain de rien, et
+   un chiffre faux est pire que pas de chiffre (13.do). */
+function soPropose(b){
+  const c = b.couts.filter(function(x){
+    return x.med>=2 && portables().indexOf(x.v)!==-1 && !porteEp(x.v);
+  })[0];
+  if(!c) return "";
+  return liste(ligne({titre:"Mettre « "+esc(nomVue(c.v))+" » sous le pouce",
+    sous:(c.med+1)+" gestes aujourd'hui, 2 depuis n'importe où",
+    attr:'data-eppo="'+c.v+'"'}), "lien");
 }
 
 function vSondes(){
@@ -345,8 +355,9 @@ function vSondes(){
        vite », et chaque ligne EST le raccourci — on y va d'ici. */
     if(b.couts.length){
       h += titreBloc("Ce qui te coûte le plus");
-      h += `<div class="block amorce">Le chiffre de droite, ce sont les gestes qu'un raccourci t'aurait rendus. Touche une ligne pour y aller tout de suite.</div>`;
+      h += `<div class="block amorce">Le chiffre de droite, ce sont les gestes qu'une épingle t'aurait rendus. Touche une ligne pour y aller tout de suite.</div>`;
       h += liste(b.couts.slice(0,7).map(soLigneCout).join(""), "lien");
+      h += soPropose(b);
     }
     if(b.tours.length){
       h += titreBloc("Les demi-tours","ecart");

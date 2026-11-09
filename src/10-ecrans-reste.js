@@ -1356,7 +1356,7 @@ const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), acte
               tache:vTache, lecture:vLecture, pages:vPages, livre:vLivre, auteur:vAuteur,
               sujets:vSujets, annonce:vAnnonce, cahier:vCahier, sujet:vSujet,
               perNeuf:vPerNeuf, periode:vPeriode, epingles:vEpingles,
-              sync:vSync, reglages:vReglages};
+              sync:vSync, reglages:vReglages, ordre:vOrdre};
 
 /* ---------- dictée ---------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;

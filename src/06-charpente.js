@@ -40,6 +40,40 @@ const ICONES = {
    Lui, et il n'a pas à être sous le pouce. */
 const ONGLETS = [["today","Aujourd'hui"],["oeuvres","Ses œuvres"],["actes","Mes actes"],["revel","Révélations"]];
 
+/* Le nom de chaque écran, en français. Il sert à deux endroits qui ne se
+   parlent pas — le bilan des sondes et les portes épinglées — et une table
+   recopiée deux fois est une table qui diverge (13.dn, 13.do). */
+const NOM_VUE = {
+  today:"Aujourd'hui", oeuvres:"Ses œuvres", actes:"Mes actes", revel:"Révélations",
+  note:"Garder un acte", node:"Un acte", edit:"Corriger un acte", lier:"Ce qui a précédé",
+  chemin:"Un chemin", faits:"Les faits", epingles:"Ce qui est ici",
+  pointer:"À quoi maintenant", temps:"Mon temps", bloc:"Ce bloc", quand:"Quand était-ce",
+  frise:"La journée", tache:"Une activité",
+  lecture:"Ce que tu as lu", pages:"Les pages lues", livre:"Un livre", auteur:"Un auteur",
+  sujets:"Ce que tu as nommé", annonce:"À qui tu as annoncé", cahier:"Mes sujets",
+  sujet:"Un sujet", perNeuf:"Mettre un temps à part", periode:"Un temps mis à part",
+  argent:"Mon argent", sou:"Un mouvement", devise:"Ma monnaie", charger:"Charger un relevé",
+  sync:"Synchronisation", reglages:"Réglages", data:"Mes données",
+  sondes:"Comment je m'en sers", ordre:"Dans quel ordre"
+};
+function nomVue(v){ return NOM_VUE[v] || v; }
+/* Les écrans qui tiennent debout tout seuls : les autres attendent qu'on
+   leur désigne d'abord un acte, un bloc ou une fiche, et y mener sans ça
+   ouvrirait un écran vide. */
+const SEULES = ["today","oeuvres","actes","revel","faits","epingles","pointer",
+                "temps","cahier","sujets","annonce","lecture","pages",
+                "argent","charger","devise","perNeuf","sync","reglages","data","sondes"];
+/* Ce qui vaut la peine d'être épinglé : pas les quatre onglets ni les
+   Réglages, déjà à une tape de partout ; ni « À quoi maintenant » et « Ce qui
+   est ici », qui sont déjà deux lignes de l'écran où les épingles se posent.
+   Une porte en double n'est pas un raccourci (13.do). */
+const HORS_EPINGLE = {reglages:1, pointer:1, epingles:1};
+function portables(){
+  return SEULES.filter(function(v){
+    return !HORS_EPINGLE[v] && !ONGLETS.some(function(o){ return o[0]===v; });
+  });
+}
+
 /* Chaque vue remplit ces zones. Une seule action principale par écran. */
 let Z = {};
 function zero(){ Z = {titre:"", retour:false, fermer:false, plus:false, action:"", avance:0, haut:"", file:false, html:""}; }

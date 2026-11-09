@@ -712,9 +712,16 @@ function etapes(d){
    l'on reprend. Et les champs demandés à l'arrêt ne sont pas un second
    réglage : ils découlent de la routine de l'activité, comme partout
    ailleurs (13.cn, 13.cq). Épingler ne demande donc qu'une chose. */
+/* `ep` est un RANG, pas une date : c'est ce qui permet d'en régler l'ordre à
+   la main (13.do). Les épingles posées avant portaient l'heure de leur pose —
+   de grands nombres qui se rangent dans le même sens, donc rien à reprendre
+   et aucune migration. */
+function epinglesTaches(){
+  return (db.taches||[]).filter(function(t){ return t.ep; })
+    .sort(function(a,b){ return (a.ep||0)-(b.ep||0); });
+}
 function epingles(){
-  const ts=(db.taches||[]).filter(function(t){ return t.ep; })
-    .sort(function(a,b){ return a.ep-b.ep; });
+  const ts=epinglesTaches();
   if(ts.length) return ts;
   /* Tant que rien n'est épinglé, on garde ce qui était là : la Parole et le
      livre en cours. Une liste vide ne doit pas faire disparaître sans
@@ -748,6 +755,60 @@ function porteRaccourci(t){
   return ligne({titre:esc(tacheNom(t.id)), sous:esc(raccourciSous(t)),
     attr:'data-ep="'+t.id+'"'});
 }
+/* Une PORTE épinglée, c'est un écran qu'on ouvre d'une tape au même endroit
+   qu'un raccourci d'activité — et surtout pas de la même façon. Deux ordres
+   de choses ne portent jamais la même forme (13.cu) : un raccourci d'activité
+   FAIT PARTIR LE COMPTEUR, une porte OUVRE UN ÉCRAN et ne compte rien. Deux
+   listes, deux titres ; les mêler ferait démarrer un compteur à qui voulait
+   seulement regarder.
+
+   Ici, et pas sur l'accueil : le bouton du milieu est dans le rail, présent
+   sur tous les écrans, exactement comme un onglet. Une porte épinglée est
+   donc à UN geste du rail — deux tapes depuis n'importe où —, ce qui se
+   compare sans tricher à ce qu'un écran coûte aujourd'hui, et c'est ce gain-là
+   que le bilan des sondes chiffre et propose (13.dn). */
+function portesEp(){
+  return (db.portes||[]).filter(function(p){ return SEULES.indexOf(p.v)!==-1; })
+    .sort(function(a,b){ return (a.ep||0)-(b.ep||0); });
+}
+function porteEp(v){
+  return (db.portes||[]).filter(function(p){ return p.v===v; })[0] || null;
+}
+function epinglePorte(v){
+  if(portables().indexOf(v)===-1 || porteEp(v)) return false;
+  const r=(db.portes||[]).reduce(function(m,p){ return Math.max(m, p.ep||0); }, 0);
+  db.portes=(db.portes||[]).concat([{id:uid("po"), v:v, ep:r+1, maj:Date.now()}]);
+  return true;
+}
+/* Décrocher laisse une pierre tombale : sans elle, l'autre appareil la
+   remettrait à la synchronisation suivante (13.be). */
+function decrochePorte(v){
+  const p=porteEp(v); if(!p) return false;
+  db.portes=(db.portes||[]).filter(function(x){ return x.id!==p.id; });
+  tue(p.id); return true;
+}
+/* Ce qu'on touche passe en premier, et tout se renumérote : des rangs qui se
+   suivent se réunissent sans ambiguïté entre deux appareils. */
+function enPremier(liste, x){
+  [x].concat(liste.filter(function(y){ return y!==x; }))
+     .forEach(function(y,i){ y.ep=i+1; touche(y); });
+}
+function porteBlocEp(){
+  const ps=portesEp();
+  let h = ps.length
+    ? titreBloc("Aller tout de suite","ecart")
+      + liste(ps.map(function(p){
+          return ligne({titre:esc(nomVue(p.v)), attr:'data-go="'+p.v+'"'});
+        }).join(""), "lien")
+    : "";
+  /* Le réglage gouverne les DEUX listes : placé dans celle des activités, il
+     avait l'air de ne régler qu'elles. */
+  h += liste(ligne({titre:"Choisir ce qui est ici",
+                    sous:"Les activités et les écrans que tu veux sous le pouce",
+                    attr:'data-go="epingles"'}), "lien");
+  return h;
+}
+
 /* Les quatre lignes du dessus répondent toutes à « qu'est-ce que tu
    gardes ? », et pointer n'est pas garder : un titre l'en sépare, pour qu'on
    ne le lise pas comme une cinquième réponse à une question qu'il ne répond
@@ -773,10 +834,7 @@ function portePointage(){
       + `<div class="block amorce">${S.enPlus
           ? "Ce que tu lances ici tournera <b>à côté</b> de « "+esc(tacheNom(o.t))+" »."
           : "Ce que tu lances ici <b>arrêtera</b> « "+esc(tacheNom(o.t))+" »."}</div>`;
-  h += liste(epingles().map(porteRaccourci).join("")
-    + ligne({titre:"Choisir ce qui est ici",
-             sous:"Les activités que tu veux sous le pouce",
-             attr:'data-go="epingles"'}), "lien");
+  h += liste(epingles().map(porteRaccourci).join(""), "lien");
   return h;
 }
 /* Piloter la liste, c'est répondre à une seule question : qu'est-ce que je
@@ -789,9 +847,14 @@ function vEpingles(){
   const ts=(db.taches||[]).slice().sort(function(a,b){
     return (b.ep?1:0)-(a.ep?1:0) || String(a.nom||"").localeCompare(String(b.nom||""));
   });
-  let h=`<div class="block amorce" style="margin-top:20px">Ce que tu coches apparaît sous le bouton du milieu, prêt à partir d'une tape. Ce qu'on te demandera à l'arrêt vient de la routine de l'activité — tu n'as rien d'autre à régler.</div>`;
+  let h=titreBloc("Les activités")
+    + `<div class="block amorce">Ce que tu coches apparaît sous le bouton du milieu, prêt à partir d'une tape. Ce qu'on te demandera à l'arrêt vient de la routine de l'activité — tu n'as rien d'autre à régler.</div>`;
   if(!ts.length){
     h+=`<p class="vide">Aucune activité pour l'instant. Compte un premier temps, et reviens choisir.</p>`;
+    /* Sans ces deux lignes, n'avoir aucune activité emportait la seule porte
+       vers les portes — et vers l'ordre. Rien qui soit la seule porte vers un
+       réglage ne se replie. */
+    h+=portesReglage(); h+=ordrePorte();
     Z.html=h; return;
   }
   h+=liste(ts.map(function(t){
@@ -807,6 +870,60 @@ function vEpingles(){
      faut le dire, sinon on croit que la liste ne marche pas. */
   if(!ts.some(function(t){ return t.ep; }))
     h+=`<div class="block amorce">Rien n'est coché : la Parole et le livre en cours se montrent alors d'eux-mêmes, comme avant. Dès que tu coches quelque chose, c'est ta liste qui vaut.</div>`;
+  h+=portesReglage();
+  h+=ordrePorte();
+  Z.html=h;
+}
+/* La même question — qu'est-ce que je veux sous le pouce ? — donc le même
+   écran (13.cs). Mais un autre ordre de choses, donc un autre bloc et un
+   autre mot : celles-ci ne comptent rien, elles ouvrent (13.cu). */
+function portesReglage(){
+  const vs=portables().slice().sort(function(a,b){
+    const pa=porteEp(a), pb=porteEp(b);
+    if(pa && pb) return pa.ep-pb.ep;
+    return (pb?1:0)-(pa?1:0);
+  });
+  return titreBloc("Les portes","ecart")
+    + `<div class="block amorce">Un écran que tu ouvres souvent se met ici, sous le même pouce. Il ne compte rien : il t'y emmène, c'est tout.</div>`
+    + liste(vs.map(function(v){
+        const p=porteEp(v);
+        return ligne({titre:esc(nomVue(v)),
+          apres: p ? `<span class="coche">✓</span>` : "",
+          attr:'data-potog="'+v+'"'});
+      }).join(""));
+}
+/* Une ligne qui ne sert à rien tant qu'il n'y a qu'une épingle : à un, il n'y
+   a pas d'ordre. */
+function ordrePorte(){
+  if(epinglesTaches().length<2 && portesEp().length<2) return "";
+  return titreBloc("L'ordre","ecart")
+    + liste(ligne({titre:"Dans quel ordre", sous:"Ce que tu veux voir en premier",
+                   attr:'data-go="ordre"'}), "lien");
+}
+/* Régler un ordre, ce n'est pas choisir ce qu'on épingle : une question, un
+   écran (13.cs). Et une seule action par ligne, comme partout : toucher fait
+   passer en premier. Descendre ne manque pas — faire monter l'autre suffit,
+   et c'est le seul geste qu'on veut vraiment sur une liste de cinq. */
+function vOrdre(){
+  Z.titre="Dans quel ordre"; Z.retour=true;
+  const ts=epinglesTaches(), ps=portesEp();
+  let h=`<div class="block amorce" style="margin-top:20px">Touche une ligne : elle passe en premier. C'est l'ordre dans lequel elles se présentent sous le bouton du milieu.</div>`;
+  if(ts.length>1){
+    h+=titreBloc("Les activités");
+    h+=liste(ts.map(function(t,i){
+      return ligne({titre:esc(tacheNom(t.id)),
+        apres: i ? "" : `<b>en premier</b>`,
+        attr: i ? 'data-ephaut="'+t.id+'"' : ""});
+    }).join(""), "lien");
+  }
+  if(ps.length>1){
+    h+=titreBloc("Les portes", ts.length>1 ? "ecart" : "");
+    h+=liste(ps.map(function(p,i){
+      return ligne({titre:esc(nomVue(p.v)),
+        apres: i ? "" : `<b>en premier</b>`,
+        attr: i ? 'data-pohaut="'+p.v+'"' : ""});
+    }).join(""), "lien");
+  }
   Z.html=h;
 }
 
@@ -832,7 +949,7 @@ function vNote(){
         ligne({titre:"J'ai fait…", serif:true, attr:'data-qui="moi"'})+
         ligne({titre:"Je vais faire…", sous:"une résolution, un engagement, un vœu", serif:true, attr:'data-qui="moiPrevu"'})+
         ligne({titre:"Quelqu'un a fait…", sous:"même si c'est Lui derrière", serif:true, attr:'data-qui="gens"'}));
-    if(!parent) Z.html += portePointage();
+    if(!parent) Z.html += portePointage() + porteBlocEp();
   }
   else if(cle==="dest"){
     Z.titre="Pour qui ?";

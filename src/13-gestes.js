@@ -343,6 +343,11 @@ function geste(g, t){
     /* Changer d'acteur refait le brouillon : la circonstance doit traverser,
        sinon le lien posé depuis un bloc se perd au premier choix (13.cx). */
     S.draft.par=(a.par||[]).slice(); S.draft.fige=!!a.fige; S.draft.pdt=a.pdt||null;
+    /* Le sujet traverse aussi. « Il y a répondu » posait le lien avant le
+       premier écran, et ce premier écran l'effaçait : le cahier ne pouvait
+       donc rien exaucer, jamais, et ses deux pastilles ne séparaient rien
+       (13.dp). */
+    S.draft.suj=(a.suj||[]).slice();
     S.step=1; return render();
   }
   if(g.dest){ S.draft.dest=g.dest; S.step++; return render(); }

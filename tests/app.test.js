@@ -2758,3 +2758,68 @@ test("13.do — revenir sur un écran n'est pas s'y rendre", () => {
   A.match(a.f.soPropose(b), /Mettre « Charger un relevé » sous le pouce/,
     "c'est donc lui qu'on propose, pas celui par où l'on repasse");
 });
+
+
+/* ---------- 13.dp — un sujet exaucé doit traverser l'assistant ---------- */
+
+test("13.dp — « Il y a répondu », par le chemin réel : le lien survit au premier écran", () => {
+  const a = app();
+  const s = registre(a);
+  a.geste({ sujrep: s.m });
+  A.equal(a.S.view, "note");
+  /* Le premier écran demande qui a répondu, et cette tape refait le
+     brouillon : c'est là que le lien tombait, à tous les coups. */
+  a.geste({ qui: "dieu" });
+  A.deepEqual(Array.from(a.S.draft.suj), [s.m], "le sujet traverse le choix de l'acteur");
+
+  a.ecrit("nTxt", "Elle est sortie de l'hôpital");
+  a.actions.suite();
+  a.geste({ man: "delivre" });
+  a.actions.suite();
+  a.actions.saveNote();
+
+  const n = a.db.nodes.filter(x => x.id !== "n1")[0];
+  A.deepEqual(Array.from(n.suj), [s.m], "l'acte gardé exauce le sujet");
+  A.equal(a.f.exaucesDe(s.m).length, 1);
+  a.geste({ sjf: "exauces" });
+  A.ok(listeCahier(a).indexOf(s.m) !== -1, "et la pastille « Exaucés » le montre");
+});
+
+test("13.dp — l'assistant dit à quoi il répond, à chaque écran", () => {
+  const a = app();
+  const s = registre(a);
+  a.geste({ sujrep: s.m });
+  a.f.vNote();
+  A.equal(a.Z.titre, "Qui a répondu ?", "ce n'est pas une capture ordinaire");
+  A.doesNotMatch(a.Z.html, /data-go="pointer"/,
+    "et on ne lui propose pas de compter son temps : il est venu répondre");
+  a.geste({ qui: "dieu" });
+  a.f.vNote();
+  A.match(a.Z.html, /La santé de maman/, "l'écran du texte le rappelle");
+  a.ecrit("nTxt", "Elle est sortie");
+  a.actions.suite();
+  a.f.vNote();
+  A.match(a.Z.html, /La santé de maman/, "celui de la manière aussi");
+  a.actions.suite();
+  a.f.vNote();
+  A.match(a.Z.html, /La santé de maman/, "et le dernier, celui où il garde");
+});
+
+test("13.dp — un sujet coché est un lien, pas « rien »", () => {
+  const a = app();
+  const s = registre(a);
+  /* L'autre chemin : on garde un acte, et à l'étape des causes on coche un
+     sujet du cahier. Le bouton annonçait « en réponse à rien ». */
+  a.geste({ go: "note" });
+  a.geste({ qui: "dieu" });
+  a.ecrit("nTxt", "Le contrat de Qualitas est signé");
+  a.actions.suite();
+  a.actions.suite();
+  a.actions.suiteDate();
+  A.equal(a.f.etapes(a.S.draft)[a.S.step], "par");
+  a.geste({ sujp: s.q });
+  a.f.vNote();
+  A.doesNotMatch(a.Z.action, /en réponse à rien/,
+    "un sujet porté puis exaucé est un chemin de deux pas");
+  A.match(a.Z.action, /1 lien/, "et le bouton le compte");
+});

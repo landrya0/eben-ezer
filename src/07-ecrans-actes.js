@@ -937,10 +937,17 @@ function vNote(){
   Z.retour = S.step>0;
   Z.fermer = S.step===0;
   const parent = d.fige && d.par.length ? node(d.par[0]) : null;
+  /* Un sujet exaucé est une cause au même titre qu'un acte, et l'assistant
+     n'en disait rien : ni dans ses titres, ni d'un écran à l'autre — il
+     offrait même de pointer son temps, comme à une capture ordinaire. Ce
+     à quoi l'on répond se lit donc des deux côtés (13.dp). */
+  const sjRep = (d.suj||[]).map(sujet).filter(Boolean);
+  const repond = !!parent || !!sjRep.length;
+  const rap = (parent?rappel(parent):"") + (sjRep.length?rappelSuj(sjRep):"");
 
   if(cle==="qui"){
-    Z.titre = parent ? "Qui a répondu ?" : "Qu'est-ce que tu gardes ?";
-    Z.html = liste(parent
+    Z.titre = repond ? "Qui a répondu ?" : "Qu'est-ce que tu gardes ?";
+    Z.html = liste(repond
       ? ligne({titre:"Dieu a répondu…", sous:"sans passer par personne", serif:true, attr:'data-qui="dieu"'})+
         ligne({titre:"J'ai répondu…", serif:true, attr:'data-qui="moi"'})+
         ligne({titre:"Je vais répondre…", sous:"ce que tu t'engages à faire", serif:true, attr:'data-qui="moiPrevu"'})+
@@ -949,11 +956,11 @@ function vNote(){
         ligne({titre:"J'ai fait…", serif:true, attr:'data-qui="moi"'})+
         ligne({titre:"Je vais faire…", sous:"une résolution, un engagement, un vœu", serif:true, attr:'data-qui="moiPrevu"'})+
         ligne({titre:"Quelqu'un a fait…", sous:"même si c'est Lui derrière", serif:true, attr:'data-qui="gens"'}));
-    if(!parent) Z.html += portePointage() + porteBlocEp();
+    if(!repond) Z.html += portePointage() + porteBlocEp();
   }
   else if(cle==="dest"){
     Z.titre="Pour qui ?";
-    Z.html = (parent?rappel(parent):"") + liste(
+    Z.html = rap + liste(
       ligne({titre:"Pour Dieu", serif:true, attr:'data-dest="dieu"'})+
       ligne({titre:"Pour quelqu'un", serif:true, attr:'data-dest="gens"'})+
       ligne({titre:"Pour moi", serif:true, attr:'data-dest="moi"'}));
@@ -976,7 +983,7 @@ function vNote(){
     Z.titre = d.act==="dieu" ? "Qu'est-ce qu'Il a fait ?"
             : (d.act==="moi" ? (futur ? "Qu'est-ce que tu vas faire ?" : "Qu'est-ce que tu as fait ?")
                              : "Qu'a fait "+(gensNom(d.gid)||"cette personne")+" ?");
-    let h = parent?rappel(parent):"";
+    let h = rap;
     h+=`<div class="block"><textarea class="dicte" id="nTxt" placeholder="${ph}">${esc(d.txt)}</textarea>${micBloc("nTxt")}</div>`;
     const ref=reference(d.txt);
     h+=`<div id="ref"${ref?"":" hidden"}>`+liste(ligne({
@@ -994,7 +1001,7 @@ function vNote(){
   }
   else if(cle==="man"){
     Z.titre = d.act==="dieu" ? "Sa manière ?" : "Reconnais-tu Sa main ?";
-    let h="";
+    let h=rap;
     if(d.act==="gens") h+=`<div class="block amorce" style="margin-top:16px">Si tu choisis une manière, cet acte entrera dans Ses œuvres.</div>`;
     h+=liste(Object.keys(MANS()).map(k=>ligne({titre:manTxt(k), serif:true,
       apres:d.man===k?`<span class="coche">✓</span>`:"", attr:'data-man="'+k+'"'})).join(""));
@@ -1017,8 +1024,11 @@ function vNote(){
          circonstance posée n'est pas rien : l'annoncer vide, juste sous une
          ligne cochée, se contredirait. */
       const acte=der?"saveNote":"suite";
-      Z.action = d.par.length
-        ? bouton((der?"Garder — ":"Continuer — ")+d.par.length+" lien"+(d.par.length>1?"s":""), 'data-act="'+acte+'"')
+      /* Un sujet coché est un lien : l'annoncer « en réponse à rien » juste
+         sous sa ligne cochée se contredisait (13.dp). */
+      const nl = d.par.length + sjRep.length;
+      Z.action = nl
+        ? bouton((der?"Garder — ":"Continuer — ")+nl+" lien"+(nl>1?"s":""), 'data-act="'+acte+'"')
         : (d.pdt
             ? bouton(der?"Garder":"Continuer", 'data-act="'+acte+'"')
             : bouton((der?"Garder":"Continuer")+" — en réponse à rien", 'data-act="'+acte+'"'));
@@ -1026,7 +1036,7 @@ function vNote(){
   }
   else {
     Z.titre = (d.act==="moi" && d.etat==="prevu") ? "Pour quand ?" : "Quand ?";
-    Z.html = blocQuand("nDate", d.date, d.prec, d.act==="moi", d.etat);
+    Z.html = rap + blocQuand("nDate", d.date, d.prec, d.act==="moi", d.etat);
     Z.action = bouton(S.step===etapes(d).length-1?"Garder":"Continuer",
       'data-act="'+(S.step===etapes(d).length-1?"saveNote":"suiteDate")+'"');
   }
@@ -1034,6 +1044,13 @@ function vNote(){
 function rappel(p){
   return `<div class="block amorce" style="margin-top:16px">En réponse à :
     <span class="${estParole(p)?"voix":""}">${esc(p.txt)}</span></div>`;
+}
+/* Ce qu'on a porté devant Lui ne se dit pas comme un acte : « en réponse à »
+   conviendrait à une parole, pas à une demande. On nomme donc ce que c'est
+   (13.dp). */
+function rappelSuj(ss){
+  return `<div class="block amorce" style="margin-top:16px">Il répond à ce que tu portais :
+    ${ss.map(function(s){ return "<b>"+esc(s.txt)+"</b>"; }).join(", ")}</div>`;
 }
 /* La date est toujours visible. L'état est une question séparée. */
 function blocQuand(id, val, prec, avecEtat, etat){

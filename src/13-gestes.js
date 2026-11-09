@@ -366,16 +366,28 @@ function geste(g, t){
   if(g.sug){ const e=document.getElementById("nTxt"); if(e){ e.value=g.sug; e.dispatchEvent(new Event("input",{bubbles:true})); e.focus(); } return; }
   if(g.man){ S.draft.man=(S.draft.man===g.man?"":g.man); return render(); }
   if(g.eman){ S.eMan=(S.eMan===g.eman?"":g.eman); return render(); }
-  if(g.etat){ if(S.view==="edit") S.eEtat=g.etat; else if(S.draft) S.draft.etat=g.etat; return render(); }
+  if(g.etat){
+    if(S.view==="edit"){
+      /* Ici, rien n'est encore enregistré : l'écran PROPOSE le jour, le
+         disciple le voit et peut le changer avant de garder (P9, 13.du). La
+         date qu'il venait de taper est d'abord relue — c'est elle le jour
+         promis, pas celle d'avant son geste. */
+      const n=node(S.nodeId), avant=S.eEtat, e=document.getElementById("eDate");
+      if(n && e && e.value) n.date=e.value;
+      S.eEtat=g.etat;
+      if(quitterPrevu(n, avant, g.etat)) S.ePrec="j";
+    }
+    else if(S.draft) S.draft.etat=g.etat;
+    return render();
+  }
   if(g.netat){ const n=node(S.nodeId);
     if(n && (n.etat||"fait")!==g.netat){
+      const avant=n.etat||"fait";
       n.etat=g.netat;
-      /* Ce qui n'est plus prévu a eu lieu un jour, et ce jour se dit. Sans
-         date, il n'y a aucun jour promis à reprendre : c'est donc celui où
-         il le dit, et surtout pas celui où il l'avait écrit — une intention
-         de novembre tenue en janvier serait datée de novembre, et un
-         registre de faits ne porte pas de date fausse (13.ch, 13.ds). */
-      if(sansDate(n) && n.etat!=="prevu"){ n.date=today(); n.prec="j"; }
+      /* Une intention de novembre tenue en janvier serait datée de novembre,
+         et un registre de faits ne porte pas de date fausse. La règle est la
+         même qu'au menu, parce que c'est le même passage (13.ch, 13.du). */
+      quitterPrevu(n, avant, g.netat);
       touche(n); save(); toast(cap(ETAT[g.netat])+"."); }
     return render(); }
   /* « Je ne sais pas encore » bascule comme « je ne me souviens que du
@@ -408,7 +420,11 @@ function geste(g, t){
       const i=S.draft.suj.indexOf(g.sujp); i===-1?S.draft.suj.push(g.sujp):S.draft.suj.splice(i,1); }
     return render();
   }
-  if(g.fait){ fermeMenu(); const n=node(g.fait); if(n){ n.etat="fait"; n.prevuLe=n.date; n.date=today(); n.prec="j"; touche(n); save(); toast("Fait."); } return render(); }
+  if(g.fait){ fermeMenu(); const n=node(g.fait);
+    /* Les deux portes vers « c'est fait » — ce bouton et la liste « Où ça en
+       est » — passent désormais par la même règle (13.du). */
+    if(n){ const avant=n.etat||"fait"; n.etat="fait"; quitterPrevu(n, avant, "fait"); touche(n); save(); toast("Fait."); }
+    return render(); }
   if(g.abandon){ fermeMenu(); const n=node(g.abandon); if(n){ n.etat="abandon"; touche(n); save(); toast("Noté."); } return render(); }
   if(g.act) return actions[g.act] && actions[g.act](t);
 }

@@ -3170,3 +3170,119 @@ test("13.dt — la réponse ne décide que de cette visite", () => {
   A.equal(a.f.ouverts().length, 2, "elle redemande, plutôt que de supposer");
   A.equal(a.S.poseEn, "t3");
 });
+
+
+/* ========================================================================
+   13.du — une seule règle de datation à la sortie de « prévu »
+   ======================================================================== */
+
+test("13.du — les deux portes vers « c'est fait » donnent le même jour", () => {
+  const a = app();
+  /* Prévu pour le 20, tenu le 8. Une porte par la fiche, l'autre par le
+     menu : le même acte, le même résultat. */
+  planifie(a, "p1", "Jeûner un jour", "2026-11-20");
+  planifie(a, "p2", "Jeûner un jour", "2026-11-20");
+
+  a.S.view = "node"; a.S.nodeId = "p1";
+  a.geste({ netat: "fait" });
+  a.S.nodeId = "p2";
+  a.geste({ fait: "p2" });
+
+  const parLaFiche = a.f.node("p1"), parLeMenu = a.f.node("p2");
+  A.equal(a.f.human(parLaFiche), "8 novembre 2026",
+    "un registre de faits date du jour où la chose a eu lieu");
+  A.equal(a.f.human(parLeMenu), a.f.human(parLaFiche),
+    "deux portes vers le même état ne peuvent pas donner deux dates");
+  A.equal(parLaFiche.prevuLe, "2026-11-20", "et le jour promis n'est pas perdu");
+  A.equal(parLeMenu.prevuLe, parLaFiche.prevuLe);
+});
+
+test("13.du — commencer, c'est aussi quitter « prévu »", () => {
+  const a = app();
+  planifie(a, "p1", "Lire les Actes", "2026-11-20");
+  a.S.view = "node"; a.S.nodeId = "p1";
+  a.geste({ netat: "encours" });
+  A.equal(a.f.human(a.f.node("p1")), "8 novembre 2026",
+    "ce qui a commencé a commencé aujourd'hui, pas le jour promis");
+  A.equal(a.f.node("p1").prevuLe, "2026-11-20");
+});
+
+test("13.du — ce qui a déjà sa vraie date ne se fait pas re-dater", () => {
+  const a = app();
+  const n = planifie(a, "p1", "Lire les Actes", "2026-11-02");
+  n.etat = "encours";
+  a.S.view = "node"; a.S.nodeId = "p1";
+  a.geste({ netat: "fait" });
+  A.equal(a.f.human(a.f.node("p1")), "2 novembre 2026",
+    "une lecture commencée le 2 est datée du 2 : achever n'efface pas le début");
+  A.equal(a.f.node("p1").prevuLe, undefined, "et il n'y avait aucune promesse à garder");
+});
+
+test("13.du — la fiche dit le jour promis, et se tait quand c'est le même", () => {
+  const a = app();
+  planifie(a, "p1", "Jeûner un jour", "2026-11-20");
+  a.S.view = "node"; a.S.nodeId = "p1";
+  a.geste({ netat: "fait" });
+  a.f.vNode();
+  A.match(a.Z.html, /Tu l'avais prévu pour le 20 novembre 2026/,
+    "ce qui était promis et ce qui a été tenu se lisent ensemble");
+
+  const b = app();
+  planifie(b, "p2", "Appeler mon père", "2026-11-08");
+  b.S.view = "node"; b.S.nodeId = "p2";
+  b.geste({ netat: "fait" });
+  b.f.vNode();
+  A.doesNotMatch(b.Z.html, /Tu l'avais prévu/,
+    "prévu pour aujourd'hui et fait aujourd'hui : le redire est du bruit");
+});
+
+test("13.du — tant que c'est prévu, la date reste un pour-quand", () => {
+  const a = app();
+  planifie(a, "p1", "Jeûner un jour", "2026-11-20");
+  a.S.view = "node"; a.S.nodeId = "p1";
+  a.f.vNode();
+  A.match(a.Z.html, /20 novembre 2026/, "une promesse se lit à son jour");
+  A.doesNotMatch(a.Z.html, /Tu l'avais prévu/);
+});
+
+test("13.du — l'écran de correction propose le jour, il ne l'impose pas", () => {
+  const a = app();
+  planifie(a, "p1", "Jeûner un jour", "2026-11-15");
+  a.S.view = "node"; a.S.nodeId = "p1";
+  a.geste({ act: "edit" });
+  /* Il rectifie d'abord la promesse — c'était pour le 20 — puis dit
+     qu'elle est tenue. */
+  a.ecrit("eDate", "2026-11-20");
+  a.geste({ etat: "fait" });
+  A.equal(a.f.node("p1").prevuLe, "2026-11-20",
+    "le jour promis est celui qu'il venait de taper, pas celui d'avant son geste");
+  A.equal(a.f.node("p1").date, "2026-11-08", "et l'écran propose aujourd'hui");
+  A.equal(a.S.ePrec, "j");
+
+  /* Rien n'est encore gardé : c'est son dernier geste qui garde (P9). */
+  a.ecrit("eDate", "2026-11-07");
+  a.geste({ act: "saveEdit" });
+  A.equal(a.f.node("p1").date, "2026-11-07", "il peut corriger la proposition");
+  A.equal(a.f.node("p1").etat, "fait");
+});
+
+test("13.du — revenir à « prévu » ne laisse pas une promesse morte", () => {
+  const a = app();
+  planifie(a, "p1", "Jeûner un jour", "2026-11-20");
+  a.S.view = "node"; a.S.nodeId = "p1";
+  a.geste({ netat: "fait" });
+  A.equal(a.f.node("p1").prevuLe, "2026-11-20");
+  a.geste({ netat: "prevu" });
+  A.equal(a.f.node("p1").prevuLe, undefined,
+    "ce n'est plus tenu : il n'y a plus rien à dire du jour où ça l'avait été");
+});
+
+test("13.du — sans date, le passage garde la règle de 13.ds", () => {
+  const a = app();
+  planifie(a, "p1", "Donner à l'œuvre", "2026-11-02", "?");
+  a.S.view = "node"; a.S.nodeId = "p1";
+  a.geste({ netat: "fait" });
+  A.equal(a.f.human(a.f.node("p1")), "8 novembre 2026");
+  A.equal(a.f.node("p1").prevuLe, undefined,
+    "il n'y avait aucun jour promis : en inventer un serait mentir");
+});

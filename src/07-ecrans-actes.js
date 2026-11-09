@@ -527,11 +527,12 @@ function vNode(){
   const n=node(S.nodeId); if(!n){ S.view="today"; return render(); }
   Z.titre="Un acte"; Z.retour=true; Z.plus=true;
   const par=(n.par||[]).map(node).filter(Boolean), enf=enfants(n.id);
-  const dte=human(n);
+  const dte=human(n), promis=jourPromis(n);
   let h=`<div class="block" style="margin-top:20px;position:relative">
       ${RAMEAU("filigrane")}
       <p class="grand ${estParole(n)?"voix":""}" style="position:relative;max-width:76%">${cite(n)}</p>
       <p class="meta">${esc(acteurTxt(n))}${(n.man&&n.kind!=="rhema")?" · "+esc(manCourt(n.man)):""}${dte?" · "+dte:""}${n.etat&&n.etat!=="fait"?" · "+ETAT[n.etat]:""}</p>
+      ${promis?`<p class="meta">Tu l'avais prévu pour le ${promis}.</p>`:""}
       ${n.desc?`<p class="desc">${esc(n.desc)}</p>`:""}
     </div>`;
   /* Un acte à moi change d'état tout seul avec le temps : ce qui était prévu

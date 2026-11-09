@@ -85,7 +85,9 @@ function faitContexte(opts) {
     hidden: false, title: "", cookie: "", readyState: "complete",
     body: elem(), head: elem(), documentElement: elem(), activeElement: null,
     getElementById(id) {
-      if (!elements[id]) elements[id] = elem();
+      /* Un élément porte son identifiant : les écouteurs de `change` et
+         d'`input` ne reconnaissent leur champ qu'à ça. */
+      if (!elements[id]) { elements[id] = elem(); elements[id].id = id; }
       return elements[id];
     },
     createElement() { return elem(); },
@@ -130,6 +132,15 @@ function faitContexte(opts) {
     getComputedStyle() { return { getPropertyValue() { return ""; } }; }
   };
   ctx.__ecouteurs = ecouteurs;
+  /* Les messages passagers se ramassent : plusieurs règles portent sur ce
+     que l'application DIT quand elle refuse, et pas seulement sur ce
+     qu'elle garde. */
+  ctx.__toasts = [];
+  const poseFils = document.body.appendChild;
+  document.body.appendChild = function (x) {
+    if (x && x.className === "toast") ctx.__toasts.push(String(x.textContent));
+    return poseFils.call(document.body, x);
+  };
   ctx.window = ctx;
   ctx.globalThis = ctx;
   ctx.self = ctx;
@@ -216,7 +227,8 @@ const PONT = `
        montantLu, poste, posteNom, posteSens, postesDe, partsSous,
        devLig, devNom, devSym, devDec, jdate, jourLu,
        vArgent, vSou, vDevise, vReglages, listePostes,
-       chLis, chJour, chPoste, chNu, chDeja, vCharger, porteCharger },
+       chLis, chJour, chPoste, chNu, chDeja, vCharger, porteCharger,
+       vTache, heuresTache, heuresTxt, catNom, CATS, tacheCat, finDe, cap },
   c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY, POSTES, DEVISES, CAT_SOCLE, ONG_ARG,
        CONSIGNE }
 };
@@ -264,6 +276,20 @@ function charge(opts) {
   /* Écrire dans un champ, comme un doigt le ferait : le faux document rend
      toujours un élément, et c'est sa valeur que l'application relit. */
   app.ecrit = function (id, v) { ctx.document.getElementById(id).value = v; };
+  /* Changer un champ qui se garde tout seul : on pose la valeur, puis on
+     appelle le vrai écouteur — c'est ce que fait un doigt qui quitte le
+     champ. `app.change("tNom", "Prière")` vaut une frappe suivie d'un
+     ailleurs ; le type "input" pour ce qui réagit à la frappe même. */
+  app.change = function (id, v, type) {
+    const el = ctx.document.getElementById(id);
+    el.value = v;
+    const ev = { target: el, preventDefault: function () {}, stopPropagation: function () {} };
+    (ctx.__ecouteurs[type || "change"] || []).forEach(function (fn) { fn(ev); });
+    return el;
+  };
+  /* Le dernier mot passager, et tous depuis le dernier appel à `vide()`. */
+  app.dernierToast = function () { return ctx.__toasts[ctx.__toasts.length - 1] || ""; };
+  app.toasts = function () { return ctx.__toasts.slice(); };
   app.geste = function (data) {
     const cible = {
       dataset: data, value: "", tagName: "A",

@@ -2144,3 +2144,114 @@ test("13.dl — un relevé à demi lu ne survit pas à l'écran", () => {
   A.equal(a.S.ch, null, "il ne revient pas par la porte d'à côté");
   A.equal(a.S.chTxt, "");
 });
+
+/* ---------- 13.dm — une activité se renomme, se range et se réunit ---------- */
+
+/* « je dois pouvoir corriger le nom d'une action dont j'ai mesuré le temps.
+   aujourd'hui ce n'est pas possible. » */
+function uneActivite(a) {
+  a.db.taches = [
+    { id: "a1", nom: "Priere", cat: "reste", maj: 1 },
+    { id: "a2", nom: "Prière", cat: "dieu", d: "priere", maj: 1 },
+    { id: "a3", nom: "Travail", cat: "travail", maj: 1 }
+  ];
+  a.db.temps = [
+    bloc("b1", "a1", jour(6, 7, 0), jour(6, 8, 0)),
+    bloc("b2", "a1", jour(7, 7, 0), jour(7, 7, 30)),
+    bloc("b3", "a2", jour(8, 6, 0), jour(8, 7, 0))
+  ];
+  a.S.pile = []; a.S.view = "temps";
+  a.geste({ tch: "a1" });
+  a.f.vTache();
+  return a.f.tache("a1");
+}
+
+test("13.dm — le nom se corrige, et les heures ne bougent pas", () => {
+  const a = app();
+  const t = uneActivite(a);
+  A.match(a.Z.html, /id="tNom"/, "la fiche a enfin son champ");
+  A.equal(a.Z.titre, "Priere");
+
+  a.change("tNom", "Prière du matin");
+  A.equal(t.nom, "Prière du matin");
+  A.equal(a.f.heuresTache("a1").n, 2, "les blocs restent attachés");
+  A.equal(a.f.heuresTache("a1").ms, 90 * MIN, "et les heures avec eux");
+  A.equal(a.Z.titre, "Prière du matin", "le titre de l'écran suit");
+});
+
+test("13.dm — un nom déjà pris est refusé, avec son orthographe et la suite", () => {
+  const a = app();
+  const t = uneActivite(a);
+  const champ = a.change("tNom", "prière");
+  A.equal(t.nom, "Priere", "rien n'a bougé");
+  A.equal(champ.value, "Priere", "et le champ reprend ce qui est rangé");
+  A.match(a.dernierToast(), /« Prière » existe déjà/, "l'orthographe exacte de l'autre");
+  A.match(a.dernierToast(), /réunis les deux/, "et ce qu'il faut faire à la place (13.ct)");
+
+  a.change("tNom", "   ");
+  A.equal(t.nom, "Priere", "une activité porte un nom");
+});
+
+test("13.dm — le rangement se change, et il refait les parts de tout l'historique", () => {
+  const a = app();
+  const t = uneActivite(a);
+  A.match(a.Z.html, /id="tCat"/, "le rangement a sa porte (13.cb)");
+
+  const b = a.f.bornes("jour", jour(6, 12, 0));
+  A.equal(a.f.cumul(b[0], b[1]).parCat.dieu || 0, 0, "avant : rien pour Dieu ce jour-là");
+
+  a.change("tCat", "dieu", "input");
+  A.equal(t.cat, "dieu");
+  A.equal(a.f.cumul(b[0], b[1]).parCat.dieu, 60 * MIN,
+    "l'heure du 6 novembre est maintenant pour Dieu");
+});
+
+test("13.dm — réunir transporte les heures ; on ne supprime pas", () => {
+  const a = app();
+  uneActivite(a);
+  A.equal(a.f.heuresTache("a2").ms, 60 * MIN);
+
+  a.ecrit("tFus", "a2");
+  a.actions.tchReunir();
+  A.equal(a.f.tache("a1"), undefined, "la fiche absorbée s'en va");
+  A.equal(a.f.heuresTache("a2").n, 3, "ses trois blocs sont là");
+  A.equal(a.f.heuresTache("a2").ms, 150 * MIN, "et pas une minute perdue (13.cf)");
+  A.equal(a.S.tchId, "a2", "et on reste sur la fiche qui demeure");
+  /* Sans pierre tombale, l'autre appareil la ferait revenir (13.be). */
+  A.ok(a.db.morts["a1"]);
+});
+
+test("13.dm — les heures réunies survivent à la synchronisation", () => {
+  const a = app();
+  uneActivite(a);
+  a.ecrit("tFus", "a2");
+  a.actions.tchReunir();
+
+  /* L'autre appareil a encore l'ancienne activité et ses blocs. */
+  const B = JSON.parse(JSON.stringify(a.db));
+  B.morts = {};
+  B.taches = Array.from(B.taches).concat([{ id: "a1", nom: "Priere", cat: "reste", maj: 1 }]);
+  const d = a.f.fusionne(JSON.parse(JSON.stringify(a.db)), B);
+  const ids = Array.from(d.taches).map(function (x) { return x.id; });
+  A.equal(ids.indexOf("a1"), -1, "l'activité réunie ne ressuscite pas");
+  A.equal(Array.from(d.temps).length, 3, "et aucun bloc n'est tombé avec elle");
+  Array.from(d.temps).forEach(function (b) {
+    A.equal(b.t, "a2", "tous rattachés à la fiche qui demeure");
+  });
+});
+
+test("13.dm — la fiche dit ce qu'une réunion déplacerait", () => {
+  const a = app();
+  uneActivite(a);
+  A.match(a.Z.html, /Tu y as compté/);
+  A.match(a.Z.html, /1 h 30 sur 2 blocs/, "ce qui pèse se dit avant le geste");
+  A.match(a.Z.html, /Réunir avec une autre/);
+  A.match(a.Z.html, /id="tFus"/);
+  A.match(a.Z.html, /data-act="tchReunir"/);
+  A.ok(!/value="a1"/.test(a.Z.html), "on ne se réunit pas avec soi-même");
+
+  /* Seule activité : il n'y a personne avec qui réunir, et la section s'en va. */
+  a.db.taches = [{ id: "a1", nom: "Priere", cat: "reste", maj: 1 }];
+  a.f.vTache();
+  A.ok(!/data-act="tchReunir"/.test(a.Z.html));
+});

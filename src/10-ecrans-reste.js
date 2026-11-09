@@ -419,12 +419,44 @@ function vLecturePlein(b){
    pas à chaque bloc. Un seul réglage pour l'instant, et c'est voulu : on
    n'ouvre pas un atelier de champs sur mesure avant de savoir, à l'usage,
    lesquels manquent vraiment. */
+/* Ce que pèse une activité — c'est ce qu'une réunion déplacerait, et c'est
+   ce qu'un renommage ne touche pas. Le dire avant les champs donne au geste
+   son poids (13.dm). */
+function heuresTache(tid){
+  let n=0, ms=0;
+  (db.temps||[]).forEach(function(b){
+    if(b.t!==tid) return;
+    n++; ms += Math.max(0, finDe(b)-b.deb);
+  });
+  return {n:n, ms:ms};
+}
+function heuresTxt(h){
+  return h.n ? hm(h.ms)+" sur "+h.n+" bloc"+(h.n>1?"s":"") : "";
+}
+/* Une activité qu'on ne peut ni renommer ni ranger ailleurs n'est pas une
+   fiche (13.ct) : son nom restait tel qu'il avait été tapé au premier geste,
+   et l'écran affirmait pourtant que le rangement « fait les parts » sans
+   donner la porte pour le changer (13.cb). */
 function vTache(){
   const t=tache(S.tchId);
   if(!t){ depile("temps"); return render(); }
-  const sp=spTache(t.id);
+  const sp=spTache(t.id), hr=heuresTache(t.id);
   Z.titre=t.nom; Z.retour=true;
-  let h=`<div class="block amorce" style="margin-top:16px">Rangée dans <b>${esc(catNom(t.cat||"reste"))}</b>. C'est ce rangement qui fait les parts.</div>`;
+  let h=`<div class="block amorce" style="margin-top:16px">${hr.n
+    ? `Tu y as compté <b>${esc(heuresTxt(hr))}</b>.`
+    : `Rien de compté là-dedans pour l'instant.`}</div>`;
+  /* Le nom se garde tout seul, comme l'auteur juste dessous : un champ qui
+     attendrait un bouton sur un écran où les listes se gardent seules ferait
+     mentir la forme (13.cd, 13.cu). */
+  h+=titreBloc("Son nom");
+  h+=`<div class="block amorce">Ce que tu écris ici se garde tout seul. Les heures déjà comptées ne bougent pas : c'est la même activité, mieux nommée.</div>`;
+  h+=champ("tNom", "Son nom", "text", esc(t.nom), 'autocapitalize="sentences"');
+  h+=titreBloc("Où la ranger","ecart");
+  h+=`<div class="block amorce">C'est ce rangement, et lui seul, qui fait les parts. En changer refait les parts de tout ce qui a déjà été compté ici.</div>`;
+  h+=liste(champSel("tCat","Dans quoi",
+      CATS().map(function(c){
+        return `<option value="${c.id}"${(t.cat||"reste")===c.id?" selected":""}>${esc(c.nom)}</option>`;
+      }).join("")));
   const dc=discTache(t.id);
   h+=titreBloc("La routine");
   h+=`<div class="block amorce">Les seize routines du message de Bertoua. L'activité garde son nom ; elle dit seulement de laquelle elle est la mise en œuvre — et c'est elle qui décide de ce qu'on te demandera en plus du temps.</div>`;
@@ -471,6 +503,23 @@ function vTache(){
         return ligne({titre:esc(l.nom), sous: au+(livreFini(l) ? "Fini" : "En cours"),
           apres:esc(tot ? vu+" / "+tot : String(vu)), attr:'data-lv="'+l.id+'"'});
       }).join("")) + ligne({titre:"Ajouter un livre", attr:'data-act="livreNeuf"'}));
+  }
+  /* Réunir, et non supprimer : les heures ne se perdent pas, elles passent.
+     C'est la seule façon de rattraper « Priere » tapé un jour et « Prière »
+     un autre — un renommage, lui, se heurterait au nom déjà pris (13.ct). */
+  const autres=(db.taches||[]).filter(function(x){ return x.id!==t.id; })
+    .sort(function(a,b){ return a.nom.localeCompare(b.nom,"fr"); });
+  if(autres.length){
+    h+=titreBloc("Réunir avec une autre","ecart");
+    h+=`<div class="block amorce">Si c'est la même activité écrite deux fois. ${hr.n
+      ? `Les <b>${esc(heuresTxt(hr))}</b> comptés ici passeront sur l'autre`
+      : `Tout ce qui est rattaché ici passera sur l'autre`}, et cette fiche disparaîtra.</div>`;
+    h+=liste(champSel("tFus","L'autre activité",
+        `<option value="">— choisis —</option>`
+        + autres.map(function(x){
+            return `<option value="${x.id}">${esc(x.nom)} — ${esc(catNom(x.cat||"reste"))}</option>`;
+          }).join("")));
+    h+=liste(ligne({titre:"Réunir les deux", attr:'data-act="tchReunir"'}), "lien");
   }
   Z.html=h;
 }
@@ -1389,6 +1438,16 @@ document.addEventListener("input", ev=>{
   if(id==="tDisc"){
     const t=tache(S.tchId);
     if(t){ t.d=ev.target.value; touche(t); save(); toast("Noté."); }
+    return render();
+  }
+  /* Même forme, même comportement : les deux listes de cette fiche se gardent
+     seules. En changer refait les parts de tout l'historique, et c'est voulu —
+     une activité mal rangée fausse les parts depuis le premier jour. */
+  if(id==="tCat"){
+    const t=tache(S.tchId);
+    if(t && ev.target.value && t.cat!==ev.target.value){
+      t.cat=ev.target.value; touche(t); save(); toast("Rangée dans "+catNom(t.cat)+".");
+    }
     return render();
   }
   if(id==="luLiv" || id==="luDeb" || id==="luFin"){

@@ -22,6 +22,25 @@ document.addEventListener("change", function(ev){
     }
     return;
   }
+  /* Le nom d'une activité se corrige (13.dm). Un nom déjà pris est refusé
+     avec son orthographe exacte, et l'écran dit quoi faire à la place : les
+     réunir. On ne réunit pas à sa place (13.ct). */
+  if(ev.target.id==="tNom"){
+    const t=tache(S.tchId);
+    if(!t) return;
+    const nom=String(ev.target.value||"").trim().replace(/\s+/g," ");
+    if(!nom){ ev.target.value=t.nom; toast("Une activité porte un nom"); return; }
+    const autre=(db.taches||[]).filter(function(x){
+      return x.id!==t.id && String(x.nom).toLowerCase()===nom.toLowerCase(); })[0];
+    if(autre){
+      ev.target.value=t.nom;
+      toast("« "+autre.nom+" » existe déjà — réunis les deux activités");
+      return;
+    }
+    if(cap(nom)===t.nom){ ev.target.value=t.nom; return; }
+    t.nom=cap(nom); touche(t); save(); toast("Noté.");
+    return render();
+  }
   if(ev.target.id==="medIn" || ev.target.id==="medCam" || ev.target.id==="medVid"){
     /* On recopie les fichiers AVANT de vider le champ : `files` est une liste
        vivante, attachée au champ, et la vider vide aussi ce qu'on croyait
@@ -504,6 +523,20 @@ const actions={
     if(autre) return toast("« "+autre.nom+" » existe déjà — réunis les deux fiches");
     a.nom=capNom(nom); touche(a); save();
     toast("Gardé."); depile("temps"); render();
+  },
+  /* Les blocs changent d'activité AVANT que la fiche meure : la réunion de
+     deux archives écarte tout bloc dont l'activité a disparu, et l'ordre
+     inverse perdrait les heures au premier échange (13.ct, 13.be). */
+  tchReunir(){
+    const t=tache(S.tchId), vers=tache(val("tFus"));
+    if(!t) return;
+    if(!vers) return toast("Choisis l'autre activité");
+    if(vers.id===t.id) return;
+    (db.temps||[]).forEach(function(b){ if(b.t===t.id){ b.t=vers.id; touche(b); } });
+    db.taches=(db.taches||[]).filter(function(x){ return x.id!==t.id; });
+    tue(t.id); save();
+    toast("Réunies sous « "+vers.nom+" »");
+    S.tchId=vers.id; render();
   },
   auReunir(){
     const a=auteur(S.auId), vers=auteur(val("auFus"));

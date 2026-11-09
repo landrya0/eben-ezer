@@ -37,9 +37,9 @@ le numéro le plus haut, et pourquoi `11-argent.js` a pris la place que `11-gest
 | `07-ecrans-actes.js` | les écrans du mémorial, et l'assistant qui note | 939 |
 | `08-sync.js` | la copie distante, la réunion de deux appareils | 464 |
 | `09-ecrans-temps.js` | pointer, la frise, mon temps | 704 |
-| `10-ecrans-reste.js` | temps mis à part, lectures, auteurs, réglages, dictée | 1499 |
+| `10-ecrans-reste.js` | temps mis à part, lectures, auteurs, réglages, dictée | 1558 |
 | `11-argent.js` | **l'argent** : les postes, les parts, la monnaie, le chargement | 451 |
-| `12-gestes.js` | le délégué — un seul écouteur — et le démarrage | 1140 |
+| `12-gestes.js` | le délégué — un seul écouteur — et le démarrage | 1173 |
 | `src/ebenezer.css` | la feuille de style | 772 |
 
 `index.html` ne tient plus que la charpente HTML et les treize balises : **70 lignes**.

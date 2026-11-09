@@ -400,13 +400,27 @@ function poseTache(id){
   /* Un trou en attente ne doit pas détourner une correction de bloc :
      corriger, c'est désigner un bloc, et le bloc désigné passe devant. */
   if(S.trou && !S.blocId){
-    const t=S.trou; S.trou=null;
-    const b={id:uid("b"), t:id, deb:t.deb, maj:Date.now()};
-    if(!t.vif) b.fin=t.fin;
-    db.temps.push(b);
+    const t=S.trou;
+    /* Un creux n'a reçu personne : rien n'empêche qu'il en reçoive plusieurs
+       — on marchait en priant, et on n'a rien pointé ni pour l'un ni pour
+       l'autre. Toucher une ligne déjà posée la retire : ce qu'on pose se
+       défait du même geste, comme ailleurs (13.dr). */
+    const deja=(db.temps||[]).filter(function(b){
+      return b.t===id && b.deb===t.deb && b.fin===t.fin; })[0];
+    if(deja){
+      db.temps=(db.temps||[]).filter(function(b){ return b.id!==deja.id; });
+      tue(deja.id); save(); toast("Retiré : "+tacheNom(id)); return render();
+    }
+    const enPlus=!!S.enPlus;
+    if(!enPlus) S.trou=null;
+    db.temps.push({id:uid("b"), t:id, deb:t.deb, fin:t.fin, maj:Date.now()});
     db.temps.sort(function(a,b){ return a.deb-b.deb; });
     save();
-    if(t.vif){ S.pile=[]; S.view="today"; toast("On compte : "+tacheNom(id)+", depuis "+hmin(new Date(t.deb))); return render(); }
+    if(enPlus){
+      const n=(db.temps||[]).filter(function(b){ return b.deb===t.deb && b.fin===t.fin; }).length;
+      toast((n>1 ? "Comblé aussi : " : "Comblé : ")+tacheNom(id));
+      return render();
+    }
     toast("Comblé : "+tacheNom(id)); depile("temps"); return render();
   }
   if(S.blocId){

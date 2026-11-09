@@ -2924,3 +2924,72 @@ test("13.dq — une activité touchée par erreur s'enlève de la volée", () =>
    n'a pas de DOM réel, et deux bandeaux superposés au même point fixe n'y
    existent pas. Un test qui passerait par construction ne défendrait rien.
    C'est donc une vérification d'écran, faite à 375 px (13.dq). */
+
+
+/* ========================================================================
+   13.dr — un creux passé peut recevoir plusieurs activités
+   ======================================================================== */
+
+function creuxDeDeuxHeures(a) {
+  a.db.taches = [{ id: "t1", nom: "Marche", cat: "moi", maj: 1 },
+                 { id: "t2", nom: "Prière", cat: "dieu", maj: 1 },
+                 { id: "t3", nom: "Enseignements de TA", cat: "dieu", maj: 1 }];
+  a.db.temps = [bloc("b1", "t1", j(8, 0), j(9, 0))];
+  return { deb: j(14, 0), fin: j(16, 0) };
+}
+
+test("13.dr — un creux reçoit deux activités, sans quitter l'écran", () => {
+  const a = app();
+  const c = creuxDeDeuxHeures(a);
+  a.geste({ creux: c.deb + "|" + c.fin });
+  A.equal(a.S.view, "pointer");
+  a.geste({ plus: "1" });
+  a.geste({ tache: "t2" });
+  a.geste({ tache: "t3" });
+
+  A.equal(a.S.view, "pointer", "l'écran ne s'est pas refermé entre deux");
+  const dedans = (a.db.temps || []).filter(b => b.deb === c.deb && b.fin === c.fin);
+  A.equal(dedans.length, 2, "les deux couvrent le même temps");
+  A.deepEqual(Array.from(dedans, b => b.t).sort(), ["t2", "t3"]);
+});
+
+test("13.dr — l'écran ne dit plus « rien n'a été compté » une fois qu'on y a posé quelque chose", () => {
+  const a = app();
+  const c = creuxDeDeuxHeures(a);
+  a.geste({ creux: c.deb + "|" + c.fin });
+  a.f.vPointer();
+  A.match(a.Z.html, /rien n'a été compté/, "au départ, c'est vrai");
+  A.match(a.Z.html, /data-plus="1"/, "et l'interrupteur y est");
+
+  a.geste({ plus: "1" });
+  a.geste({ tache: "t2" });
+  a.f.vPointer();
+  A.doesNotMatch(a.Z.html, /rien n'a été compté/, "ce serait faux, maintenant");
+  A.match(a.Z.html, /<b>Prière<\/b>/, "il dit ce qu'il tient déjà");
+});
+
+test("13.dr — toucher une activité posée la retire, et laisse sa pierre tombale", () => {
+  const a = app();
+  const c = creuxDeDeuxHeures(a);
+  a.geste({ creux: c.deb + "|" + c.fin });
+  a.geste({ plus: "1" });
+  a.geste({ tache: "t2" });
+  a.geste({ tache: "t3" });
+  const pose = (a.db.temps || []).filter(b => b.t === "t3" && b.deb === c.deb)[0];
+
+  a.geste({ tache: "t3" });
+  A.equal((a.db.temps || []).filter(b => b.deb === c.deb).length, 1, "elle seule s'en va");
+  A.equal((a.db.temps || []).filter(b => b.deb === c.deb)[0].t, "t2");
+  A.ok(a.db.morts && a.db.morts[pose.id],
+    "sinon la synchro la ressusciterait (13.be)");
+});
+
+test("13.dr — « une seule » comble et referme, comme avant", () => {
+  const a = app();
+  const c = creuxDeDeuxHeures(a);
+  a.geste({ creux: c.deb + "|" + c.fin });
+  a.geste({ tache: "t2" });
+  A.notEqual(a.S.view, "pointer", "l'écran se referme, comme avant");
+  A.equal(a.S.trou, null, "et le creux est refermé");
+  A.deepEqual(etat(a), ["t1 8h00→9h00", "t2 14h00→16h00"]);
+});

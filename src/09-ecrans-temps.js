@@ -17,6 +17,10 @@ function vPointer(){
   const o = ouvert(), ouv = ouverts(), q = (S.tQ||"").trim(), cats = CATS();
   const enCours = {};
   ouv.forEach(function(b){ enCours[b.t]=1; });
+  /* Dans un creux, la coche ne dit pas ce qui tourne — rien ne tourne —
+     mais ce qu'on y a déjà posé (13.dr). */
+  const placees = {};
+  if(trou) dansTrou(trou).forEach(function(b){ placees[b.t]=1; });
   /* Un creux vif ne naît que d'un arrêt voulu (13.db) : on le mesure avant
      tout, parce que c'est lui qui décide de ce que la page a à dire. */
   const vif = (!corr && !S.trou && !ouverts().length) ? creuxVif() : null;
@@ -24,7 +28,16 @@ function vPointer(){
   const choixVif = !!vif && dv>=SEUIL_CREUX;
   let h = "";
   if(corr) h += `<div class="block amorce" style="margin-top:16px"><b>${esc(tacheNom(corr.t))}</b>, de ${hmin(new Date(corr.deb))} à ${corr.fin?hmin(new Date(corr.fin)):"maintenant"}.</div>`;
-  else if(trou) h += `<div class="block amorce" style="margin-top:16px">De ${hmin(new Date(trou.deb))} à ${hmin(new Date(trou.fin))} — ${hm(trou.fin-trou.deb)} — rien n'a été compté. Dis à quoi c'est allé.</div>`;
+  else if(trou){
+    /* « Rien n'a été compté » devient faux dès qu'on y a posé quelque
+       chose, et l'écran reste ouvert pour en poser d'autres : il dit donc
+       ce qu'il tient déjà (13.ch, 13.dr). */
+    const dd=dansTrou(trou);
+    h += `<div class="block amorce" style="margin-top:16px">De ${hmin(new Date(trou.deb))} à ${hmin(new Date(trou.fin))} — ${hm(trou.fin-trou.deb)} — ${
+      dd.length
+        ? dd.map(function(b){ return "<b>"+esc(tacheNom(b.t))+"</b>"; }).join(", ")+". Touche-en d'autres si c'était aussi ça."
+        : "rien n'a été compté. Dis à quoi c'est allé."}</div>`;
+  }
   else if(o) h += `<div class="block amorce" style="margin-top:16px">Depuis ${hmin(new Date(o.deb))}, le temps va à <b>${esc(tacheNom(o.t))}</b> — ${hm(Date.now()-o.deb)}.${
       ouv.length>1 ? " En même temps : "+ouv.filter(function(b){ return b!==o; }).map(function(b){ return "<b>"+esc(tacheNom(b.t))+"</b>"; }).join(", ")+"." : ""}</div>`;
   else if(choixVif) h += `<div class="block amorce" style="margin-top:16px">Rien n'est compté depuis que tu as arrêté, à ${hmin(new Date(vif.deb))}.</div>`;
@@ -78,14 +91,20 @@ function vPointer(){
      pointage, basculer, lancer la seconde — et recommencer. L'interrupteur
      dit donc COMBIEN d'activités à la fois, et non ce qu'on fait de celles
      qui tournent : ainsi il a un sens avant la première tape (13.dq). */
-  if(!corr && !trou)
+  /* Un creux n'a reçu personne : rien n'empêche qu'il en reçoive plusieurs,
+     et c'est souvent la vérité — on marchait en priant, et on n'a rien
+     pointé ni pour l'un ni pour l'autre. Le même interrupteur y répond,
+     puisque c'est la même question : combien à la fois (13.dr). */
+  if(!corr)
     h += `<div class="puces" style="padding-top:2px">`
       + `<button class="puce" data-plus="0" aria-pressed="${!S.enPlus}">Une seule</button>`
       + `<button class="puce" data-plus="1" aria-pressed="${!!S.enPlus}">Plusieurs</button></div>`
-      + `<div class="block amorce">${S.enPlus
-          ? "Touche-en autant que tu veux : l'écran reste ouvert. Toucher une ligne cochée l'arrête."
-          : (o ? "La prochaine activité arrêtera ce qui tourne."
-               : "Le temps ira à une seule activité à la fois.")}</div>`;
+      + `<div class="block amorce">${trou
+          ? (S.enPlus ? "Touche-en autant que tu veux : elles couvriront toutes ce même temps. Toucher une ligne cochée la retire."
+                      : "Ce temps ira à une seule activité.")
+          : (S.enPlus ? "Touche-en autant que tu veux : l'écran reste ouvert. Toucher une ligne cochée l'arrête."
+                      : (o ? "La prochaine activité arrêtera ce qui tourne."
+                           : "Le temps ira à une seule activité à la fois."))}</div>`;
 
   h += liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
       <input type="text" id="tQ" placeholder="Chercher, ou nommer autre chose" value="${esc(S.tQ||"")}" autocomplete="off" autocapitalize="sentences"></div></div></li>`);
@@ -116,7 +135,7 @@ function vPointer(){
         .sort((a,b)=>(freq[b.id]||0)-(freq[a.id]||0) || a.nom.localeCompare(b.nom,"fr"));
       if(!arr.length) return;
       h += `<div class="tgrp">${titreBloc(esc(c.nom))}${liste(arr.map(t=>ligne({titre:esc(t.nom),
-        apres:(enCours[t.id] && !corr && !trou) ? `<span class="coche">✓</span>` : (freq[t.id] ? esc(hm(freq[t.id])) : ""),
+        apres:((enCours[t.id] && !corr && !trou) || placees[t.id]) ? `<span class="coche">✓</span>` : (freq[t.id] ? esc(hm(freq[t.id])) : ""),
         attr:'data-tache="'+t.id+'" data-nom="'+esc(t.nom.toLowerCase())+'"'})).join(""))}</div>`;
     });
   }
@@ -549,6 +568,14 @@ function vMonTemps(){
   if(v==="routines" && !routineDite() && !pf.pg && !lf.ch && !lt && !perDans(f.t0, f.t1).length)
     h += `<p class="vide">Rien à montrer ici tant qu'aucune activité n'a dit de quelle routine elle est la mise en œuvre. Touche-en une dans « Les parts », puis choisis sa routine.</p>`;
   Z.html=h;
+}
+
+/* Ce qui a déjà été posé dans ce creux : les blocs qui en couvrent
+   exactement les bornes. On ne le retient pas dans l'état, on le relit —
+   rien à tenir à jour, rien qui puisse se désaccorder (13.dr). */
+function dansTrou(t){
+  if(!t) return [];
+  return (db.temps||[]).filter(function(b){ return b.deb===t.deb && b.fin===t.fin; });
 }
 
 function ligneCreux(d, f){

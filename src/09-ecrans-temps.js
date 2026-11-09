@@ -35,7 +35,7 @@ function vPointer(){
     const dd=dansTrou(trou);
     h += `<div class="block amorce" style="margin-top:16px">De ${hmin(new Date(trou.deb))} à ${hmin(new Date(trou.fin))} — ${hm(trou.fin-trou.deb)} — ${
       dd.length
-        ? dd.map(function(b){ return "<b>"+esc(tacheNom(b.t))+"</b>"; }).join(", ")+". Touche-en d'autres si c'était aussi ça."
+        ? dd.map(function(b){ return "<b>"+esc(tacheNom(b.t))+"</b>"; }).join(", ")+". Touche-en d'autres si c'était aussi ça — ou une ligne cochée, pour la retirer."
         : "rien n'a été compté. Dis à quoi c'est allé."}</div>`;
   }
   else if(o) h += `<div class="block amorce" style="margin-top:16px">Depuis ${hmin(new Date(o.deb))}, le temps va à <b>${esc(tacheNom(o.t))}</b> — ${hm(Date.now()-o.deb)}.${
@@ -82,29 +82,19 @@ function vPointer(){
       sous:"Le temps déjà passé reste à "+(ouv.length>1 ? "ce qui l'a reçu" : "« "+esc(tacheNom(o.t))+" »"),
       attr:'data-act="arretNet"'}), "lien");
   }
-  /* Un seul geste nouveau pour tout le parallèle : un interrupteur à deux
-     positions, qui dit ce que la prochaine tape veut dire. « Une seule » par
-     défaut — l'app se comporte comme avant tant qu'on n'y touche pas.
-     Il était réservé au cas où quelque chose tournait déjà, puisque
-     « en plus » de rien ne veut rien dire. Mais partir à plusieurs, c'est
-     justement partir de rien : il fallait lancer la première, rouvrir le
-     pointage, basculer, lancer la seconde — et recommencer. L'interrupteur
-     dit donc COMBIEN d'activités à la fois, et non ce qu'on fait de celles
-     qui tournent : ainsi il a un sens avant la première tape (13.dq). */
-  /* Un creux n'a reçu personne : rien n'empêche qu'il en reçoive plusieurs,
-     et c'est souvent la vérité — on marchait en priant, et on n'a rien
-     pointé ni pour l'un ni pour l'autre. Le même interrupteur y répond,
-     puisque c'est la même question : combien à la fois (13.dr). */
-  if(!corr)
-    h += `<div class="puces" style="padding-top:2px">`
-      + `<button class="puce" data-plus="0" aria-pressed="${!S.enPlus}">Une seule</button>`
-      + `<button class="puce" data-plus="1" aria-pressed="${!!S.enPlus}">Plusieurs</button></div>`
-      + `<div class="block amorce">${trou
-          ? (S.enPlus ? "Touche-en autant que tu veux : elles couvriront toutes ce même temps. Toucher une ligne cochée la retire."
-                      : "Ce temps ira à une seule activité.")
-          : (S.enPlus ? "Touche-en autant que tu veux : l'écran reste ouvert. Toucher une ligne cochée l'arrête."
-                      : (o ? "La prochaine activité arrêtera ce qui tourne."
-                           : "Le temps ira à une seule activité à la fois."))}</div>`;
+  /* L'interrupteur à deux positions a disparu d'ici. Une position par
+     défaut est un choix que l'application fait à sa place — et celui-là
+     arrête un compteur, ce qui se corrige mal. La question se pose donc au
+     seul moment où elle se pose vraiment : quand il touche une activité
+     alors que quelque chose tourne. Elle arrive alors nommée, en deux
+     lignes, et sa réponse vaut pour le reste de la visite (13.dt).
+     Dans un creux, rien ne tourne et rien ne peut être perdu : chaque tape
+     ajoute, et l'écran reste ouvert jusqu'à ce qu'il s'en aille (13.dr). */
+  /* La phrase ne se répète pas une fois qu'il y a quelque chose dedans :
+     l'amorce du haut le dit déjà, et deux phrases pour une chose en font
+     une de trop. */
+  if(trou && !dansTrou(trou).length)
+    h += `<div class="block amorce">Touche-en autant que c'était : elles couvriront toutes ce même temps.</div>`;
 
   h += liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
       <input type="text" id="tQ" placeholder="Chercher, ou nommer autre chose" value="${esc(S.tQ||"")}" autocomplete="off" autocapitalize="sentences"></div></div></li>`);

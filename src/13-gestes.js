@@ -127,13 +127,12 @@ function geste(g, t){
     const b=ouverts().filter(function(x){ return x.t===g.ep; })[0];
     if(b){ arreteUn(b); S.pile=[]; S.view="today";
            toast("Arrêté : "+tacheNom(g.ep)); apresArret([b]); return render(); }
-    /* L'interrupteur ne vaut que pour le geste qu'on vient de faire : laissé
-       en place, il lancerait la prochaine activité par-dessus une autre sans
-       qu'on l'ait voulu (13.db, 13.dd). Sur « plusieurs », c'est l'inverse :
-       le tenir d'une tape à l'autre EST le mode, et l'écran reste ouvert —
-       sinon la deuxième activité coûte de rouvrir le + (13.dq). */
-    const enPlus=!!S.enPlus;
-    if(enPlus){ pointe(g.ep, true); toast("En plus : "+tacheNom(g.ep)); return render(); }
+    /* Tant que rien n'est dit, l'application ne touche à rien : elle demande
+       (13.dt). Une fois dit, la réponse tient pour le reste de la visite et
+       l'écran reste ouvert — sinon la deuxième activité coûte de rouvrir
+       le + (13.dq). */
+    if(demandePose(g.ep)) return;
+    if(S.enPlus===true){ pointe(g.ep, true); toast("En plus : "+tacheNom(g.ep)); return render(); }
     pointe(g.ep, false); S.pile=[]; S.view="today";
     toast("On compte : "+tacheNom(g.ep));
     return render();
@@ -251,8 +250,16 @@ function geste(g, t){
     const fd=fenetre(), t=decale(S.per, fd.t0, +g.fdec);
     S.anc = (t===bornes(S.per, Date.now())[0]) ? null : t;
     return render(); }
-  if(g.plus!==undefined){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value;
-    S.enPlus=(g.plus==="1"); if(!S.enPlus) S.plusDeb=null; return render(); }
+  /* La réponse à la question posée à la tape : elle règle le reste de la
+     visite ET exécute la tape qui l'attendait (13.dt). */
+  if(g.plus!==undefined){
+    const e=document.getElementById("tQ"); if(e) S.tQ=e.value;
+    S.enPlus=(g.plus==="1"); if(!S.enPlus) S.plusDeb=null;
+    fermeMenu();
+    const att=S.poseEn; S.poseEn=null;
+    if(att) return poseTache(att);
+    return render();
+  }
   if(g.vif!==undefined){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.vifPrend=(g.vif==="1"); return render(); }
   if(g.tcat){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.tCat=g.tcat; return render(); }
   if(g.creux){
@@ -408,6 +415,25 @@ function geste(g, t){
 
 /* Choisir une activité, c'est soit dire à quoi je suis maintenant, soit
    rendre à un bloc passé son vrai nom. Le même geste, deux destinations. */
+/* Quand quelque chose tourne, une tape est ambiguë : elle peut arrêter ce
+   qui tourne, ou s'y ajouter. L'application n'en choisit aucune. Une
+   position par défaut est un choix fait à sa place, et celui-là ARRÊTE un
+   compteur : ce qui est pris se rattrape mal, et c'est le geste de tous les
+   jours. Elle demande donc — une fois, en nommant ce qui est en jeu, et la
+   réponse vaut pour le reste de la visite, pour que la deuxième activité ne
+   coûte qu'une tape (13.dt). */
+function demandePose(id){
+  if(S.enPlus!==null) return false;
+  const ouv=ouverts();
+  if(!ouv.length) return false;
+  const noms=ouv.map(function(b){ return "« "+tacheNom(b.t)+" »"; }).join(", ");
+  const pl=ouv.length>1;
+  S.poseEn=id;
+  ouvreMenu([[{label:tacheNom(id)}],
+    [{txt:"À la place — "+noms+(pl?" s'arrêtent":" s'arrête"), attr:'data-plus="0"'},
+     {txt:"En plus — "+noms+(pl?" continuent":" continue"), attr:'data-plus="1"'}]]);
+  return true;
+}
 function poseTache(id){
   if(!id) return;
   /* On ne crée le bloc qu'ici, quand il reçoit enfin un nom : un bloc sans
@@ -428,17 +454,15 @@ function poseTache(id){
       db.temps=(db.temps||[]).filter(function(b){ return b.id!==deja.id; });
       tue(deja.id); save(); toast("Retiré : "+tacheNom(id)); return render();
     }
-    const enPlus=!!S.enPlus;
-    if(!enPlus) S.trou=null;
     db.temps.push({id:uid("b"), t:id, deb:t.deb, fin:t.fin, maj:Date.now()});
     db.temps.sort(function(a,b){ return a.deb-b.deb; });
     save();
-    if(enPlus){
-      const n=(db.temps||[]).filter(function(b){ return b.deb===t.deb && b.fin===t.fin; }).length;
-      toast((n>1 ? "Comblé aussi : " : "Comblé : ")+tacheNom(id));
-      return render();
-    }
-    toast("Comblé : "+tacheNom(id)); depile("temps"); return render();
+    /* L'écran reste ouvert, toujours : il a pu y en avoir d'autres, et rien
+       ne se perd si l'on en pose une de trop — elle se retire d'une tape.
+       Un interrupteur n'avait donc rien à faire ici (13.dr, 13.dt). */
+    const n=(db.temps||[]).filter(function(b){ return b.deb===t.deb && b.fin===t.fin; }).length;
+    toast((n>1 ? "Comblé aussi : " : "Comblé : ")+tacheNom(id));
+    return render();
   }
   if(S.blocId){
     const b=blocT(S.blocId);
@@ -454,7 +478,10 @@ function poseTache(id){
     toast("Arrêté : "+tacheNom(id));
     apresArret([dejaLa]); return render();
   }
-  const enPlus=!!S.enPlus;
+  /* Rien ne tourne : une tape ne peut rien coûter, elle part. Quelque chose
+     tourne : elle peut l'arrêter, et l'application demande avant (13.dt). */
+  if(demandePose(id)) return;
+  const enPlus = S.enPlus===true;
   /* L'interrupteur ne vaut que pour le geste qu'on vient de faire : laissé
      en place, il reprendrait un creux qu'on n'a pas regardé (13.db).
      Sur « plusieurs », la reprise est le départ de la volée, et une volée

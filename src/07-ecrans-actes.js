@@ -831,19 +831,10 @@ function portePointage(){
        attr:'data-go="pointer"'}), "lien");
   /* Un raccourci arrêtait toujours ce qui tournait. Mais on prie en marchant,
      on écoute un enseignement en cuisinant : deux choses de front ne se
-     disputent pas la journée, elles la couvrent toutes les deux (13.by). Le
-     choix revient donc ici, sous la forme qu'il a déjà ailleurs — et avec les
-     mêmes mots, car c'est le même interrupteur : il dit combien d'activités à
-     la fois, ce qui a un sens même quand rien ne tourne (13.dd, 13.dq). Il ne
-     paraît qu'avec des raccourcis à lancer, puisque c'est eux qu'il règle. */
-  if(epingles().length)
-    h += `<div class="puces" style="padding-top:2px">`
-      + `<button class="puce" data-plus="0" aria-pressed="${!S.enPlus}">Une seule</button>`
-      + `<button class="puce" data-plus="1" aria-pressed="${!!S.enPlus}">Plusieurs</button></div>`
-      + `<div class="block amorce">${S.enPlus
-          ? "Touche-en autant que tu veux : elles tourneront <b>ensemble</b>, et l'écran reste ouvert."
-          : (o ? "Ce que tu lances ici <b>arrêtera</b> « "+esc(tacheNom(o.t))+" »."
-               : "Le temps ira à une seule activité à la fois.")}</div>`;
+     disputent pas la journée, elles la couvrent toutes les deux (13.by).
+     L'interrupteur qui réglait cela est parti : il avait une position par
+     défaut, et cette position arrêtait un compteur sans qu'on l'ait dit.
+     La question se pose maintenant à la tape, nommée (13.dt). */
   h += liste(epingles().map(porteRaccourci).join(""), "lien");
   return h;
 }

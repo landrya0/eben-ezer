@@ -9,7 +9,7 @@
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v94";
+const VERSION = "v95";
 const KEY = "ebenezer.v1";
 /* Les sondes vivent dans le 12, chargé APRÈS celui-ci : le socle ne peut
    pas en dépendre, l'ordre est porteur. On appelle donc à travers un
@@ -60,7 +60,7 @@ let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an"
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
          per:"jour", anc:null, vue:"parts", tQ:"", tCat:"", blocId:null, medId:null, trou:null, quand:null,
-         noteFocus:false, frisZ:null, enPlus:false, plusDeb:null, tchId:null, sjQ:"", gQ:"", sujId:null, sjF:"attente",
+         noteFocus:false, frisZ:null, enPlus:null, plusDeb:null, poseEn:null, tchId:null, sjQ:"", gQ:"", sujId:null, sjF:"attente",
          vueA:"parts", sd:null, ch:null, chTxt:"",
          lu:null, luA:null, luZ:null, luPlein:false,
          pgL:null, pgA:null, pgZ:null, lvId:null, auId:null, perId:null};

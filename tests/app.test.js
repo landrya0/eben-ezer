@@ -1118,7 +1118,11 @@ test("13.db — reprendre ne vaut que pour le geste qu'on vient de faire", () =>
   A.equal(a.S.vifPrend, false, "l'interrupteur retombe : il ne vaut pas pour la suite");
 
   a.maintenant(j(8, 0));
-  a.f.poseTache("a3");
+  /* La prière tourne : sur le vrai chemin, l'application demande avant de
+     l'arrêter, et c'est la réponse qui pose l'activité (13.dt). */
+  a.geste({ tache: "a3" });
+  A.equal(a.S.poseEn, "a3", "rien n'est posé tant qu'il n'a pas répondu");
+  a.geste({ plus: "0" });
   A.equal(a.db.temps.filter(x => x.t === "a3")[0].deb, j(8, 0));
 });
 
@@ -1205,14 +1209,18 @@ function deuxEpinglees(a) {
   a.db.temps = [{ id: "b1", t: "t1", deb: j(9, 0), maj: 1 }];
 }
 
-test("13.dd — par défaut, un raccourci arrête ce qui tourne", () => {
+test("13.dd — un raccourci peut arrêter ce qui tourne, mais seulement s'il l'a dit", () => {
   const a = app();
   deuxEpinglees(a);
   a.maintenant(j(9, 30));
   a.geste({ ep: "t2" });
+  A.equal(a.f.ouverts().length, 1, "rien n'a bougé : l'application demande (13.dt)");
+  A.equal(a.f.ouverts()[0].t, "t1");
+  A.equal(a.S.poseEn, "t2");
 
+  a.geste({ plus: "0" });
   const marche = a.db.temps.filter(b => b.t === "t1")[0];
-  A.ok(marche.fin, "la marche s'est arrêtée");
+  A.ok(marche.fin, "la marche s'est arrêtée, parce qu'il l'a dit");
   A.equal(a.f.ouverts().length, 1);
   A.equal(a.f.ouverts()[0].t, "t2");
 });
@@ -1229,7 +1237,7 @@ test("13.dd — « en plus » le lance à côté, sans rien arrêter", () => {
   A.equal(a.db.temps.filter(b => b.t === "t2")[0].deb, j(9, 30));
 });
 
-test("13.dd — l'interrupteur ne survit pas à l'écran qui le porte", () => {
+test("13.dd — la réponse ne survit pas à l'écran où elle a été donnée", () => {
   const a = app();
   deuxEpinglees(a);
   a.db.taches.push({ id: "t3", nom: "Manger", cat: "soi", ep: 3000, maj: 1 });
@@ -1244,12 +1252,15 @@ test("13.dd — l'interrupteur ne survit pas à l'écran qui le porte", () => {
   A.equal(a.S.view, "note", "et l'écran reste ouvert");
 
   a.geste({ go: "today" });
-  A.equal(a.S.enPlus, false, "mais il retombe dès qu'on quitte l'écran");
+  A.equal(a.S.enPlus, null,
+    "mais la réponse ne survit pas à l'écran : la fois d'après, il redira (13.dt)");
 
   a.geste({ go: "note" });
   a.maintenant(j(10, 0));
   a.geste({ ep: "t3" });
-  A.equal(a.f.ouverts().length, 1, "manger arrête les deux : on n'a rien demandé d'autre");
+  A.equal(a.f.ouverts().length, 2, "il redemande : la réponse d'avant n'est plus là");
+  a.geste({ plus: "0" });
+  A.equal(a.f.ouverts().length, 1, "manger arrête les deux, parce qu'il l'a dit");
   A.equal(a.f.ouverts()[0].t, "t3");
 });
 
@@ -2859,30 +2870,35 @@ test("13.dq — trois activités partent ensemble, sans quitter l'écran", () =>
   A.deepEqual(Array.from(a.f.ouverts(), b => b.t).sort(), ["t1", "t2", "t3"]);
 });
 
-test("13.dq — « une seule » ferme l'écran et arrête le reste, comme avant", () => {
+test("13.dq — quand rien ne tourne, la première tape part sans question", () => {
   const a = app();
   troisActivites(a);
   a.maintenant(j(9, 0));
   a.geste({ go: "pointer" });
   a.geste({ tache: "t1" });
-  A.equal(a.S.view, "today", "rien n'a changé pour qui n'y touche pas");
+  A.equal(a.S.view, "today", "une tape qui ne peut rien coûter ne demande rien");
+  A.equal(a.f.ouverts().length, 1);
 
   a.maintenant(j(9, 30));
   a.geste({ go: "pointer" });
   a.geste({ tache: "t2" });
+  A.equal(a.f.ouverts()[0].t, "t1", "mais la suivante attend sa réponse (13.dt)");
+  a.geste({ plus: "0" });
   A.equal(a.f.ouverts().length, 1);
   A.equal(a.f.ouverts()[0].t, "t2");
 });
 
-test("13.dq — l'interrupteur existe avant la première activité", () => {
+test("13.dt — l'écran ne porte plus d'interrupteur : la question vient à la tape", () => {
   const a = app();
   troisActivites(a);
   a.S.view = "pointer";
   a.f.vPointer();
-  A.match(a.Z.html, /data-plus="1"/,
-    "partir à plusieurs, c'est justement partir de rien");
-  A.match(a.Z.html, /Plusieurs<\/button>/);
-  A.doesNotMatch(a.Z.html, /En plus<\/button>/, "il ne dit plus ce qu'il fait des autres");
+  A.doesNotMatch(a.Z.html, /data-plus=/,
+    "un interrupteur a une position par défaut, et celle-là arrêtait un compteur");
+  a.geste({ tache: "t1" });
+  a.S.view = "pointer";
+  a.f.vPointer();
+  A.doesNotMatch(a.Z.html, /data-plus=/, "pas davantage quand quelque chose tourne");
 });
 
 test("13.dq — reprendre un creux à plusieurs : un seul départ", () => {
@@ -2959,9 +2975,7 @@ test("13.dr — l'écran ne dit plus « rien n'a été compté » une fois qu'on
   a.geste({ creux: c.deb + "|" + c.fin });
   a.f.vPointer();
   A.match(a.Z.html, /rien n'a été compté/, "au départ, c'est vrai");
-  A.match(a.Z.html, /data-plus="1"/, "et l'interrupteur y est");
 
-  a.geste({ plus: "1" });
   a.geste({ tache: "t2" });
   a.f.vPointer();
   A.doesNotMatch(a.Z.html, /rien n'a été compté/, "ce serait faux, maintenant");
@@ -2984,14 +2998,17 @@ test("13.dr — toucher une activité posée la retire, et laisse sa pierre tomb
     "sinon la synchro la ressusciterait (13.be)");
 });
 
-test("13.dr — « une seule » comble et referme, comme avant", () => {
+test("13.dr — combler ne demande rien : rien ne tourne, rien ne peut être perdu", () => {
   const a = app();
   const c = creuxDeDeuxHeures(a);
   a.geste({ creux: c.deb + "|" + c.fin });
   a.geste({ tache: "t2" });
-  A.notEqual(a.S.view, "pointer", "l'écran se referme, comme avant");
-  A.equal(a.S.trou, null, "et le creux est refermé");
+  A.equal(a.S.poseEn, null, "aucune question : il n'y a rien à arrêter");
+  A.equal(a.S.view, "pointer", "et l'écran reste ouvert — il a pu y en avoir d'autres");
   A.deepEqual(etat(a), ["t1 8h00→9h00", "t2 14h00→16h00"]);
+
+  a.geste({ back: "1" });
+  A.equal(a.S.trou, null, "on s'en va quand on a fini");
 });
 
 
@@ -3082,4 +3099,74 @@ test("13.ds — dès que c'est fait, l'action prend le jour où il le dit", () =
     "un registre de faits ne garde pas de fait sans date");
   A.equal(a.f.human(a.db.nodes[0]), "8 novembre 2026",
     "ni une date fausse : une intention ancienne tenue aujourd'hui est d'aujourd'hui");
+});
+
+
+/* ========================================================================
+   13.dt — pas de position par défaut : l'application demande
+   ======================================================================== */
+
+test("13.dt — tant qu'il n'a pas répondu, rien ne bouge", () => {
+  const a = app();
+  troisActivites(a);
+  a.maintenant(j(9, 0));
+  a.geste({ go: "pointer" });
+  a.geste({ tache: "t1" });
+  a.maintenant(j(9, 30));
+  a.geste({ go: "pointer" });
+  a.geste({ tache: "t2" });
+
+  A.equal(a.f.ouverts().length, 1, "la marche tourne toujours");
+  A.equal(a.f.ouverts()[0].t, "t1");
+  A.equal(a.db.temps.filter(b => b.t === "t2").length, 0, "et rien n'est parti");
+  A.equal(a.S.poseEn, "t2", "la tape attend sa réponse");
+});
+
+test("13.dt — « en plus » ne demande qu'une fois par visite", () => {
+  const a = app();
+  troisActivites(a);
+  a.maintenant(j(9, 0));
+  a.geste({ go: "pointer" });
+  a.geste({ tache: "t1" });
+  a.geste({ go: "pointer" });
+  a.geste({ tache: "t2" });
+  a.geste({ plus: "1" });
+  A.equal(a.f.ouverts().length, 2, "les deux tournent");
+  A.equal(a.S.poseEn, null);
+
+  a.geste({ tache: "t3" });
+  A.equal(a.f.ouverts().length, 3, "la troisième ne coûte qu'une tape");
+  A.equal(a.S.poseEn, null, "il a déjà dit ce qu'il voulait");
+});
+
+test("13.dt — arrêter n'est jamais ambigu : aucune question", () => {
+  const a = app();
+  troisActivites(a);
+  a.maintenant(j(9, 0));
+  a.geste({ go: "pointer" });
+  a.geste({ tache: "t1" });
+  a.maintenant(j(9, 30));
+  a.geste({ go: "pointer" });
+  a.geste({ tache: "t1" });
+  A.equal(a.S.poseEn, null, "toucher sa propre ligne cochée ne veut dire qu'une chose");
+  A.equal(a.f.ouverts().length, 0, "elle s'arrête");
+});
+
+test("13.dt — la réponse ne décide que de cette visite", () => {
+  const a = app();
+  troisActivites(a);
+  a.maintenant(j(9, 0));
+  a.geste({ go: "pointer" });
+  a.geste({ tache: "t1" });
+  a.geste({ go: "pointer" });
+  a.geste({ tache: "t2" });
+  a.geste({ plus: "1" });
+  A.equal(a.f.ouverts().length, 2);
+
+  a.geste({ go: "today" });
+  A.equal(a.S.enPlus, null, "l'application ne garde pas sa réponse d'hier");
+  a.geste({ go: "pointer" });
+  a.geste({ tache: "t3" });
+  A.equal(a.f.ouverts().length, 2, "elle redemande, plutôt que de supposer");
+  A.equal(a.S.poseEn, "t3");
 });

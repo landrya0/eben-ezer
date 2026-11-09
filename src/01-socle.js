@@ -9,8 +9,13 @@
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v88";
+const VERSION = "v89";
 const KEY = "ebenezer.v1";
+/* Les sondes vivent dans le 12, chargé APRÈS celui-ci : le socle ne peut
+   pas en dépendre, l'ordre est porteur. On appelle donc à travers un
+   crochet, vide jusqu'à ce que le 12 le remplisse — et l'application
+   tourne entière même si le 12 n'était pas là (13.dn). */
+let SONDE = null;
 /* Cinq manières au départ — mais Il n'en a pas cinq. Le disciple en ajoute
    à la volée, et les siennes se rangent après celles-ci. */
 const MAN_SOCLE = {parle:"Il a parlé", pourvu:"Il a pourvu", ouvert:"Il a ouvert", delivre:"Il a délivré", repris:"Il a repris"};
@@ -153,6 +158,9 @@ function load(){ try{ const r=localStorage.getItem(KEY); if(r) db=sane(JSON.pars
    jamais reculer, sinon une modification vraie passerait pour déjà envoyée. */
 function save(sil){
   if(!sil) db.maj = Math.max(Date.now(), (db.maj||0)+1);
+  /* Toute écriture passe ici : c'est à ça qu'une sonde reconnaît un refus
+     — l'application a parlé et rien n'a été écrit (13.dn). */
+  if(SONDE) SONDE.ecrit();
   try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){ toast("Enregistrement impossible"); }
   if(!sil) syPlusTard();
 }
@@ -179,5 +187,6 @@ function touche(o){ if(o) o.maj=Date.now(); return o; }
 function tue(id){ if(id){ db.morts=db.morts||{}; db.morts[id]=Date.now(); } }
 function ts(){ return Date.now(); }
 function cap(t){ t=String(t||""); return t.charAt(0).toUpperCase()+t.slice(1); }
-function toast(t){ const d=document.createElement("div"); d.className="toast"; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2200); }
+/* Toute parole de l'application passe ici (13.dn). */
+function toast(t){ if(SONDE) SONDE.dit(t); const d=document.createElement("div"); d.className="toast"; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2200); }
 

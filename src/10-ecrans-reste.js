@@ -1180,6 +1180,8 @@ function vReglages(){
     + titreBloc("Mon archive","ecart")
     + liste(ligne({titre:"Mes données", sous:esc(sauve), attr:'data-go="data"'}), "lien")
     + titreBloc("Cette application","ecart")
+    + liste(ligne({titre:"Comment je m'en sers", sous:esc(soEtat()),
+                   attr:'data-go="sondes"'}), "lien")
     + liste(ligne({titre:"Version", apres:esc(VERSION)}))
     + liste(ligne({titre:"Chercher une mise à jour", sous:"Va voir s'il y en a une, puis recharge",
                    attr:'data-act="maj"'}), "lien");

@@ -203,6 +203,8 @@ const PONT = `
   get db(){ return db; }, set db(v){ db = v; },
   get S(){ return S; },
   get Z(){ return Z; },
+  get SO(){ return SO; },
+  get SONDE(){ return SONDE; },
   actions: actions,
   f: { hm, hmin, dtl, valHeure, cumul, couvert, fusionTemps, fusionne, fusionListe,
        bornes, decale, fenetre, nomFen, courtFen, memeAn,
@@ -228,9 +230,11 @@ const PONT = `
        devLig, devNom, devSym, devDec, jdate, jourLu,
        vArgent, vSou, vDevise, vReglages, listePostes,
        chLis, chJour, chPoste, chNu, chDeja, vCharger, porteCharger,
-       vTache, heuresTache, heuresTxt, catNom, CATS, tacheCat, finDe, cap },
+       vTache, heuresTache, heuresTxt, catNom, CATS, tacheCat, finDe, cap,
+       soBilan, soSauf, soSigne, soVide, soBascule, soEcris, soLoad, soRate,
+       soEtat, soNom, soDepuis, vSondes, vReglages },
   c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY, POSTES, DEVISES, CAT_SOCLE, ONG_ARG,
-       CONSIGNE }
+       CONSIGNE, SO_KEY, SO_MAX, SO_NOMS, SO_LIBRE, ONGLETS }
 };
 `;
 
@@ -261,8 +265,15 @@ function charge(opts) {
   /* Une archive nue, pour partir de rien à chaque test. */
   app.vide = function () {
     app.db = app.f.sane({});
+    /* Les sondes ne vivent pas dans l'archive (13.dn) : les vider est un
+       geste à part, sinon un test hérite des gestes du précédent. */
+    app.f.soVide();
+    app.SO.prof = 0;
     return app.db;
   };
+  /* Ce que le bac à sable a gardé sous une clé : pour vérifier qu'une chose
+     est écrite là où on croit, et pas ailleurs. */
+  app.stocke = function (k) { return ctx.localStorage.getItem(k); };
   /* Écrire dans un champ d'heure comme le ferait le doigt : au format du
      téléphone, à la minute. */
   app.poseHeure = function (id, ms) {

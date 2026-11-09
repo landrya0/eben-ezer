@@ -2255,3 +2255,300 @@ test("13.dm — la fiche dit ce qu'une réunion déplacerait", () => {
   a.f.vTache();
   A.ok(!/data-act="tchReunir"/.test(a.Z.html));
 });
+
+/* ---------- 13.dn — l'application se mesure elle-même ---------- */
+
+/* Un départ propre : on est sur un onglet, la profondeur à zéro. */
+function surOnglet(a) {
+  a.geste({ go: "today" });
+  return a;
+}
+
+test("13.dn — un geste se compte : d'où, vers où, en combien", () => {
+  const a = app();
+  surOnglet(a);
+  a.geste({ go: "temps" });
+
+  const g = Array.from(a.SO.g);
+  const x = g[g.length - 1];
+  A.equal(x.k, "go", "le nom du geste");
+  A.equal(x.v, "temps", "sa valeur, qui est un mot de code");
+  A.equal(x.w, "today", "l'écran d'où il part");
+  A.equal(x.a, "temps", "l'écran où il arrive");
+  A.equal(x.d, 1, "un geste depuis l'onglet");
+
+  /* Et un deuxième pas s'enfonce d'un cran. */
+  a.db.taches = [{ id: "a1", nom: "Prière", cat: "dieu", maj: 1 }];
+  a.geste({ tch: "a1" });
+  const y = Array.from(a.SO.g).pop();
+  A.equal(y.w, "temps");
+  A.equal(y.d, 2, "deux gestes depuis l'onglet");
+});
+
+test("13.dn — la profondeur se remet à zéro sur un onglet", () => {
+  const a = app();
+  surOnglet(a);
+  a.geste({ go: "temps" });
+  a.geste({ go: "cahier" });
+  A.equal(Array.from(a.SO.g).pop().d, 2);
+  /* Revenir à un onglet, c'est repartir de zéro : c'est en gestes DEPUIS un
+     onglet que se mesure ce qu'une porte coûte. */
+  a.geste({ go: "actes" });
+  A.equal(Array.from(a.SO.g).pop().d, 0, "un onglet ne coûte rien");
+  a.geste({ go: "argent" });
+  A.equal(Array.from(a.SO.g).pop().d, 1, "et le compte reprend à un");
+});
+
+test("13.dn — rien de ce qu'il écrit n'entre dans une sonde", () => {
+  const a = app();
+  /* Un attribut qui porte du texte : muet, quoi qu'il contienne. */
+  A.equal(a.f.soSauf("sug", "Prière du matin avec Marie"), "·");
+  A.equal(a.f.soSauf("sugg", "prier"), "·", "même court, même sans accent");
+  /* Un identifiant ne dit rien sur la friction et beaucoup sur lui. */
+  A.equal(a.f.soSauf("node", "n42-ab12cd"), "#");
+  A.equal(a.f.soSauf("tache", "a12-7f3k2b"), "#");
+  /* Un mot de code écrit dans le source, lui, se garde : c'est le geste. */
+  A.equal(a.f.soSauf("go", "argent"), "argent");
+  A.equal(a.f.soSauf("qui", "moiPrevu"), "moiPrevu");
+  A.equal(a.f.soSauf("mes", "1"), "1");
+  /* Et tout le reste — donc tout ce qui est ajouté demain — est muet. */
+  A.equal(a.f.soSauf("inconnu", "Marie Dupont"), "·", "muet par défaut");
+
+  /* La preuve par le geste : une suggestion touchée ne laisse pas son texte. */
+  surOnglet(a);
+  a.geste({ sugg: "Lecture de la Parole" });
+  const x = Array.from(a.SO.g).pop();
+  A.equal(x.v, "·");
+  A.ok(!JSON.stringify(Array.from(a.SO.g)).includes("Lecture"),
+    "le texte n'est nulle part dans les sondes");
+});
+
+test("13.dn — ce que l'app cite de lui est retiré de ses paroles", () => {
+  const a = app();
+  A.equal(a.f.soSigne("Combien ?"), "Combien ?", "un refus sec reste entier");
+  A.equal(a.f.soSigne("Arrêté : Prière du matin"), "Arrêté : …");
+  A.equal(a.f.soSigne("Noté : Euro"), "Noté : …");
+  A.equal(a.f.soSigne("« Prière » existe déjà — réunis les deux activités"),
+    "«…» existe déjà — réunis les deux activités");
+  A.equal(a.f.soSigne("2 mouvements ajoutés."), "n mouvements ajoutés.",
+    "les chiffres se rangent ensemble");
+});
+
+test("13.dn — un refus se distingue d'une confirmation sans le déclarer", () => {
+  const a = app();
+  surOnglet(a);
+  a.geste({ go: "argent" });
+  a.geste({ act: "souNeuf" });
+  /* Garder sans montant : l'app parle, et rien ne s'écrit. */
+  a.geste({ act: "souGarder" });
+  const x = Array.from(a.SO.g).pop();
+  A.equal(x.r, "Combien ?", "la parole est gardée");
+  A.equal(x.s, undefined, "et rien n'a été écrit : c'est un refus");
+
+  /* Un vrai enregistrement, lui, porte la marque de l'écriture. */
+  a.ecrit("souM", "2500");
+  a.geste({ poste: "dieu" });
+  a.geste({ act: "souGarder" });
+  const y = Array.from(a.SO.g).pop();
+  A.equal(y.s, 1, "une écriture a eu lieu");
+  A.equal(a.f.soBilan().refus.length, 1, "la confirmation ne compte pas pour un refus");
+});
+
+test("13.dn — le bilan nomme la porte qui coûte, et mène à elle", () => {
+  const a = app();
+  for (let i = 0; i < 3; i++) {
+    a.geste({ go: "actes" });
+    a.geste({ go: "argent" });
+    a.geste({ go: "charger" });
+  }
+  const b = a.f.soBilan();
+  const c = b.couts.filter(function (x) { return x.v === "charger"; })[0];
+  A.ok(c, "l'écran atteint le plus loin est là");
+  A.equal(c.n, 3, "trois visites");
+  A.equal(c.med, 2, "deux gestes chaque fois");
+  A.equal(c.poids, 3, "trois gestes qu'un raccourci lui aurait rendus");
+  A.equal(b.couts[0].v, "charger", "et il passe devant, parce qu'il coûte plus");
+
+  /* Un chiffre qui accuse doit mener quelque part (13.cb). */
+  a.f.vSondes();
+  A.match(a.Z.html, /data-go="charger"/);
+  A.match(a.Z.html, /Charger un relevé/);
+});
+
+test("13.dn — le demi-tour dit où il voulait aller", () => {
+  const a = app();
+  for (let i = 0; i < 2; i++) {
+    a.geste({ go: "actes" });
+    a.geste({ go: "argent" });   // la mauvaise porte
+    a.geste({ back: "1" });      // reparti aussitôt, sans rien écrire
+    a.geste({ go: "temps" });    // ce qu'il cherchait
+    a.geste({ go: "actes" });
+  }
+  const b = a.f.soBilan();
+  const t = b.tours.filter(function (x) { return x.v === "argent"; })[0];
+  A.ok(t, "le demi-tour est vu");
+  A.equal(t.n, 2);
+  A.equal(t.suite[0].v, "temps", "et l'écran suivant dit ce qu'il cherchait");
+  a.f.vSondes();
+  A.match(a.Z.html, /tu allais à Mon temps/);
+});
+
+test("13.dn — un écran où il écrit n'est pas un demi-tour", () => {
+  const a = app();
+  a.db.sous = [{ id: "mv1", t: MIDI - H, m: 1000, p: "dieu", q: "", maj: 1 }];
+  a.geste({ go: "actes" });
+  a.geste({ go: "argent" });
+  a.geste({ sou: "mv1" });
+  a.geste({ act: "souEffacer" });      // il a fait ce qu'il venait faire
+  a.geste({ back: "1" });
+  A.equal(a.f.soBilan().tours.length, 0,
+    "être reparti après avoir écrit, c'est avoir réussi");
+});
+
+test("13.dn — les refus se regroupent par écran", () => {
+  const a = app();
+  a.geste({ go: "argent" });
+  a.geste({ act: "souNeuf" });
+  a.geste({ act: "souGarder" });
+  a.geste({ act: "souGarder" });
+  a.geste({ act: "souGarder" });
+  const b = a.f.soBilan();
+  A.equal(b.refus[0].n, 3, "trois fois le même refus");
+  A.equal(b.refus[0].r, "Combien ?");
+  A.equal(b.refus[0].w, "sou", "et l'écran qui demande mal est nommé");
+  a.f.vSondes();
+  A.match(a.Z.html, /Ce que l'app a refusé/);
+});
+
+test("13.dn — un raté silencieux est gardé, nommé par son endroit", () => {
+  const a = app();
+  a.geste({ go: "temps" });
+  a.f.soRate("x is not a function", "http://localhost/src/09-ecrans-temps.js", 412);
+  a.f.soRate("x is not a function", "http://localhost/src/09-ecrans-temps.js", 412);
+  const b = a.f.soBilan();
+  A.equal(b.rates.length, 1, "un bug qui se répète est un seul bug");
+  A.equal(b.rates[0].n, 2);
+  A.equal(b.rates[0].o, "09-ecrans-temps.js:412", "l'endroit, pour aller le lire");
+  A.equal(b.rates[0].w, "temps", "et l'écran où il a trébuché");
+  a.f.vSondes();
+  A.match(a.Z.html, /Les ratés/);
+});
+
+test("13.dn — les écrans jamais ouverts se disent", () => {
+  const a = app();
+  a.geste({ go: "temps" });
+  const b = a.f.soBilan();
+  A.ok(b.morts.indexOf("annonce") !== -1, "un écran jamais vu est nommé");
+  A.equal(b.morts.indexOf("temps"), -1, "celui-là a été ouvert");
+  A.equal(b.morts.indexOf("today"), -1, "et celui-ci aussi");
+});
+
+test("13.dn — une sonde s'arrête et s'efface ; le journal ne bouge pas", () => {
+  const a = app();
+  a.db.nodes = [{ id: "n1", act: "dieu", txt: "Il a pourvu", date: "2026-11-08", maj: 1 }];
+  const avant = a.db.maj;
+  a.geste({ go: "temps" });
+  A.ok(Array.from(a.SO.g).length > 0);
+  A.equal(a.db.maj, avant, "un geste qui n'écrit rien ne pousse pas la synchro");
+
+  /* Une sonde qu'on ne peut pas arrêter est une surveillance. */
+  a.geste({ act: "soBascule" });
+  A.equal(a.SO.on, false);
+  const n = Array.from(a.SO.g).length;
+  a.geste({ go: "cahier" });
+  A.equal(Array.from(a.SO.g).length, n, "arrêtée, elle ne compte plus rien");
+  a.f.vSondes();
+  A.match(a.Z.html, /arrêtées/);
+
+  a.geste({ act: "soBascule" });
+  a.geste({ act: "soVider" });
+  A.equal(Array.from(a.SO.g).length, 0, "tout s'efface");
+  A.equal(Array.from(a.db.nodes).length, 1, "et le mémorial n'a pas bougé");
+});
+
+test("13.dn — les sondes vivent hors de l'archive", () => {
+  const a = app();
+  A.notEqual(a.c.SO_KEY, a.c.KEY, "une autre clé, un autre rangement");
+  a.geste({ go: "temps" });
+  a.f.soEcris(true);
+  const brut = a.stocke(a.c.SO_KEY);
+  A.ok(brut && brut.includes('"temps"'), "les gestes sont bien écrits là");
+  /* Et l'archive les ignore : ni dans db, ni dans ce qui voyage. */
+  A.equal(a.db.sondes, undefined);
+  A.equal(a.db.g, undefined);
+  const d = a.f.fusionne(JSON.parse(JSON.stringify(a.db)), JSON.parse(JSON.stringify(a.db)));
+  A.equal(d.sondes, undefined, "rien ne passe à la synchronisation");
+});
+
+test("13.dn — les Réglages disent déjà ce que ça coûte", () => {
+  const a = app();
+  for (let i = 0; i < 3; i++) {
+    a.geste({ go: "actes" });
+    a.geste({ go: "argent" });
+    a.geste({ go: "charger" });
+  }
+  A.match(a.f.soEtat(), /3 gestes de trop sur « Charger un relevé »/);
+  a.f.vReglages();
+  A.match(a.Z.html, /data-go="sondes"/, "la porte est dans les Réglages");
+  A.match(a.Z.html, /Comment je m'en sers/);
+
+  a.f.soVide();
+  A.equal(a.f.soEtat(), "Rien encore mesuré");
+  a.f.soBascule();
+  A.equal(a.f.soEtat(), "Arrêté");
+});
+
+test("13.dn — la liste des gestes ne grossit pas sans fin", () => {
+  const a = app();
+  const max = a.c.SO_MAX;
+  for (let i = 0; i < max + 40; i++) a.geste({ go: "temps" });
+  A.equal(Array.from(a.SO.g).length, max, "le plus vieux part, le reste tient");
+});
+
+test("13.dn — une porte déjà à portée ne figure pas dans ce qui coûte", () => {
+  const a = app();
+  /* Depuis un onglet, un seul geste : il n'y a rien à gagner. */
+  for (let i = 0; i < 6; i++) { a.geste({ go: "actes" }); a.geste({ go: "argent" }); }
+  const b = a.f.soBilan();
+  A.equal(b.couts.filter(function (c) { return c.v === "argent"; }).length, 0,
+    "six visites à un geste ne coûtent rien");
+  a.f.vSondes();
+  A.ok(!/CE QUI TE COÛTE|Ce qui te coûte/.test(a.Z.html),
+    "et la section s'en va plutôt que de lister des « +0 »");
+});
+
+test("13.dn — un onglet n'est pas une porte où l'on se trompe", () => {
+  const a = app();
+  for (let i = 0; i < 3; i++) {
+    a.geste({ go: "temps" });
+    a.geste({ go: "actes" });   // un onglet : un carrefour, pas une erreur
+    a.geste({ go: "argent" });
+  }
+  const b = a.f.soBilan();
+  A.equal(b.tours.filter(function (t) { return t.v === "actes"; }).length, 0,
+    "on passe par un carrefour, on ne s'y trompe pas");
+});
+
+test("13.dn — l'écran qu'il regarde n'est pas « jamais ouvert »", () => {
+  const a = app();
+  a.geste({ go: "actes" });
+  a.geste({ go: "reglages" });
+  a.geste({ go: "sondes" });
+  /* Le geste en cours n'est pas encore compté quand l'écran se dessine. */
+  A.equal(a.f.soBilan().morts.indexOf("sondes"), -1);
+  A.ok(!/Comment je m'en sers<\/div>[\s\S]*Jamais ouvert/.test(a.Z.html));
+});
+
+test("13.dn — un chemin se lit sans être décodé", () => {
+  const a = app();
+  for (let i = 0; i < 3; i++) {
+    a.geste({ go: "actes" });
+    a.geste({ go: "argent" });
+    a.geste({ go: "charger" });
+    a.geste({ back: "1" });
+  }
+  const c = a.f.soBilan().chemins[0];
+  A.ok(c, "le trajet repris trois fois est là");
+  A.equal(c.suite, "Mon argent → Charger un relevé → Retour",
+    "en mots, pas en noms d'attributs");
+});

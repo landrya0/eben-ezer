@@ -12,15 +12,17 @@ build**.
 
 ## Ce que c'est, et ce que ce n'est pas
 
-`src/01-socle.js` … `src/12-gestes.js` sont des `<script>` **classiques**, chargés dans l'ordre par
+`src/01-socle.js` … `src/13-gestes.js` sont des `<script>` **classiques**, chargés dans l'ordre par
 `index.html`, dans **une seule portée globale**. Ce ne sont **pas des modules** : on ne les importe
-pas, on les empile. C'est exactement le même programme qu'avant, écrit sur douze feuilles.
+pas, on les empile. C'est exactement le même programme qu'avant, écrit sur treize feuilles.
 
 **L'ordre est porteur.** Les numéros ne sont pas décoratifs : une fonction déclarée dans le
 fichier 09 n'existe pas encore pendant que le code racine du fichier 06 s'exécute. Déplacer une
 balise dans `index.html` casse le démarrage. Et comme le code racine du **dernier** fichier appelle
 `render()`, un nouveau fichier d'écrans se glisse **avant** lui — c'est pourquoi les gestes portent
-le numéro le plus haut, et pourquoi `11-argent.js` a pris la place que `11-gestes.js` occupait. Les trois endroits qui tiennent cet ordre :
+le numéro le plus haut, et pourquoi chaque nouveau fichier d'écrans le repousse d'un cran :
+`11-argent.js` a pris la place de `11-gestes.js`, puis `12-sondes.js` celle de `12-gestes.js`. Les
+trois endroits qui tiennent cet ordre :
 `index.html`, `sw.js` (la liste `APP`), et `tests/harnais.js` (qui relit l'ordre **dans**
 `index.html`, pour que le harnais empile comme le navigateur et pas autrement).
 
@@ -28,7 +30,7 @@ le numéro le plus haut, et pourquoi `11-argent.js` a pris la place que `11-gest
 
 | fichier | ce qu'il tient | lignes |
 |---|---|---|
-| `01-socle.js` | constantes du socle, `VERSION`, rangement sur l'appareil | 183 |
+| `01-socle.js` | constantes du socle, `VERSION`, le crochet des sondes, rangement sur l'appareil | 192 |
 | `02-dates.js` | dire une date comme on la dit de vive voix | 35 |
 | `03-temps.js` | **les blocs** : compter, couper, réunir, les creux | 331 |
 | `04-medias.js` | ce qu'on joint à un acte | 247 |
@@ -37,12 +39,13 @@ le numéro le plus haut, et pourquoi `11-argent.js` a pris la place que `11-gest
 | `07-ecrans-actes.js` | les écrans du mémorial, et l'assistant qui note | 939 |
 | `08-sync.js` | la copie distante, la réunion de deux appareils | 464 |
 | `09-ecrans-temps.js` | pointer, la frise, mon temps | 704 |
-| `10-ecrans-reste.js` | temps mis à part, lectures, auteurs, réglages, dictée | 1558 |
+| `10-ecrans-reste.js` | temps mis à part, lectures, auteurs, réglages, dictée | 1560 |
 | `11-argent.js` | **l'argent** : les postes, les parts, la monnaie, le chargement | 451 |
-| `12-gestes.js` | le délégué — un seul écouteur — et le démarrage | 1173 |
+| `12-sondes.js` | **les sondes** : ce que l'app coûte en gestes, et ce qu'elle refuse | 421 |
+| `13-gestes.js` | le délégué — un seul écouteur — et le démarrage | 1186 |
 | `src/ebenezer.css` | la feuille de style | 772 |
 
-`index.html` ne tient plus que la charpente HTML et les treize balises : **70 lignes**.
+`index.html` ne tient plus que la charpente HTML et les quatorze balises : **71 lignes**.
 
 **Attention aux `url()` du CSS.** Elles se résolvent depuis `src/`, pas depuis la page : les
 polices sont donc en `../vendor/…`. C'est le piège classique d'une feuille extraite.
@@ -53,12 +56,14 @@ Ce qui compte pour la bascule, ce n'est pas le nombre de fichiers : c'est **ce q
 DOM ni au HTML**. Cette partie-là se transporte telle quelle ; le reste meurt avec la page web.
 
 - **Se transporte** — `02-dates.js`, `03-temps.js`, et la moitié modèle de `05-acces.js`,
-  `08-sync.js`, `10-ecrans-reste.js`, `11-argent.js` : les règles, le calcul des parts, les
-  chemins, les périodes, les postes et les sommes, la fusion de deux archives. C'est ce que les
-  125 tests défendent, et ils n'ouvrent aucune page.
+  `08-sync.js`, `10-ecrans-reste.js`, `11-argent.js`, et la moitié calcul de `12-sondes.js` :
+  les règles, le calcul des parts, les chemins, les périodes, les postes et les sommes, la fusion
+  de deux archives, le bilan des gestes. C'est ce que les 160 tests défendent, et ils n'ouvrent
+  aucune page.
 - **Meurt à la bascule** — `06-charpente.js`, les trois `ecrans-*.js`, la moitié écrans de
-  `11-argent.js`, `12-gestes.js`, `ebenezer.css` : tout ce qui fabrique du HTML ou écoute un
-  clic.
+  `11-argent.js`, l'écran de `12-sondes.js`, `13-gestes.js`, `ebenezer.css` : tout ce qui
+  fabrique du HTML ou écoute un clic. Les trois crochets des sondes, eux, se reposent ailleurs :
+  un geste, une parole, une écriture — il y en a dans toute application.
 
 **L'étape suivante, quand la bascule commencera :** faire du noyau de vrais modules ES
 (`export` / `import`), pour que le projet React Native les importe directement au lieu de les

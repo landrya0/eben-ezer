@@ -82,10 +82,18 @@ document.addEventListener("change", function(ev){
   r.readAsText(f);
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
-document.addEventListener("click", ev=>{
+document.addEventListener("click", function(ev){
   const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-sou],[data-poste],[data-vuea],[data-dev]");
   if(!t) return;
-  const g=t.dataset;
+  /* UN SEUL entonnoir pour tous les gestes de l'application : la sonde se
+     tient ici, et nulle part ailleurs. Le `finally` est ce qui la rend
+     fiable — le corps est fait de retours, et un geste qui part par l'un
+     d'eux doit être compté comme les autres (13.dn). */
+  if(SONDE) SONDE.ouvre(t.dataset);
+  try{ geste(t.dataset, t); }
+  finally{ if(SONDE) SONDE.ferme(); }
+});
+function geste(g, t){
   if(g.mic) return micBascule(g.mic);
   if(g.vuea){ S.vueA=g.vuea; return render(); }
   if(g.sou){
@@ -342,7 +350,7 @@ document.addEventListener("click", ev=>{
   if(g.fait){ fermeMenu(); const n=node(g.fait); if(n){ n.etat="fait"; n.prevuLe=n.date; n.date=today(); n.prec="j"; touche(n); save(); toast("Fait."); } return render(); }
   if(g.abandon){ fermeMenu(); const n=node(g.abandon); if(n){ n.etat="abandon"; touche(n); save(); toast("Noté."); } return render(); }
   if(g.act) return actions[g.act] && actions[g.act](t);
-});
+}
 
 /* Choisir une activité, c'est soit dire à quoi je suis maintenant, soit
    rendre à un bloc passé son vrai nom. Le même geste, deux destinations. */
@@ -404,6 +412,11 @@ function saveTxt(){
 }
 
 const actions={
+  /* Une sonde qu'on ne peut ni arrêter ni effacer n'est pas une sonde :
+     c'est une surveillance. Les deux portes sont sur l'écran même qui
+     montre ce qu'elle a vu (13.dn). */
+  soBascule(){ toast(soBascule() ? "On mesure." : "Arrêté."); render(); },
+  soVider(){ soVide(); toast("Effacé — ton journal n'a pas bougé."); render(); },
   menu(){ if(S.view==="node") menuNode(); },
   fermeMenu(){ fermeMenu(); },
   demo(){ seed(); save(); toast("Exemple chargé"); render(); },

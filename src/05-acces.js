@@ -171,7 +171,9 @@ function remontees(){
   const vus={}, cartes=[];
   const prends=c=>{ if(c && !vus[c.n.id]){ vus[c.n.id]=1; cartes.push(c); } };
 
-  db.nodes.filter(n=>n.etat==="prevu" && n.date && n.date<=today())
+  /* Sans date, il n'y a pas de jour dit : rien à rappeler « pour le … »,
+     et surtout rien à reprocher dès le lendemain (13.ds). */
+  db.nodes.filter(n=>n.etat==="prevu" && !sansDate(n) && n.date && n.date<=today())
     .sort(parDateAsc)
     .slice(0,2)
     .forEach(n=>prends({n:n, type:"prevu", quand:"Tu avais prévu"}));

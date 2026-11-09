@@ -2993,3 +2993,93 @@ test("13.dr — « une seule » comble et referme, comme avant", () => {
   A.equal(a.S.trou, null, "et le creux est refermé");
   A.deepEqual(etat(a), ["t1 8h00→9h00", "t2 14h00→16h00"]);
 });
+
+
+/* ========================================================================
+   13.ds — une action prévue peut n'avoir pas encore de date
+   ======================================================================== */
+
+function planifie(a, id, txt, date, prec) {
+  const n = { id: id, act: "moi", dest: "dieu", kind: "acte", txt: txt, man: "",
+              par: [], date: date, prec: prec || "j", etat: "prevu", ts: 1, maj: 1 };
+  a.db.nodes.push(n);
+  return n;
+}
+
+test("13.ds — sans date, ce n'est ni à venir ni en retard : c'est « Quand je pourrai »", () => {
+  const a = app();
+  planifie(a, "p1", "Jeûner un jour", "2026-11-20");
+  planifie(a, "p2", "Appeler mon père", "2026-11-01");
+  planifie(a, "p3", "Donner à l'œuvre", "2026-11-09", "?");
+  a.S.view = "actes";
+  a.f.vActes();
+
+  const bloc1 = a.Z.html.indexOf("Quand je pourrai");
+  A.ok(bloc1 > 0, "le groupe existe");
+  A.match(a.Z.html, /Ce qui attend/, "et celui du retard aussi, pour p2");
+  A.ok(a.Z.html.indexOf("Donner à l'œuvre") > bloc1,
+    "le sans-date est rangé dessous, pas parmi les retards");
+  A.ok(a.Z.html.indexOf("Appeler mon père") < bloc1,
+    "et celui qui avait un jour dit reste dans « Ce qui attend »");
+});
+
+test("13.ds — l'app ne la réclame pas le lendemain", () => {
+  const a = app();
+  planifie(a, "p1", "Donner à l'œuvre", "2026-11-01", "?");
+  A.equal(a.f.remontees().filter(c => c.type === "prevu").length, 0,
+    "aucun jour n'a été dit : il n'y a rien à rappeler, et rien à reprocher");
+
+  a.db.nodes[0].prec = "j";
+  A.equal(a.f.remontees().filter(c => c.type === "prevu").length, 1,
+    "mais un jour dit se rappelle, lui");
+});
+
+test("13.ds — elle n'affiche pas de date qu'il n'a pas choisie", () => {
+  const a = app();
+  const n = planifie(a, "p1", "Donner à l'œuvre", "2026-11-09", "?");
+  A.equal(a.f.human(n), "", "rien à dire : il n'a pas dit de jour");
+  n.prec = "j";
+  A.equal(a.f.human(n), "9 novembre 2026");
+});
+
+test("13.ds — « Je ne sais pas encore » efface le calendrier, et le rend", () => {
+  const a = app();
+  a.geste({ go: "note" });
+  a.geste({ qui: "moiPrevu" });
+  a.S.draft.txt = "Donner à l'œuvre";
+  a.S.step = a.f.etapes(a.S.draft).indexOf("quand");
+  a.f.vNote();
+  A.match(a.Z.html, /type="date"/, "au départ, le calendrier est là");
+  A.match(a.Z.html, /data-sansdate/, "et la réponse manquante aussi");
+
+  a.geste({ sansdate: "nDate" });
+  A.equal(a.S.draft.prec, "?");
+  a.f.vNote();
+  A.doesNotMatch(a.Z.html, /type="date"/,
+    "montrer un jour qu'il ne veut pas dire serait le lui faire dire");
+
+  a.geste({ sansdate: "nDate" });
+  A.equal(a.S.draft.prec, "j");
+  a.f.vNote();
+  A.match(a.Z.html, /type="date"/, "et il revient d'une tape");
+});
+
+test("13.ds — « je ne sais pas encore » n'est offert qu'à ce qui est prévu", () => {
+  const a = app();
+  A.match(a.f.blocQuand("nDate", "2026-11-09", "j", true, "prevu"), /data-sansdate/);
+  A.doesNotMatch(a.f.blocQuand("nDate", "2026-11-09", "j", true, "fait"), /data-sansdate/,
+    "un acte passé a eu lieu un jour, même oublié");
+});
+
+test("13.ds — dès que c'est fait, l'action prend le jour où il le dit", () => {
+  const a = app();
+  /* Écrit le 2 novembre, sans date. On est le 8 : c'est aujourd'hui qu'il
+     le fait, pas le jour où il y avait pensé. */
+  planifie(a, "p1", "Donner à l'œuvre", "2026-11-02", "?");
+  a.S.view = "node"; a.S.nodeId = "p1";
+  a.geste({ netat: "fait" });
+  A.equal(a.db.nodes[0].prec, "j",
+    "un registre de faits ne garde pas de fait sans date");
+  A.equal(a.f.human(a.db.nodes[0]), "8 novembre 2026",
+    "ni une date fausse : une intention ancienne tenue aujourd'hui est d'aujourd'hui");
+});

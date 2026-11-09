@@ -380,8 +380,12 @@ function vActes(){
   const t0=minuit(0);
   const passe=function(n){ const sp=spanActe(n); return !!sp && sp[1]<=t0; };
   const prevus=mien.filter(n=>n.etat==="prevu");
-  const avenir=prevus.filter(n=>!passe(n)).sort(parDateAsc);
-  const attend=prevus.filter(passe).sort(parDateAsc);
+  /* Ce qui n'a pas de jour ne peut ni être à venir ni être en retard : il
+     lui faut sa place à lui, sans reproche (13.ds). */
+  const sansD=prevus.filter(sansDate).sort(parDateAsc);
+  const dates=prevus.filter(function(n){ return !sansDate(n); });
+  const avenir=dates.filter(n=>!passe(n)).sort(parDateAsc);
+  const attend=dates.filter(passe).sort(parDateAsc);
   Z.file = true;
   Z.haut = `<p class="titre-page">Mes actes</p>`;
   const cj=cumul(minuit(0), Date.now());
@@ -415,6 +419,10 @@ function vActes(){
           + (attend.length
               ? bloc("Ce qui attend", attend, 0)
                 + `<div class="block amorce">Tu avais dit ce jour-là. Ouvre-les pour dire où ça en est — ou pour y renoncer.</div>`
+              : "")
+          + (sansD.length
+              ? bloc("Quand je pourrai", sansD, 0)
+                + `<div class="block amorce">Tu n'as pas dit quand, et ce n'est pas un retard. Ouvre-en un pour lui donner un jour.</div>`
               : "")
         : bloc("Planifié", [], 0,
             "Rien de prévu. « Je vais faire… », au moment de noter."))
@@ -1065,11 +1073,23 @@ function blocQuand(id, val, prec, avecEtat, etat){
     h+=titreBloc("Où ça en est ?")+liste(ETATS.map(([k,l])=>ligne({titre:l,
       apres:etat===k?`<span class="coche">✓</span>`:"", attr:'data-etat="'+k+'"'})).join(""));
   }
+  /* Forcer une date à ce qu'on prévoit, c'était en inventer une — et la
+     retrouver le lendemain dans « ce qui attend », comme un rendez-vous
+     manqué qu'on n'avait jamais pris. La réponse manquante est ici, et le
+     calendrier s'efface quand elle est choisie : montrer un jour qu'il ne
+     veut pas dire serait le lui faire dire (13.ds). */
+  const inconnu = etat==="prevu" && prec==="?";
   h+=titreBloc(etat==="prevu" ? "Pour quand ?" : "Quand ?", avecEtat?"ecart":"")+
-    liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
-      <input type="date" id="${id}" value="${val||today()}"></div></div></li>`+
-      ligne({titre:(prec==="m"?`<span class="coche">Je ne me souviens que du mois</span>`:"Je ne me souviens que du mois"),
-             apres:prec==="m"?`<span class="coche">✓</span>`:"", attr:'data-prec="'+id+'"'}));
+    liste((inconnu ? "" : `<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
+      <input type="date" id="${id}" value="${val||today()}"></div></div></li>`)
+      + (etat==="prevu"
+          ? ligne({titre:(inconnu?`<span class="coche">Je ne sais pas encore</span>`:"Je ne sais pas encore"),
+                   sous:"Tu le retrouveras dans « Quand je pourrai »",
+                   apres:inconnu?`<span class="coche">✓</span>`:"",
+                   attr:'data-sansdate="'+id+'"'})
+          : "")
+      + (inconnu ? "" : ligne({titre:(prec==="m"?`<span class="coche">Je ne me souviens que du mois</span>`:"Je ne me souviens que du mois"),
+             apres:prec==="m"?`<span class="coche">✓</span>`:"", attr:'data-prec="'+id+'"'})));
   return h;
 }
 

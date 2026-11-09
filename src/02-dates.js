@@ -9,8 +9,16 @@
 /* ---------- dates ---------- */
 function today(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function parse(s){ if(!s) return null; const p=String(s).split("-"); if(p.length<3) return null; return {y:+p[0], m:+p[1], d:+p[2]}; }
+/* Une date qui n'existe pas encore n'est pas une date oubliée. Un acte
+   passé a eu lieu un jour, même si on ne sait plus lequel — d'où le mois,
+   d'où l'année. Une action qu'on prévoit, elle, peut n'avoir aucun jour :
+   « je ne sais pas encore » est une réponse vraie, et la seule qui
+   manquait. Seul un prévu peut la porter (13.ds). */
+function sansDate(n){ return !!n && n.prec==="?"; }
+function precPour(etat, prec){ return (prec==="?" && etat!=="prevu") ? "j" : (prec||"j"); }
 function human(n){
   if(n.kind==="ecriture") return n.ref || "";
+  if(sansDate(n)) return "";
   const p=parse(n.date); if(!p) return "";
   if(n.prec==="a") return ""+p.y;
   if(n.prec==="m") return MOIS[p.m-1]+" "+p.y;

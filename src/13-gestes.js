@@ -83,7 +83,7 @@ document.addEventListener("change", function(ev){
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
 document.addEventListener("click", function(ev){
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-sou],[data-poste],[data-vuea],[data-dev],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-sou],[data-poste],[data-vuea],[data-dev],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
   if(!t) return;
   /* UN SEUL entonnoir pour tous les gestes de l'application : la sonde se
      tient ici, et nulle part ailleurs. Le `finally` est ce qui la rend
@@ -361,8 +361,25 @@ function geste(g, t){
   if(g.eman){ S.eMan=(S.eMan===g.eman?"":g.eman); return render(); }
   if(g.etat){ if(S.view==="edit") S.eEtat=g.etat; else if(S.draft) S.draft.etat=g.etat; return render(); }
   if(g.netat){ const n=node(S.nodeId);
-    if(n && (n.etat||"fait")!==g.netat){ n.etat=g.netat; touche(n); save(); toast(cap(ETAT[g.netat])+"."); }
+    if(n && (n.etat||"fait")!==g.netat){
+      n.etat=g.netat;
+      /* Ce qui n'est plus prévu a eu lieu un jour, et ce jour se dit. Sans
+         date, il n'y a aucun jour promis à reprendre : c'est donc celui où
+         il le dit, et surtout pas celui où il l'avait écrit — une intention
+         de novembre tenue en janvier serait datée de novembre, et un
+         registre de faits ne porte pas de date fausse (13.ch, 13.ds). */
+      if(sansDate(n) && n.etat!=="prevu"){ n.date=today(); n.prec="j"; }
+      touche(n); save(); toast(cap(ETAT[g.netat])+"."); }
     return render(); }
+  /* « Je ne sais pas encore » bascule comme « je ne me souviens que du
+     mois » : même forme, parce que c'est la même sorte de réponse — ce
+     qu'on sait de la date (13.ds). */
+  if(g.sansdate){
+    const el=document.getElementById(g.sansdate), v=el&&el.value;
+    if(S.view==="edit"){ if(v){ const n=node(S.nodeId); if(n) n.date=v; } S.ePrec=(S.ePrec==="?")?"j":"?"; }
+    else if(S.draft){ if(v) S.draft.date=v; S.draft.prec=(S.draft.prec==="?")?"j":"?"; }
+    return render();
+  }
   if(g.prec){
     const el=document.getElementById(g.prec), v=el&&el.value;
     if(S.view==="edit"){ S.ePrec=(S.ePrec==="m")?"j":"m"; if(v){ const n=node(S.nodeId); if(n) n.date=v; } }
@@ -950,7 +967,8 @@ const actions={
     const d=S.draft;
     const n={id:nid(),act:d.act,gid:d.gid,dest:d.act==="moi"?d.dest:null,dgid:d.dgid,txt:d.txt.trim(),desc:(d.desc||"").trim(),man:d.man,
       kind:(d.act==="dieu"&&d.man==="parle")?"rhema":"acte",
-      date:valDate("nDate", d.date),prec:d.prec||"j",etat:d.act==="moi"?(d.etat||"fait"):"fait",par:d.par.slice(),ts:ts(),maj:Date.now()};
+      date:valDate("nDate", d.date),etat:d.act==="moi"?(d.etat||"fait"):"fait",par:d.par.slice(),ts:ts(),maj:Date.now()};
+    n.prec=precPour(n.etat, d.prec);
     if((d.suj||[]).length) n.suj=d.suj.slice();
     if(d.pdt && pdtDe(d.pdt)) n.pdt=d.pdt;
     db.nodes.push(n); save();
@@ -970,7 +988,7 @@ const actions={
     if(n){
       if(e&&e.value.trim()) n.txt=e.value.trim();
       const ed=document.getElementById("eDesc"); if(ed) n.desc=ed.value.trim();
-      n.date=valDate("eDate"); n.prec=S.ePrec||"j";
+      n.date=valDate("eDate"); n.prec=precPour(S.eEtat||n.etat, S.ePrec);
       if(n.act!=="moi"){ n.man=S.eMan; if(n.kind!=="ecriture") n.kind=(n.act==="dieu"&&n.man==="parle")?"rhema":"acte"; }
       else { n.etat=S.eEtat||"fait"; }
       touche(n); save(); toast("Corrigé.");

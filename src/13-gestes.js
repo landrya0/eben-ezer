@@ -129,10 +129,13 @@ function geste(g, t){
            toast("Arrêté : "+tacheNom(g.ep)); apresArret([b]); return render(); }
     /* L'interrupteur ne vaut que pour le geste qu'on vient de faire : laissé
        en place, il lancerait la prochaine activité par-dessus une autre sans
-       qu'on l'ait voulu (13.db, 13.dd). */
-    const enPlus=!!S.enPlus; S.enPlus=false;
-    pointe(g.ep, enPlus); S.pile=[]; S.view="today";
-    toast(enPlus ? "En plus : "+tacheNom(g.ep) : "On compte : "+tacheNom(g.ep));
+       qu'on l'ait voulu (13.db, 13.dd). Sur « plusieurs », c'est l'inverse :
+       le tenir d'une tape à l'autre EST le mode, et l'écran reste ouvert —
+       sinon la deuxième activité coûte de rouvrir le + (13.dq). */
+    const enPlus=!!S.enPlus;
+    if(enPlus){ pointe(g.ep, true); toast("En plus : "+tacheNom(g.ep)); return render(); }
+    pointe(g.ep, false); S.pile=[]; S.view="today";
+    toast("On compte : "+tacheNom(g.ep));
     return render();
   }
   /* Une porte s'épingle et se décroche d'une tape, comme une activité — et
@@ -248,7 +251,8 @@ function geste(g, t){
     const fd=fenetre(), t=decale(S.per, fd.t0, +g.fdec);
     S.anc = (t===bornes(S.per, Date.now())[0]) ? null : t;
     return render(); }
-  if(g.plus!==undefined){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.enPlus=(g.plus==="1"); return render(); }
+  if(g.plus!==undefined){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value;
+    S.enPlus=(g.plus==="1"); if(!S.enPlus) S.plusDeb=null; return render(); }
   if(g.vif!==undefined){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.vifPrend=(g.vif==="1"); return render(); }
   if(g.tcat){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.tCat=g.tcat; return render(); }
   if(g.creux){
@@ -421,13 +425,26 @@ function poseTache(id){
   }
   const enPlus=!!S.enPlus;
   /* L'interrupteur ne vaut que pour le geste qu'on vient de faire : laissé
-     en place, il reprendrait un creux qu'on n'a pas regardé (13.db). */
-  const vif=S.vifPrend ? creuxVif() : null;
-  S.vifPrend=false;
-  const chg=pointe(id, enPlus, vif && vif.deb);
-  save(); S.pile=[]; S.view="today";
-  const dep = vif ? ", depuis "+hmin(new Date(vif.deb)) : "";
-  toast(chg ? (enPlus ? "En plus : "+tacheNom(id)+dep : "On compte : "+tacheNom(id)+dep) : "C'était déjà ça.");
+     en place, il reprendrait un creux qu'on n'a pas regardé (13.db).
+     Sur « plusieurs », la reprise est le départ de la volée, et une volée
+     n'a qu'un départ : sans cela, la deuxième activité partirait de
+     maintenant alors qu'il vient de dire « depuis 14 h » (13.dq). */
+  let deb=null;
+  if(S.vifPrend){
+    const vif=creuxVif(); deb=(vif && vif.deb) || null;
+    S.vifPrend=false; S.plusDeb = enPlus ? deb : null;
+  } else if(enPlus && S.plusDeb) deb=S.plusDeb;
+  const chg=pointe(id, enPlus, deb);
+  save();
+  const dep = deb ? ", depuis "+hmin(new Date(deb)) : "";
+  /* L'écran reste ouvert tant qu'on en ajoute : c'est tout ce que « partir
+     à plusieurs » demandait de neuf (13.dq). */
+  if(enPlus){
+    toast(chg ? "En plus : "+tacheNom(id)+dep : "C'était déjà ça.");
+    return render();
+  }
+  S.pile=[]; S.view="today";
+  toast(chg ? "On compte : "+tacheNom(id)+dep : "C'était déjà ça.");
   render();
 }
 function valDate(id, repli){ const e=document.getElementById(id); return (e&&e.value)?e.value:(repli||today()); }

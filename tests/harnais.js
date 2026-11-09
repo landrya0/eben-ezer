@@ -235,7 +235,7 @@ const PONT = `
        soEtat, soNom, soDepuis, soPropose, vSondes, vReglages,
        portesEp, porteEp, epinglePorte, decrochePorte, enPremier,
        epinglesTaches, portables, nomVue, porteBlocEp, portesReglage,
-       vOrdre, vEpingles, portePointage, etapes, vNote },
+       vOrdre, vEpingles, portePointage, etapes, vNote, vPointer, creuxVif },
   c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY, POSTES, DEVISES, CAT_SOCLE, ONG_ARG,
        CONSIGNE, SO_KEY, SO_MAX, ONGLETS, NOM_VUE, SEULES }
 };

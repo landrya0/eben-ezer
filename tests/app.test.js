@@ -1229,15 +1229,24 @@ test("13.dd — « en plus » le lance à côté, sans rien arrêter", () => {
   A.equal(a.db.temps.filter(b => b.t === "t2")[0].deb, j(9, 30));
 });
 
-test("13.dd — l'interrupteur ne vaut que pour le geste qu'on vient de faire", () => {
+test("13.dd — l'interrupteur ne survit pas à l'écran qui le porte", () => {
   const a = app();
   deuxEpinglees(a);
   a.db.taches.push({ id: "t3", nom: "Manger", cat: "soi", ep: 3000, maj: 1 });
   a.maintenant(j(9, 30));
+  /* Le chemin réel : l'interrupteur est sur l'écran du +, et c'est là
+     qu'on touche les raccourcis. */
+  a.geste({ go: "note" });
   a.S.enPlus = true;
   a.geste({ ep: "t2" });
-  A.equal(a.S.enPlus, false, "il retombe aussitôt");
+  A.equal(a.f.ouverts().length, 2);
+  A.ok(a.S.enPlus, "il tient : c'est ce qui permet d'en lancer une troisième (13.dq)");
+  A.equal(a.S.view, "note", "et l'écran reste ouvert");
 
+  a.geste({ go: "today" });
+  A.equal(a.S.enPlus, false, "mais il retombe dès qu'on quitte l'écran");
+
+  a.geste({ go: "note" });
   a.maintenant(j(10, 0));
   a.geste({ ep: "t3" });
   A.equal(a.f.ouverts().length, 1, "manger arrête les deux : on n'a rien demandé d'autre");
@@ -2823,3 +2832,95 @@ test("13.dp — un sujet coché est un lien, pas « rien »", () => {
     "un sujet porté puis exaucé est un chemin de deux pas");
   A.match(a.Z.action, /1 lien/, "et le bouton le compte");
 });
+
+
+/* ========================================================================
+   13.dq — partir à plusieurs, en une fois
+   ======================================================================== */
+
+function troisActivites(a) {
+  a.db.taches = [{ id: "t1", nom: "Marche", cat: "soi", maj: 1 },
+                 { id: "t2", nom: "Prière", cat: "dieu", maj: 1 },
+                 { id: "t3", nom: "Enseignement", cat: "dieu", maj: 1 }];
+}
+
+test("13.dq — trois activités partent ensemble, sans quitter l'écran", () => {
+  const a = app();
+  troisActivites(a);
+  a.maintenant(j(9, 0));
+  a.geste({ go: "pointer" });
+  a.geste({ plus: "1" });
+  a.geste({ tache: "t1" });
+  a.geste({ tache: "t2" });
+  a.geste({ tache: "t3" });
+  A.equal(a.S.view, "pointer", "l'écran ne s'est pas refermé entre deux");
+  A.ok(a.S.enPlus, "et l'interrupteur tient : c'est lui, le mode");
+  A.equal(a.f.ouverts().length, 3, "les trois tournent");
+  A.deepEqual(Array.from(a.f.ouverts(), b => b.t).sort(), ["t1", "t2", "t3"]);
+});
+
+test("13.dq — « une seule » ferme l'écran et arrête le reste, comme avant", () => {
+  const a = app();
+  troisActivites(a);
+  a.maintenant(j(9, 0));
+  a.geste({ go: "pointer" });
+  a.geste({ tache: "t1" });
+  A.equal(a.S.view, "today", "rien n'a changé pour qui n'y touche pas");
+
+  a.maintenant(j(9, 30));
+  a.geste({ go: "pointer" });
+  a.geste({ tache: "t2" });
+  A.equal(a.f.ouverts().length, 1);
+  A.equal(a.f.ouverts()[0].t, "t2");
+});
+
+test("13.dq — l'interrupteur existe avant la première activité", () => {
+  const a = app();
+  troisActivites(a);
+  a.S.view = "pointer";
+  a.f.vPointer();
+  A.match(a.Z.html, /data-plus="1"/,
+    "partir à plusieurs, c'est justement partir de rien");
+  A.match(a.Z.html, /Plusieurs<\/button>/);
+  A.doesNotMatch(a.Z.html, /En plus<\/button>/, "il ne dit plus ce qu'il fait des autres");
+});
+
+test("13.dq — reprendre un creux à plusieurs : un seul départ", () => {
+  const a = app();
+  a.db.taches = [{ id: "t0", nom: "Sommeil", cat: "soi", maj: 1 },
+                 { id: "t1", nom: "Prière", cat: "dieu", maj: 1 },
+                 { id: "t2", nom: "Marche", cat: "soi", maj: 1 }];
+  a.db.temps = [{ id: "b1", t: "t0", deb: j(0, 30), maj: 1 }];
+  a.maintenant(j(7, 23));
+  a.f.arrete();
+  a.maintenant(j(7, 30));
+  a.geste({ go: "pointer" });
+  a.geste({ plus: "1" });
+  a.S.vifPrend = true;
+  a.geste({ tache: "t1" });
+  a.maintenant(j(7, 31));
+  a.geste({ tache: "t2" });
+
+  A.equal(a.db.temps.filter(x => x.t === "t1")[0].deb, j(7, 23));
+  A.equal(a.db.temps.filter(x => x.t === "t2")[0].deb, j(7, 23),
+    "« depuis 7 h 23 » valait pour la volée, pas pour la première touchée");
+});
+
+test("13.dq — une activité touchée par erreur s'enlève de la volée", () => {
+  const a = app();
+  troisActivites(a);
+  a.maintenant(j(9, 0));
+  a.geste({ go: "pointer" });
+  a.geste({ plus: "1" });
+  a.geste({ tache: "t1" });
+  a.geste({ tache: "t2" });
+  a.maintenant(j(9, 1));
+  a.geste({ tache: "t2" });
+  A.equal(a.f.ouverts().length, 1, "elle s'arrête, elle seule");
+  A.equal(a.f.ouverts()[0].t, "t1", "l'autre continue");
+});
+
+/* Qu'un message en chasse un autre ne se vérifie pas ici : le bac à sable
+   n'a pas de DOM réel, et deux bandeaux superposés au même point fixe n'y
+   existent pas. Un test qui passerait par construction ne défendrait rien.
+   C'est donc une vérification d'écran, faite à 375 px (13.dq). */

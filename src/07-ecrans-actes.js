@@ -824,16 +824,18 @@ function portePointage(){
   /* Un raccourci arrêtait toujours ce qui tournait. Mais on prie en marchant,
      on écoute un enseignement en cuisinant : deux choses de front ne se
      disputent pas la journée, elles la couvrent toutes les deux (13.by). Le
-     choix revient donc ici, sous la forme qu'il a déjà ailleurs — et seulement
-     quand quelque chose tourne, puisque « en plus » de rien ne veut rien dire
-     (13.dd). */
-  if(o)
+     choix revient donc ici, sous la forme qu'il a déjà ailleurs — et avec les
+     mêmes mots, car c'est le même interrupteur : il dit combien d'activités à
+     la fois, ce qui a un sens même quand rien ne tourne (13.dd, 13.dq). Il ne
+     paraît qu'avec des raccourcis à lancer, puisque c'est eux qu'il règle. */
+  if(epingles().length)
     h += `<div class="puces" style="padding-top:2px">`
-      + `<button class="puce" data-plus="0" aria-pressed="${!S.enPlus}">À la place</button>`
-      + `<button class="puce" data-plus="1" aria-pressed="${!!S.enPlus}">En plus</button></div>`
+      + `<button class="puce" data-plus="0" aria-pressed="${!S.enPlus}">Une seule</button>`
+      + `<button class="puce" data-plus="1" aria-pressed="${!!S.enPlus}">Plusieurs</button></div>`
       + `<div class="block amorce">${S.enPlus
-          ? "Ce que tu lances ici tournera <b>à côté</b> de « "+esc(tacheNom(o.t))+" »."
-          : "Ce que tu lances ici <b>arrêtera</b> « "+esc(tacheNom(o.t))+" »."}</div>`;
+          ? "Touche-en autant que tu veux : elles tourneront <b>ensemble</b>, et l'écran reste ouvert."
+          : (o ? "Ce que tu lances ici <b>arrêtera</b> « "+esc(tacheNom(o.t))+" »."
+               : "Le temps ira à une seule activité à la fois.")}</div>`;
   h += liste(epingles().map(porteRaccourci).join(""), "lien");
   return h;
 }

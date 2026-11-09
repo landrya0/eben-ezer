@@ -30,19 +30,19 @@ trois endroits qui tiennent cet ordre :
 
 | fichier | ce qu'il tient | lignes |
 |---|---|---|
-| `01-socle.js` | constantes du socle, `VERSION`, le crochet des sondes, rangement sur l'appareil | 212 |
+| `01-socle.js` | constantes du socle, `VERSION`, le crochet des sondes, rangement sur l'appareil | 223 |
 | `02-dates.js` | dire une date comme on la dit de vive voix | 35 |
 | `03-temps.js` | **les blocs** : compter, couper, réunir, les creux | 331 |
 | `04-medias.js` | ce qu'on joint à un acte | 247 |
 | `05-acces.js` | lire l'archive : actes, gens, ce qui remonte | 195 |
 | `06-charpente.js` | rail, barres, briques, menu, le nom des écrans — dessiner la page | 406 |
-| `07-ecrans-actes.js` | les écrans du mémorial, et l'assistant qui note | 1073 |
+| `07-ecrans-actes.js` | les écrans du mémorial, et l'assistant qui note | 1075 |
 | `08-sync.js` | la copie distante, la réunion de deux appareils | 465 |
-| `09-ecrans-temps.js` | pointer, la frise, mon temps | 704 |
+| `09-ecrans-temps.js` | pointer, la frise, mon temps | 709 |
 | `10-ecrans-reste.js` | temps mis à part, lectures, auteurs, réglages, dictée | 1560 |
 | `11-argent.js` | **l'argent** : les postes, les parts, la monnaie, le chargement | 451 |
 | `12-sondes.js` | **les sondes** : ce que l'app coûte en gestes, et ce qu'elle refuse | 432 |
-| `13-gestes.js` | le délégué — un seul écouteur — et le démarrage | 1219 |
+| `13-gestes.js` | le délégué — un seul écouteur — et le démarrage | 1236 |
 | `src/ebenezer.css` | la feuille de style | 772 |
 
 `index.html` ne tient plus que la charpente HTML et les quatorze balises : **71 lignes**.
@@ -58,7 +58,7 @@ DOM ni au HTML**. Cette partie-là se transporte telle quelle ; le reste meurt a
 - **Se transporte** — `02-dates.js`, `03-temps.js`, et la moitié modèle de `05-acces.js`,
   `08-sync.js`, `10-ecrans-reste.js`, `11-argent.js`, et la moitié calcul de `12-sondes.js` :
   les règles, le calcul des parts, les chemins, les périodes, les postes et les sommes, la fusion
-  de deux archives, le bilan des gestes. C'est ce que les 174 tests défendent, et ils n'ouvrent
+  de deux archives, le bilan des gestes. C'est ce que les 179 tests défendent, et ils n'ouvrent
   aucune page.
 - **Meurt à la bascule** — `06-charpente.js`, les trois `ecrans-*.js`, la moitié écrans de
   `11-argent.js`, l'écran de `12-sondes.js`, `13-gestes.js`, `ebenezer.css` : tout ce qui

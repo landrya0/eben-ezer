@@ -70,17 +70,22 @@ function vPointer(){
       attr:'data-act="arretNet"'}), "lien");
   }
   /* Un seul geste nouveau pour tout le parallèle : un interrupteur à deux
-     positions, qui dit ce que la prochaine tape veut dire. « À la place »
-     par défaut — l'app se comporte comme avant tant qu'on n'y touche pas.
-     Il n'apparaît que si quelque chose tourne : sans cela, « en plus » de
-     rien ne veut rien dire. */
-  if(o && !corr && !trou)
+     positions, qui dit ce que la prochaine tape veut dire. « Une seule » par
+     défaut — l'app se comporte comme avant tant qu'on n'y touche pas.
+     Il était réservé au cas où quelque chose tournait déjà, puisque
+     « en plus » de rien ne veut rien dire. Mais partir à plusieurs, c'est
+     justement partir de rien : il fallait lancer la première, rouvrir le
+     pointage, basculer, lancer la seconde — et recommencer. L'interrupteur
+     dit donc COMBIEN d'activités à la fois, et non ce qu'on fait de celles
+     qui tournent : ainsi il a un sens avant la première tape (13.dq). */
+  if(!corr && !trou)
     h += `<div class="puces" style="padding-top:2px">`
-      + `<button class="puce" data-plus="0" aria-pressed="${!S.enPlus}">À la place</button>`
-      + `<button class="puce" data-plus="1" aria-pressed="${!!S.enPlus}">En plus</button></div>`
+      + `<button class="puce" data-plus="0" aria-pressed="${!S.enPlus}">Une seule</button>`
+      + `<button class="puce" data-plus="1" aria-pressed="${!!S.enPlus}">Plusieurs</button></div>`
       + `<div class="block amorce">${S.enPlus
-          ? "La prochaine activité démarrera sans arrêter les autres."
-          : "La prochaine activité arrêtera ce qui tourne."}</div>`;
+          ? "Touche-en autant que tu veux : l'écran reste ouvert. Toucher une ligne cochée l'arrête."
+          : (o ? "La prochaine activité arrêtera ce qui tourne."
+               : "Le temps ira à une seule activité à la fois.")}</div>`;
 
   h += liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
       <input type="text" id="tQ" placeholder="Chercher, ou nommer autre chose" value="${esc(S.tQ||"")}" autocomplete="off" autocapitalize="sentences"></div></div></li>`);

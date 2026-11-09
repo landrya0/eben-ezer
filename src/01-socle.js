@@ -9,7 +9,7 @@
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v91";
+const VERSION = "v92";
 const KEY = "ebenezer.v1";
 /* Les sondes vivent dans le 12, chargé APRÈS celui-ci : le socle ne peut
    pas en dépendre, l'ordre est porteur. On appelle donc à travers un
@@ -60,7 +60,7 @@ let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an"
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
          per:"jour", anc:null, vue:"parts", tQ:"", tCat:"", blocId:null, medId:null, trou:null, quand:null,
-         noteFocus:false, frisZ:null, enPlus:false, tchId:null, sjQ:"", gQ:"", sujId:null, sjF:"attente",
+         noteFocus:false, frisZ:null, enPlus:false, plusDeb:null, tchId:null, sjQ:"", gQ:"", sujId:null, sjF:"attente",
          vueA:"parts", sd:null, ch:null, chTxt:"",
          lu:null, luA:null, luZ:null, luPlein:false,
          pgL:null, pgA:null, pgZ:null, lvId:null, auId:null, perId:null};
@@ -208,5 +208,16 @@ function tue(id){ if(id){ db.morts=db.morts||{}; db.morts[id]=Date.now(); } }
 function ts(){ return Date.now(); }
 function cap(t){ t=String(t||""); return t.charAt(0).toUpperCase()+t.slice(1); }
 /* Toute parole de l'application passe ici (13.dn). */
-function toast(t){ if(SONDE) SONDE.dit(t); const d=document.createElement("div"); d.className="toast"; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2200); }
+/* Les messages se posent tous au même point, en bas de l'écran : deux à la
+   fois ne font pas deux lignes, ils se recouvrent. Tant qu'on ne parlait
+   qu'une fois par geste, cela ne se voyait pas ; en « plusieurs », trois
+   tapes de suite donnaient trois mots empilés au même endroit. Le dernier
+   chasse donc le précédent — une parole qui en couvre une autre n'est pas
+   une parole (13.dq). */
+function toast(t){
+  if(SONDE) SONDE.dit(t);
+  const vieux=document.querySelector(".toast"); if(vieux) vieux.remove();
+  const d=document.createElement("div"); d.className="toast"; d.textContent=t;
+  document.body.appendChild(d); setTimeout(()=>d.remove(),2200);
+}
 

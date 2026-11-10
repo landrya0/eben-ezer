@@ -68,7 +68,15 @@ function soSauf(k, v){
 function soSigne(t){
   let s = String(t==null ? "" : t).replace(/«[^»]*»/g, "«…»");
   s = s.replace(/\s*:\s+\S[\s\S]*$/, " : …");
-  s = s.replace(/\d+/g, "n");
+  /* Les chiffres partent : une page lue, un chapitre, une heure sont à lui.
+     Mais une adresse n'est pas un chiffre, et masquée elle n'est plus
+     cherchable — « landryan.github.io » n'existe pas, et le raté qui le
+     citait était introuvable. On garde donc le chemin d'une URL, amputé de
+     sa question : ce qui suit un « ? » peut porter autre chose, et rien ne
+     part en clair (13.bh, 13.ed). */
+  s = s.split(/(\bhttps?:\/\/\S+)/).map(function(p, i){
+    return i%2 ? p.replace(/[?#][\s\S]*$/, "") : p.replace(/\d+/g, "n");
+  }).join("");
   return s.length>64 ? s.slice(0,63)+"…" : s;
 }
 
@@ -156,8 +164,16 @@ SONDE = {
        Et un retour DÉFAIT un pas, il n'en ajoute pas : compté comme les
        autres, il faisait grandir sans fin la profondeur d'un écran où l'on ne
        fait que repasser en revenant — « Mon argent », à un geste de l'onglet,
-       se déclarait ainsi à trois (13.do). */
+       se déclarait ainsi à trois (13.do).
+       Enfin, un geste qui NE CHANGE PAS D'ÉCRAN n'est pas un pas : c'est du
+       travail dans l'écran, et le chemin pour y venir était déjà parcouru.
+       Les onze tapes d'une fiche comptaient pour onze pas ; « Un acte », où
+       l'on atterrit en sauvegardant et qui est à deux écrans d'un onglet, se
+       déclarait ainsi à dix-huit, et le bilan annonçait « +55 gestes de
+       trop » sur une porte qui n'en coûtait que quinze (13.ed). */
+    const pas = o.w !== S.view;
     SO.prof = ONGLETS.some(function(x){ return x[0]===S.view; }) ? 0
+            : !pas ? SO.prof
             : (o.k==="back" ? Math.max(0, SO.prof-1) : SO.prof+1);
     o.a = S.view; o.d = SO.prof;
     if(SO.sauve) o.s = 1;
@@ -224,8 +240,16 @@ function soBilan(){
                   poids:ds.length*(med-1)});
   });
   /* Une porte déjà à un geste ne coûte rien : la lister à « +0 » noierait
-     les deux lignes qui comptent vraiment. */
-  b.couts = b.couts.filter(function(c){ return c.poids>0; })
+     les deux lignes qui comptent vraiment.
+     Et un chiffre qui accuse doit mener quelque part (13.cb) : cette section
+     répond à « comment y aller plus vite », donc elle ne chiffre que les
+     portes qu'une épingle peut rapprocher. « Un acte », « Ce bloc », « Une
+     activité » attendent qu'on leur désigne d'abord une fiche : on n'y va
+     pas, on y atterrit. Les lister promettait un raccourci qui n'existe pas,
+     et elles occupaient les trois premières lignes — muettes à la tape, sous
+     une phrase qui invite à toucher pour y aller (13.ed). */
+  const por = portables();
+  b.couts = b.couts.filter(function(c){ return c.poids>0 && por.indexOf(c.v)!==-1; })
     .sort(function(a, z){ return (z.poids-a.poids) || (z.n-a.n); });
 
   /* Le demi-tour : arrivé quelque part, reparti aussitôt sans rien écrire.
@@ -321,10 +345,14 @@ function soDepuis(b){
 function soLigneCout(c){
   const bout = c.med===c.court ? c.med+" geste"+(c.med>1?"s":"")
              : c.court+" à "+c.med+" gestes";
+  /* `data-go` sans condition : le bilan ne retient plus que des portes
+     épinglables, donc toutes se tiennent debout seules. Le test de `SEULES`
+     qui était ici ne protégeait rien et laissait croire qu'une ligne muette
+     était permise (13.ed). */
   return ligne({titre:esc(soNom(c.v)),
     sous:c.n+" fois · "+bout,
     apres:c.poids ? `<b>+${c.poids}</b>` : "",
-    attr: SEULES.indexOf(c.v)!==-1 ? `data-go="${c.v}"` : ""});
+    attr:`data-go="${c.v}"`});
 }
 
 /* L'application propose, elle n'épingle pas à sa place (13.bc).

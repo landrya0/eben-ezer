@@ -1229,10 +1229,18 @@ if("serviceWorker" in navigator){
       if(!avaitUnControleur || recharge) return;
       recharge = true; location.reload();
     });
+    /* `register(…).catch(…)` n'attrape pas le refus de `reg.update()` :
+       c'est une autre promesse, et personne ne l'attendait. Et le `try`
+       synchrone d'en dessous n'y pouvait rien — un rejet asynchrone ne passe
+       pas par lui. Une vérification de mise à jour qui échoue n'est pas une
+       panne : le réseau manquait, l'app a continué. Mais elle remontait en
+       raté dans les sondes — « sw.js load failed », deux fois le 10 novembre
+       à la même milliseconde, une par appel (13.ed). */
     navigator.serviceWorker.register("sw.js", {updateViaCache:"none"}).then(function(reg){
-      reg.update();
+      const verifie = function(){ try{ reg.update().catch(function(){}); }catch(e){} };
+      verifie();
       document.addEventListener("visibilitychange", function(){
-        if(!document.hidden) { try{ reg.update(); }catch(e){} }
+        if(!document.hidden) verifie();
       });
     }).catch(function(){});
   }catch(e){}

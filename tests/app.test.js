@@ -3709,3 +3709,102 @@ test("13.ec — rien de ce qu'il écrit ne part avec elles", () => {
   A.ok(!/Hermine/.test(txt), "ni les noms qu'il a écrits (13.dn)");
   A.ok(!/a1/.test(txt), "ni les identifiants de ses fiches");
 });
+
+/* ----------------------------------------------------------------------------
+   13.ed — une mesure qui ne mesure pas ce qu'elle promet
+
+   Les sondes, à leur deuxième jour, ont trouvé un vrai raté — et se sont
+   trompées elles-mêmes. Sa lecture du fichier : « +55 gestes de trop sur
+   « Un acte » », en tête de l'écran dont le seul métier est de dire vrai.
+   Un chiffre faux est pire que pas de chiffre (13.ch).
+---------------------------------------------------------------------------- */
+
+test("13.ed — un geste qui ne change pas d'écran n'est pas un pas", () => {
+  const a = app();
+  a.geste({ go: "today" });
+  a.geste({ go: "temps" });
+  A.equal(Array.from(a.SO.g).pop().d, 1, "un geste depuis l'onglet");
+
+  /* Basculer la vue, c'est travailler DANS l'écran : le chemin pour y venir
+     était déjà parcouru. Compté comme un pas, il faisait de « Un acte » —
+     où l'on atterrit en sauvegardant une fiche — une porte à dix-huit
+     gestes de l'onglet, alors qu'elle en est à deux. */
+  a.geste({ vue: "blocs" });
+  const x = Array.from(a.SO.g).pop();
+  A.equal(x.w, "temps", "on part de Mon temps");
+  A.equal(x.a, "temps", "et on y reste");
+  A.equal(x.d, 1, "rester sur place n'avance pas d'un pas");
+  a.geste({ vue: "routines" });
+  A.equal(Array.from(a.SO.g).pop().d, 1, "ni au deuxième");
+
+  /* Et le pas suivant repart bien de là où l'on était. */
+  a.geste({ go: "cahier" });
+  A.equal(Array.from(a.SO.g).pop().d, 2, "deux écrans depuis l'onglet, pas quatre");
+});
+
+test("13.ed — le bilan ne chiffre que les portes qu'une épingle peut rapprocher", () => {
+  const a = app();
+  a.db.nodes = [{ id: "n1", txt: "Il a répondu", qui: "dieu", quand: MIDI, maj: 1 }];
+  a.f.save();
+  for (let i = 0; i < 3; i++) {
+    a.geste({ go: "actes" });
+    a.geste({ go: "sync" });
+    a.geste({ node: "n1" });
+  }
+  const b = a.f.soBilan();
+  A.equal(Array.from(b.couts).filter(c => c.v === "node").length, 0,
+    "une fiche attend qu'on la lui désigne : aucun raccourci n'y mène");
+
+  /* Ce qui reste est tout entier épinglable : chaque chiffre a sa porte. */
+  const por = Array.from(a.f.portables());
+  A.deepEqual(Array.from(b.couts).filter(c => por.indexOf(c.v) === -1).map(c => c.v), [],
+    "un chiffre qui accuse doit mener quelque part (13.cb)");
+});
+
+test("13.ed — chaque ligne de ce qui coûte répond à la tape", () => {
+  const a = app();
+  for (let i = 0; i < 3; i++) {
+    a.geste({ go: "actes" });
+    a.geste({ go: "sync" });
+    a.geste({ go: "data" });
+  }
+  const b = a.f.soBilan();
+  A.ok(b.couts.length, "il y a bien quelque chose à lister");
+  a.S.pile = []; a.S.view = "sondes"; a.f.render();
+  /* L'écran invite à toucher une ligne pour y aller tout de suite : une ligne
+     muette fait de cette phrase un mensonge. */
+  for (const c of Array.from(b.couts)) {
+    A.match(a.Z.html, new RegExp('data-go="' + c.v + '"'),
+      "« " + c.v + " » est chiffré, donc il doit s'ouvrir d'ici");
+  }
+});
+
+test("13.ed — une adresse reste cherchable dans un raté", () => {
+  const a = app();
+  const m = a.f.soSigne("Script https://landrya0.github.io/eben-ezer/sw.js load failed");
+  A.match(m, /landrya0\.github\.io/,
+    "masquée, l'adresse devenait « landryan.github.io » : introuvable partout");
+  A.match(m, /sw\.js/, "et le fichier qui a manqué se nomme encore");
+
+  /* Les chiffres qui sont à lui partent toujours. */
+  A.equal(a.f.soSigne("Genèse 3 à 5"), "Genèse n à n");
+  /* Et rien ne part en clair : une adresse n'est pas un laissez-passer. */
+  A.ok(!/Hermine/.test(a.f.soSigne("Échec https://x.io/a?qui=Hermine")),
+    "ce qui suit un « ? » tombe (13.bh)");
+});
+
+test("13.ed — aucune vérification de mise à jour ne remonte en raté", () => {
+  /* `register(…).catch(…)` n'attrape pas le refus de `reg.update()` : c'est
+     une autre promesse. Un `try` synchrone non plus. Les deux ratés du
+     fichier du 10 novembre venaient de là, à la même milliseconde. */
+  /* Les commentaires partent d'abord : celui qui explique ce raté le cite
+     mot pour mot, et un balayage qui lit la prose se croit en faute. */
+  const src = fs.readFileSync(path.join(__dirname, "..", "src", "13-gestes.js"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
+  const nus = [];
+  for (const m of src.matchAll(/(await\s+)?reg\.update\(\)(\.catch\()?/g)) {
+    if (!m[1] && !m[2]) nus.push(m[0]);
+  }
+  A.deepEqual(nus, [],
+    "une promesse que personne n'attend remonte en « unhandledrejection »");
+});

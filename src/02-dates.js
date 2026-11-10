@@ -15,6 +15,12 @@ function de(nom){
   const v=String(nom||"");
   return (/^[aàâäeéèêëiîïoôöuùûüyh]/i.test(v) ? "d'" : "de ")+v;
 }
+/* Et le point final : un nom abrégé en porte déjà un — « la fiche d'Estelle
+   A.. » s'est vu à l'écran. Une phrase ne se termine qu'une fois. */
+function pt(s){
+  const v=String(s||"").trim();
+  return !v || /[.!?…]$/.test(v) ? v : v+".";
+}
 function today(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function parse(s){ if(!s) return null; const p=String(s).split("-"); if(p.length<3) return null; return {y:+p[0], m:+p[1], d:+p[2]}; }
 /* Une date qui n'existe pas encore n'est pas une date oubliée. Un acte

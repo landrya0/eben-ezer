@@ -4599,3 +4599,12 @@ test("13.ek — l'élision tient sur les noms qui commencent par une voyelle", (
   A.equal(a.f.de("Élise"), "d'Élise", "accentuée ou non, c'est la même voyelle");
   A.equal(a.f.de(""), "de ", "et rien ne jette sur un nom vide");
 });
+
+test("13.ek — une phrase ne se termine qu'une fois", () => {
+  const a = app();
+  A.equal(a.f.pt("Ce sujet suit la fiche d'Estelle A."), "Ce sujet suit la fiche d'Estelle A.",
+    "un nom abrégé porte déjà son point : « A.. » s'est vu à l'écran");
+  A.equal(a.f.pt("Ce sujet suit la fiche de Joseph"), "Ce sujet suit la fiche de Joseph.");
+  A.equal(a.f.pt("Vraiment ?"), "Vraiment ?", "ni après un autre signe de fin");
+  A.equal(a.f.pt(""), "", "et rien ne sort d'une phrase vide");
+});

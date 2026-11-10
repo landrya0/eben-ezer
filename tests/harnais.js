@@ -223,7 +223,7 @@ const PONT = `
        dureePer, quandPer,
        perTxt, cumulPer, parDisc,
        sujet, sujetId, sujetTxt, sujetsTxt, sujetsDerniers, apresArret, spTache,
-       sujetLie, sujetDeLie, sujetsAttente, tendusSj, de,
+       sujetLie, sujetDeLie, sujetsAttente, tendusSj, de, pt,
        gensId, gensNom, gensTxt,
        exaucesDe, exauceTxt, sujetDepuis, sujetFois, sujetHist, vActes, minuit,
        sujetDernier, seancesDe, seanceFraiche, porteSeance, ecranDit, vCahier,

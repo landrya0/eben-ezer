@@ -66,6 +66,12 @@ document.addEventListener("change", function(ev){
       const v=JSON.parse(String(r.result));
       if(!v || !Array.isArray(v.nodes)) throw 0;
       const sacs=(v.med && typeof v.med==="object") ? v.med : null;
+      /* Les sondes du fichier ne sont PAS reprises, et ce n'est pas un oubli :
+         les frictions d'un téléphone ne sont pas celles d'un portable, et
+         reprendre une sauvegarde effacerait la mesure de l'appareil où l'on
+         est en train de travailler. `sane()` est une liste blanche : la clé
+         `sondes` y tombe d'elle-même. Si on lui en ajoutait une un jour, il
+         faudrait l'écarter ici à la main (13.ec, 13.dn). */
       db=sane(v); save(); S.pile=[]; S.view="today";
       toast("Repris"); render();
       /* Les fichiers joints reviennent en réserve derrière l'écran : on ne
@@ -523,6 +529,17 @@ function saveTxt(){
   const d=document.getElementById("nDesc"); if(d&&S.draft) S.draft.desc=d.value;
 }
 
+/* Ce qui part dans le fichier : l'archive, les pièces jointes transcrites, et
+   ce que l'application a mesuré d'elle-même. Les trois ensemble, parce qu'un
+   fichier qu'il faut compléter à la main n'est pas une sauvegarde — et parce
+   qu'il n'y a pas d'autre chemin pour sortir les sondes du téléphone (13.ec).
+   On ne touche pas à `db` : l'objet qui part en est une copie. */
+function archivePartante(sacs){
+  const o = Object.assign({}, db);
+  if(sacs) o.med = sacs;
+  o.sondes = sondesPartantes();
+  return o;
+}
 const actions={
   /* Une sonde qu'on ne peut ni arrêter ni effacer n'est pas une sonde :
      c'est une surveillance. Les deux portes sont sur l'écran même qui
@@ -985,7 +1002,7 @@ const actions={
        function(){ toast("Les fichiers joints n'ont pas pu être relus."); actions.fichierAvec(null); });
   },
   fichierAvec(sacs){
-    const txt=JSON.stringify(sacs ? Object.assign({}, db, {med:sacs}) : db),
+    const txt=JSON.stringify(archivePartante(sacs)),
           nom="eben-ezer-"+today()+".json";
     const fait=()=>{ db.exp=Date.now(); save(); };
     try{

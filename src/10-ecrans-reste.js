@@ -1382,6 +1382,10 @@ function vData(){
   Z.html = `<div class="block amorce" style="margin-top:18px">Tout est gardé sur ce téléphone, et nulle part ailleurs. ${vieux?`<b>${q}</b>`:q} Sors un fichier de temps en temps et garde-le ailleurs : c'est ta seule assurance.</div>
     ${(function(){ const m=medTout();
         return m.length ? `<div class="block amorce"><b>${m.length}</b> fichier${m.length>1?"s":""} joint${m.length>1?"s":""} — ${esc(poids(medPoids()))}. Ils partent avec la sauvegarde, et c'est eux qui en font le poids.</div>` : ""; })()}
+    ${(function(){ const o=sondesPoids();
+        /* On dit ce qui part. Un fichier qui emporte plus que ce qu'on croit
+           n'est pas un fichier qu'on envoie tranquillement (13.ec). */
+        return o>200 ? `<div class="block amorce">Le fichier emporte aussi <b>comment je m'en sers</b> — ${esc(poids(o))}, des noms de gestes et rien de ce que tu écris. C'est par là que ça sort du téléphone ; reprendre un fichier ne les ramène jamais.</div>` : ""; })()}
     ${liste(ligne({titre:"Sortir un fichier", sous:"À envoyer dans iCloud, ou à toi-même", attr:'data-act="fichier"'})+
             ligne({titre:"Reprendre un fichier", sous:"Remplace tout par celui que tu choisis", attr:'data-act="ouvreFichier"'}), "lien")}
     <input type="file" id="fin" accept=".json,application/json,text/plain" hidden>

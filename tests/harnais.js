@@ -212,6 +212,7 @@ const PONT = `
        tache, tacheId, tacheNom, tacheCat, blocT, ouverts, fermeBloc,
        pointe, arrete, poseTache, creuxVif, load,
        verifArchive, verifCompte, verifDit, vVerif, rappelVerif,
+       archivePartante, sondesPartantes, sondesPoids,
        epingles, raccourciSous, raccourciArret,
        disc, discNom, discDeNom, discTache, parDisc, mesureDisc, mesureProposee,
        spanActe,

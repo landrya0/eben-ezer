@@ -3648,3 +3648,64 @@ test("13.eb — vérifier ne répare rien", () => {
   A.equal(JSON.stringify(a.db), avant,
     "l'app prépare et prévient ; elle ne corrige pas à sa place (P9, 13.cf)");
 });
+
+
+/* ========================================================================
+   13.ec — le fichier est un courrier, pas un contenant
+   ======================================================================== */
+
+/* « fais voyager dans l'archive stp pour que je puisse l'envoyer
+   simplement. » Les sondes ne vivent pas dans l'archive (13.dn) et n'y
+   entrent toujours pas : elles ne se synchronisent pas, ne poussent pas
+   `db.maj`, et s'effacent sans toucher une ligne du mémorial. Mais elles
+   doivent pouvoir SORTIR, sinon ce que l'application mesure d'elle-même ne
+   quitte jamais le téléphone. */
+
+test("13.ec — le fichier emporte ce que l'app mesure d'elle-même", () => {
+  const a = app();
+  a.geste({ go: "temps" });
+  a.geste({ go: "today" });
+  const f = a.f.archivePartante(null);
+  A.ok(f.sondes, "le fichier porte les sondes");
+  A.ok(f.sondes.g.length >= 2, "et les gestes qu'elles ont vus");
+  A.ok(Array.isArray(f.nodes), "sans cesser d'être une sauvegarde");
+});
+
+test("13.ec — mais l'archive, elle, n'en porte rien", () => {
+  const a = app();
+  a.geste({ go: "temps" });
+  a.f.save();
+  A.equal(a.db.sondes, undefined, "`db` ne les connaît pas (13.dn)");
+  A.ok(!/"sondes"/.test(a.stocke(a.c.KEY) || ""),
+    "ni ce qui est gardé sous la clé de l'archive : sinon elles se synchronisent");
+});
+
+test("13.ec — reprendre un fichier ne ramène jamais les sondes d'un autre appareil", () => {
+  const a = app();
+  a.geste({ go: "temps" }); a.geste({ go: "today" }); a.geste({ go: "actes" });
+  const ici = a.SO.g.length;
+  /* Le fichier d'un portable, avec ses propres frictions. */
+  const venu = a.f.sane({ nodes: [], sondes: { on: true, de: 1, g: [{ t: 1, k: "go" }], e: [] } });
+  A.equal(venu.sondes, undefined,
+    "les frictions d'un téléphone ne sont pas celles d'un portable");
+  A.equal(a.SO.g.length, ici, "et la mesure de CET appareil-ci n'a pas bougé");
+});
+
+test("13.ec — l'écran dit ce que le fichier emporte", () => {
+  const a = app();
+  for (let i = 0; i < 40; i++) a.geste({ go: i % 2 ? "temps" : "today" });
+  A.ok(a.f.sondesPoids() > 200, "il y a de quoi peser");
+  a.S.pile = []; a.S.view = "data"; a.f.render();
+  A.match(a.Z.html, /comment je m'en sers/,
+    "un fichier qui emporte plus qu'on ne croit ne s'envoie pas tranquillement");
+});
+
+test("13.ec — rien de ce qu'il écrit ne part avec elles", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Prière avec Hermine", cat: "dieu", maj: 1 }];
+  a.f.save();
+  a.geste({ tache: "a1" });
+  const txt = JSON.stringify(a.f.archivePartante(null).sondes);
+  A.ok(!/Hermine/.test(txt), "ni les noms qu'il a écrits (13.dn)");
+  A.ok(!/a1/.test(txt), "ni les identifiants de ses fiches");
+});

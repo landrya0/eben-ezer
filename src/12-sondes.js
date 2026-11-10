@@ -105,6 +105,16 @@ function soVide(){
   soEcris(true);
 }
 function soBascule(){ SO.on = !SO.on; SO.ouvert=null; soEcris(true); return SO.on; }
+/* Les sondes ne vivent pas dans l'archive, et c'est toujours vrai : elles ne
+   se synchronisent pas, ne pèsent pas sur `db.maj`, et s'effacent sans
+   toucher une ligne du mémorial. Mais elles doivent pouvoir SORTIR — sinon
+   ce que l'application mesure d'elle-même ne quitte jamais le téléphone, et
+   ne sert qu'à celui qui l'a déjà sous les yeux. Le fichier les emporte donc
+   dans une clé à part : il est un courrier, pas un contenant (13.ec).
+   Rien n'est à masquer ici : un geste ne porte déjà qu'un nom de code, « # »
+   à la place d'un identifiant et « · » à la place de tout le reste. */
+function sondesPartantes(){ return {on:SO.on, de:SO.de, g:SO.g, e:SO.e}; }
+function sondesPoids(){ try{ return JSON.stringify(sondesPartantes()).length; }catch(e){ return 0; } }
 
 function soOu(src, lig){
   const f = String(src||"").split("/").pop();

@@ -419,8 +419,9 @@ function vMonTemps(){
   const pf=pagesFen(f.t0, f.t1);
   if(v==="routines" && (pf.pg || (db.livres||[]).length)){
     h += titreBloc("Mes lectures","ecart");
+    const quoiPg=resumeLus(pagesFenPar(f.t0, f.t1), nomPassagePg);
     h += liste(ligne({titre:"Pages lues",
-        sous: pf.p ? "En "+pf.p+" passage"+(pf.p>1?"s":"")+" "+f.nom : "Rien de lu "+f.nom,
+        sous: quoiPg || "Rien de lu "+f.nom,
         apres:esc(String(pf.pg))})
       + (db.livres||[]).slice()
         .sort(function(x,y){ return (livreFini(x)?1:0)-(livreFini(y)?1:0)
@@ -470,8 +471,11 @@ function vMonTemps(){
   const lf=chapFen(f.t0, f.t1), lt=chapDistincts(null);
   if(v==="routines" && (lf.ch || lt)){
     h += titreBloc("La Parole","ecart");
+    /* Le nombre reste — il dit la fidélité — mais il ne reste plus seul :
+       sous lui, ce qui a été lu (13.dz). */
+    const quoi=resumeLus(chapitresFen(f.t0, f.t1), nomPassage);
     h += liste(ligne({titre:"Chapitres lus",
-        sous: lf.p ? "En "+lf.p+" passage"+(lf.p>1?"s":"")+" "+f.nom : "Rien de lu "+f.nom,
+        sous: quoi || "Rien de lu "+f.nom,
         apres:esc(String(lf.ch))})
       + ligne({titre:"Depuis le début",
         sous:partPc(lt, BIBLE_CH)+" % de l'Écriture — il reste "+(BIBLE_CH-lt)+" chapitres",

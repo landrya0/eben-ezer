@@ -259,6 +259,52 @@ function chapFen(t0, t1){
   });
   return {ch:ch, p:p};
 }
+/* « 7 chapitres » ne dit pas ce qu'on a lu. Le nombre mesure la fidélité, le
+   passage dit le chemin — et c'est le chemin qu'on relit : « j'ai lu Jean »
+   se retient, « j'ai lu 7 » ne se retient pas. On réunit donc ce qui se
+   touche, et sur la suite des chapitres mis bout à bout, pas livre par
+   livre : une lecture continue ignore les frontières, et un mois de
+   fidélité se dit « Genèse 1 à 50 · Exode 1 à 12 » plutôt qu'en trente
+   lignes (13.dz). */
+function chapitresFen(t0, t1){
+  const vus={};
+  (db.temps||[]).forEach(function(b){
+    if(!b.lu || !b.lu.length || b.deb<t0 || b.deb>=t1) return;
+    b.lu.forEach(function(r){ for(let c=r[1]; c<=r[2]; c++) vus[plat(r[0], c)]=1; });
+  });
+  const is=Object.keys(vus).map(Number).sort(function(a,z){ return a-z; });
+  const segs=[]; let d=null;
+  is.forEach(function(i){ if(d && i===d[1]+1) d[1]=i; else { d=[i,i]; segs.push(d); } });
+  return segs.reduce(function(acc, s){ return acc.concat(passagesDe(s[0], s[1])); }, []);
+}
+/* Même réunion pour les livres, mais par livre : des pages ne se suivent
+   pas d'un ouvrage à l'autre (13.dz). */
+function pagesFenPar(t0, t1){
+  const par={}, ordre=[];
+  (db.temps||[]).forEach(function(b){
+    if(!b.pg || !b.pg.length || b.deb<t0 || b.deb>=t1) return;
+    b.pg.forEach(function(r){
+      if(!par[r[0]]){ par[r[0]]={}; ordre.push(r[0]); }
+      for(let p=r[1]; p<=r[2]; p++) par[r[0]][p]=1;
+    });
+  });
+  const out=[];
+  ordre.forEach(function(id){
+    const ps=Object.keys(par[id]).map(Number).sort(function(a,z){ return a-z; });
+    let d=null;
+    ps.forEach(function(p){ if(d && p===d[2]+1) d[2]=p; else { d=[id,p,p]; out.push(d); } });
+  });
+  return out;
+}
+/* Au-delà de huit passages, la ligne cesse d'être un résumé. Les autres ne
+   sont pas perdus : chaque lecture est sur son bloc, sous la pastille
+   « Les blocs », au même écran (13.dz). */
+const LUS_MAX = 8;
+function resumeLus(rs, nom){
+  if(!rs.length) return "";
+  const t=rs.slice(0, LUS_MAX).map(nom).join(" · ");
+  return rs.length>LUS_MAX ? t+" · …et "+(rs.length-LUS_MAX)+" de plus" : t;
+}
 function chapDistincts(tid){
   const vus={};
   (db.temps||[]).forEach(function(b){

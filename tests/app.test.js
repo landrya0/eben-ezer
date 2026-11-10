@@ -3157,3 +3157,101 @@ test("13.dy — un écran dont on ne sort pas n'est pas un écran", () => {
   a.geste({ back: "1" });
   A.equal(a.S.view, "actes", "et il ramène d'où l'on vient");
 });
+
+
+/* ========================================================================
+   13.dz — le résumé dit ce qu'on a lu, pas seulement combien
+   ======================================================================== */
+
+/* « dans les routines, dans le resumé il faut qu'on voit ce que j'ai lu,
+   pas juste le nombre. » */
+function li(a, nom) {
+  for (let i = 0; i < 66; i++) if (a.f.nomLivre(i) === nom) return i;
+  throw new Error("livre introuvable : " + nom);
+}
+function lisant(a) {
+  a.db.taches = [
+    { id: "a1", nom: "Lecture de la Parole", cat: "dieu", d: "parole", maj: 1 },
+    { id: "a2", nom: "Lecture d'un livre", cat: "dieu", d: "litt", maj: 1 }
+  ];
+  a.db.temps = [];
+  return { gen: li(a, "Genèse"), ex: li(a, "Exode"), ps: li(a, "Psaumes") };
+}
+function lit(a, id, h, refs) {
+  a.db.temps.push(bloc(id, "a1", j(h, 0), j(h + 1, 0), { lu: refs }));
+}
+
+test("13.dz — le résumé nomme les passages", () => {
+  const a = app();
+  const L = lisant(a);
+  lit(a, "b1", 8, [[L.ps, 23, 23]]);
+  lit(a, "b2", 10, [[L.gen, 1, 3]]);
+  const rs = Array.from(a.f.chapitresFen(j(0, 0), j(23, 59)));
+  A.equal(a.f.resumeLus(rs, a.f.nomPassage), "Genèse 1 à 3 · Psaumes 23",
+    "« j'ai lu Jean » se retient, « j'ai lu 7 » ne se retient pas");
+  A.equal(a.f.chapFen(j(0, 0), j(23, 59)).ch, 4, "et le nombre reste, il dit la fidélité");
+});
+
+test("13.dz — ce qui se touche se réunit, même d'un jour à l'autre", () => {
+  const a = app();
+  const L = lisant(a);
+  a.db.temps.push(bloc("b1", "a1", jour(3, 8, 0), jour(3, 9, 0), { lu: [[L.gen, 1, 3]] }));
+  a.db.temps.push(bloc("b2", "a1", jour(2, 8, 0), jour(2, 9, 0), { lu: [[L.gen, 4, 6]] }));
+  a.db.temps.push(bloc("b3", "a1", jour(1, 8, 0), jour(1, 9, 0), { lu: [[L.gen, 7, 9]] }));
+  const rs = Array.from(a.f.chapitresFen(jour(1, 0, 0), MIDI));
+  A.equal(a.f.resumeLus(rs, a.f.nomPassage), "Genèse 1 à 9",
+    "un mois de fidélité continue est un passage, pas trente lignes");
+});
+
+test("13.dz — la réunion ignore la frontière des livres, et la dit quand même", () => {
+  const a = app();
+  const L = lisant(a);
+  lit(a, "b1", 8, [[L.gen, 49, 50]]);
+  lit(a, "b2", 10, [[L.ex, 1, 2]]);
+  const rs = Array.from(a.f.chapitresFen(j(0, 0), j(23, 59)));
+  A.equal(a.f.resumeLus(rs, a.f.nomPassage), "Genèse 49 à 50 · Exode 1 à 2",
+    "une lecture continue ne s'arrête pas à Genèse 50, mais elle se nomme par livre");
+});
+
+test("13.dz — ce qui est hors de la fenêtre n'entre pas dans le résumé", () => {
+  const a = app();
+  const L = lisant(a);
+  a.db.temps.push(bloc("b1", "a1", jour(2, 8, 0), jour(2, 9, 0), { lu: [[L.ex, 1, 5]] }));
+  lit(a, "b2", 8, [[L.gen, 1, 2]]);
+  const rs = Array.from(a.f.chapitresFen(j(0, 0), j(23, 59)));
+  A.equal(a.f.resumeLus(rs, a.f.nomPassage), "Genèse 1 à 2",
+    "le résumé est celui de la fenêtre, pas de toute la vie");
+});
+
+test("13.dz — les pages se réunissent par livre, et deux livres ne se confondent pas", () => {
+  const a = app();
+  lisant(a);
+  a.db.livres = [{ id: "l1", nom: "Une voix pour le réveil", pages: 200, maj: 1 },
+                 { id: "l2", nom: "Le disciple", pages: 120, maj: 1 }];
+  a.db.temps.push(bloc("b1", "a2", j(8, 0), j(9, 0), { pg: [["l1", 10, 20]] }));
+  a.db.temps.push(bloc("b2", "a2", j(10, 0), j(11, 0), { pg: [["l1", 21, 30]] }));
+  a.db.temps.push(bloc("b3", "a2", j(14, 0), j(15, 0), { pg: [["l2", 3, 5]] }));
+  const rs = Array.from(a.f.pagesFenPar(j(0, 0), j(23, 59)));
+  A.equal(a.f.resumeLus(rs, a.f.nomPassagePg),
+    "Une voix pour le réveil, pages 10 à 30 · Le disciple, pages 3 à 5");
+  A.equal(a.f.pagesFen(j(0, 0), j(23, 59)).pg, 24);
+});
+
+test("13.dz — au-delà de huit passages, la ligne cesse d'être un résumé", () => {
+  const a = app();
+  const L = lisant(a);
+  /* Dix passages épars : un chapitre sur deux, rien ne se touche. */
+  for (let k = 0; k < 10; k++) lit(a, "b" + k, 6 + k, [[L.ps, 1 + k * 2, 1 + k * 2]]);
+  const rs = Array.from(a.f.chapitresFen(j(0, 0), j(23, 59)));
+  A.equal(rs.length, 10);
+  const t = a.f.resumeLus(rs, a.f.nomPassage);
+  A.match(t, /…et 2 de plus$/, "le reste se dit");
+  A.equal(t.split(" · ").length, 9, "huit passages, et la mention");
+});
+
+test("13.dz — rien de lu : la phrase d'avant tient", () => {
+  const a = app();
+  lisant(a);
+  A.equal(a.f.resumeLus(Array.from(a.f.chapitresFen(j(0, 0), j(23, 59))), a.f.nomPassage), "",
+    "et c'est l'écran qui dit « Rien de lu »");
+});

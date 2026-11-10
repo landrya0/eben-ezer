@@ -40,8 +40,8 @@ trois endroits qui tiennent cet ordre :
 | `06-charpente.js` | rail, barres, briques, menu, le nom des écrans — dessiner la page | 410 |
 | `07-ecrans-actes.js` | les écrans du mémorial, et l'assistant qui note | 1138 |
 | `08-sync.js` | la copie distante, la réunion de deux appareils | 465 |
-| `09-ecrans-temps.js` | pointer, la frise, mon temps | 726 |
-| `10-ecrans-reste.js` | temps mis à part, lectures, auteurs, réglages, dictée | 1557 |
+| `09-ecrans-temps.js` | pointer, la frise, mon temps | 730 |
+| `10-ecrans-reste.js` | temps mis à part, lectures, auteurs, réglages, dictée | 1603 |
 | `12-sondes.js` | **les sondes** : ce que l'app coûte en gestes, et ce qu'elle refuse | 432 |
 | `13-gestes.js` | le délégué — un seul écouteur — et le démarrage | 1241 |
 | `src/ebenezer.css` | la feuille de style | 772 |
@@ -59,7 +59,7 @@ DOM ni au HTML**. Cette partie-là se transporte telle quelle ; le reste meurt a
 - **Se transporte** — `02-dates.js`, `03-temps.js`, et la moitié modèle de `05-acces.js`,
   `08-sync.js`, `10-ecrans-reste.js`, et la moitié calcul de `12-sondes.js` :
   les règles, le calcul des parts, les chemins, les périodes, les postes et les sommes, la fusion
-  de deux archives, le bilan des gestes. C'est ce que les 199 tests défendent, et ils n'ouvrent
+  de deux archives, le bilan des gestes. C'est ce que les 206 tests défendent, et ils n'ouvrent
   aucune page.
 - **Meurt à la bascule** — `06-charpente.js`, les trois `ecrans-*.js`, l'écran de
   `12-sondes.js`, `13-gestes.js`, `ebenezer.css` : tout ce qui

@@ -702,14 +702,20 @@ test("13.cx — changer d'acteur ne perd pas la circonstance déjà posée", () 
     "le brouillon est refait à ce moment-là : le lien doit traverser");
 });
 
+/* 13.cx disait « à une touche » : la circonstance arrivait en tête, non
+   cochée. Les sondes ont montré que cette touche n'arrivait jamais — zéro
+   tape sur `data-pdt` en 296 gestes, pour six actes gardés. 13.ej l'a donc
+   changée en supposition : l'app pose ce qu'elle lit, et une tape la
+   dément. Le reste de 13.cx ne bouge pas, et ce test le défend encore. */
 test("13.cx — toucher la circonstance la pose, la retoucher la retire", () => {
   const a = app();
-  a.db.taches = [{ id: "a1", nom: "Enseignements de TA", cat: "dieu", d: "litt", maj: 1 }];
-  a.db.temps = [bloc("b1", "a1", j(11, 0), null)];
+  a.db.taches = [{ id: "a1", nom: "Enseignements de TA", cat: "dieu", d: "litt", maj: 1 },
+                 { id: "a2", nom: "Prière", cat: "dieu", d: "priere", maj: 1 }];
+  a.db.temps = [bloc("b1", "a1", j(11, 0), null), bloc("b2", "a2", j(11, 30), null)];
 
   a.geste({ go: "note" });
   a.geste({ qui: "dieu" });
-  A.equal(a.S.draft.pdt, null, "rien n'est posé d'office");
+  A.equal(a.S.draft.pdt, null, "deux choses tournent : l'app ne tranche pas entre elles");
 
   a.geste({ pdt: "b1" });
   A.equal(a.S.draft.pdt, "b1");
@@ -4335,4 +4341,119 @@ test("13.ei — la porte ne s'ouvre pas sur une question qui n'existe pas", () =
   a.S.view = "pointer"; a.f.vPointer();
   A.equal(a.Z.html.indexOf("data-dis="), -1,
     "un trajet ne mesure rien : l'app demande ce qu'elle ne sait pas, et rien d'autre (13.cg)");
+});
+
+/* ——— 13.ej — l'app pose ce qu'elle lit, pas ce qu'elle devine ——— */
+
+function enTrain(a) {
+  a.db.taches = [{ id: "a1", nom: "Méditer", cat: "dieu", d: "parole", maj: 1 },
+                 { id: "a2", nom: "Prière", cat: "dieu", d: "priere", maj: 1 }];
+  a.db.temps = [bloc("b1", "a1", MIDI - 40 * MIN)];
+}
+
+test("13.ej — une seule chose tourne : l'app la pose, et le dit", () => {
+  const a = app();
+  enTrain(a);
+  a.geste({ go: "note" });
+  a.geste({ qui: "dieu" });
+  A.equal(a.S.draft.pdt, "b1", "ce n'est pas un pari : c'est la seule réponse possible");
+  A.equal(a.S.draft.pdtSup, true);
+
+  a.S.step = a.f.etapes(a.S.draft).length - 1;
+  a.f.render();
+  A.match(a.Z.html, /Méditer/);
+  A.match(a.Z.html, /Touche si ce n'était pas pendant ça/,
+    "une supposition se voit et se défait d'une tape, comme celle du jour (13.dx)");
+  A.match(a.Z.html, /L'app le suppose/);
+});
+
+test("13.ej — deux choses tournent : elle se tait", () => {
+  const a = app();
+  enTrain(a);
+  a.db.temps.push(bloc("b2", "a2", MIDI - 10 * MIN));
+  a.geste({ go: "note" });
+  a.geste({ qui: "dieu" });
+  A.equal(a.S.draft.pdt, null, "trancher entre les deux serait cocher à sa place (P9)");
+  A.equal(a.f.pdtCandidats().length, 2, "mais les deux sont offertes");
+});
+
+test("13.ej — rien ne tourne, rien n'est posé", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Méditer", cat: "dieu", d: "parole", maj: 1 }];
+  a.db.temps = [];
+  a.geste({ go: "note" });
+  a.geste({ qui: "dieu" });
+  A.equal(a.S.draft.pdt, null);
+  A.equal(a.f.pdtCandidats().length, 0);
+});
+
+test("13.ej — ce qu'on vient d'arrêter compte encore comme circonstance", () => {
+  const a = app();
+  enTrain(a);
+  a.f.blocT("b1").fin = MIDI - 5 * MIN;
+  a.geste({ go: "note" });
+  a.geste({ qui: "dieu" });
+  A.equal(a.S.draft.pdt, "b1",
+    "on note souvent juste après avoir arrêté, et ce qu'on a reçu en vient quand même");
+
+  const z = app();
+  enTrain(z);
+  z.f.blocT("b1").fin = MIDI - 31 * MIN;
+  z.geste({ go: "note" });
+  z.geste({ qui: "dieu" });
+  A.equal(z.S.draft.pdt, null, "passé la demi-heure, ce n'est plus la même séance (13.ei)");
+});
+
+test("13.ej — une circonstance choisie ne se présente pas comme devinée", () => {
+  const a = app();
+  enTrain(a);
+  a.db.temps.push(bloc("b2", "a2", MIDI - 10 * MIN));
+  a.geste({ go: "note" });
+  a.geste({ qui: "dieu" });
+  a.geste({ pdt: "b2" });
+  A.equal(a.S.draft.pdtSup, false);
+  a.S.step = a.f.etapes(a.S.draft).length - 1;
+  a.f.render();
+  A.equal(a.Z.html.indexOf("L'app le suppose"), -1,
+    "un libellé faux est de la famille d'un chiffre faux (13.ch)");
+  A.match(a.Z.html, /Ce que tu donnais quand c'est arrivé/);
+
+  /* Et le cas qui compte vraiment : l'app suppose, il retire, il remet.
+     Ce qu'il a remis de sa main n'est plus une supposition. */
+  const z = app();
+  enTrain(z);
+  z.geste({ go: "note" });
+  z.geste({ qui: "dieu" });
+  A.equal(z.S.draft.pdtSup, true, "posée par l'app");
+  z.geste({ pdt: "b1" });
+  A.equal(z.S.draft.pdt, null);
+  z.geste({ pdt: "b1" });
+  A.equal(z.S.draft.pdt, "b1");
+  A.equal(z.S.draft.pdtSup, false, "remise de sa main : ce n'est plus l'app qui la suppose");
+  z.S.step = z.f.etapes(z.S.draft).length - 1;
+  z.f.render();
+  A.equal(z.Z.html.indexOf("L'app le suppose"), -1);
+});
+
+test("13.ej — la supposition se garde avec l'acte, et nourrit le chemin", () => {
+  const a = app();
+  enTrain(a);
+  a.geste({ go: "note" });
+  a.geste({ qui: "dieu" });
+  a.ecrit("nTxt", "Il m'a montré pourquoi j'étais là");
+  a.actions.saveNote();
+  const n = a.db.nodes[a.db.nodes.length - 1];
+  A.equal(n.pdt, "b1", "le lien est gardé sur l'acte");
+  A.equal(n.pdtSup, undefined, "la supposition est un état d'écran, pas une donnée d'archive");
+  A.deepEqual(Array.from(a.f.actesPdt("b1"), x => x.id), [n.id]);
+});
+
+test("13.ej — changer d'acteur ne perd pas la circonstance", () => {
+  const a = app();
+  enTrain(a);
+  a.geste({ go: "note" });
+  a.geste({ qui: "dieu" });
+  a.geste({ qui: "moi" });
+  A.equal(a.S.draft.pdt, "b1", "la circonstance traverse, comme le sujet (13.cx, 13.dp)");
+  A.equal(a.S.draft.pdtSup, true);
 });

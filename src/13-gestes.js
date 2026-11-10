@@ -314,10 +314,13 @@ function geste(g, t){
   if(g.au){ empile(); S.auId=g.au; S.view="auteur"; return render(); }
   if(g.prd){ empile(); S.perId=g.prd; S.view="periode"; return render(); }
   if(g.vbloc){ if(!blocT(g.vbloc)) return; empile(); S.blocId=g.vbloc; S.view="bloc"; return render(); }
-  if(g.pdt){ if(S.draft) S.draft.pdt = (S.draft.pdt===g.pdt) ? null : g.pdt; return render(); }
+  if(g.pdt){
+    if(S.draft){ S.draft.pdt = (S.draft.pdt===g.pdt) ? null : g.pdt; S.draft.pdtSup=false; }
+    return render();
+  }
   /* Depuis un bloc ou une période : noter ce qu'Il y a fait, le lien déjà posé. C'est le chemin réel — on est dans la vidéo, Il parle. */
   if(g.pdtneuf){
-    S.draft=neuf(null); S.draft.pdt=g.pdtneuf;
+    S.draft=neuf(null); S.draft.pdt=g.pdtneuf; S.draft.pdtSup=false;
     S.step=0; empile(); S.view="note"; return render();
   }
   if(g.pgsup!==undefined){
@@ -379,7 +382,8 @@ function geste(g, t){
     S.draft.etat = prevu ? "prevu" : "fait";
     /* Changer d'acteur refait le brouillon : la circonstance doit traverser,
        sinon le lien posé depuis un bloc se perd au premier choix (13.cx). */
-    S.draft.par=(a.par||[]).slice(); S.draft.fige=!!a.fige; S.draft.pdt=a.pdt||null;
+    S.draft.par=(a.par||[]).slice(); S.draft.fige=!!a.fige;
+    S.draft.pdt=a.pdt||null; S.draft.pdtSup=!!a.pdtSup;
     /* Le sujet traverse aussi. « Il y a répondu » posait le lien avant le
        premier écran, et ce premier écran l'effaçait : le cahier ne pouvait
        donc rien exaucer, jamais, et ses deux pastilles ne séparaient rien

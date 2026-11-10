@@ -704,7 +704,14 @@ function vLier(){
 }
 
 /* ---------- l'assistant : noter, et attacher une réponse ---------- */
-function neuf(act){ return {act:act,gid:null,dest:"dieu",dgid:null,txt:"",desc:"",man:"",par:[],suj:[],pdt:null,etat:"fait",date:today(),prec:"j",fige:false}; }
+/* Le brouillon naît avec ce que l'app sait déjà : le jour, et ce qui
+   tournait. Elle ne devine ni l'un ni l'autre — elle les lit, et les montre
+   pour qu'une tape suffise à la démentir (13.dx, 13.ej). */
+function neuf(act){
+  const p=(typeof pdtSuppose==="function") ? pdtSuppose() : null;
+  return {act:act,gid:null,dest:"dieu",dgid:null,txt:"",desc:"",man:"",par:[],suj:[],
+          pdt:p,pdtSup:!!p,etat:"fait",date:today(),prec:"j",fige:false};
+}
 /* La phrase courte est ce qui se relit ; la description est ce qu'on y ajoute
    quand on a le temps. Elle reste pliée tant qu'elle est vide, pour ne pas
    peser sur la capture — c'est la capture qui doit être rapide (P2). */

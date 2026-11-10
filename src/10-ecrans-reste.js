@@ -1562,15 +1562,32 @@ function pdtDe(id){
   return null;
 }
 /* Ce qui tournait au moment où l'on note : l'application connaît déjà la réponse, elle n'a pas à la demander. */
+/* Ce qui tournait quand c'est arrivé — et aussi ce qu'on vient d'arrêter.
+   On note souvent juste après avoir fermé le compteur, et ce qu'on a reçu
+   là-dedans n'a pas cessé d'en venir parce qu'on a touché « Arrêter ». Même
+   fraîcheur que la séance, et pour la même raison : la demi-heure (13.ei). */
 function pdtCandidats(){
-  const o=[];
-  ouverts().forEach(function(b){
+  const o=[], ouv=ouverts();
+  ouv.forEach(function(b){
     o.push({id:b.id, nom:tacheNom(b.t), sous:"en cours depuis "+hmin(new Date(b.deb))});
   });
   perOuvertes().forEach(function(pr){
     o.push({id:pr.id, nom:discNom(pr.d), sous:"temps mis à part — "+dureePer(pr)});
   });
+  if(!ouv.length){
+    const b=seanceFraiche();
+    if(b) o.push({id:b.id, nom:tacheNom(b.t), sous:"arrêté à "+hmin(new Date(b.fin))});
+  }
   return o;
+}
+/* L'app suppose quand il n'y a qu'une réponse possible, et jamais autrement.
+   Une seule chose tournait : le dire est une lecture, pas un pari. Deux, et
+   elle se tait — trancher entre elles serait cocher à sa place (P9, 13.bc).
+   La supposition se voit et se défait d'une tape, exactement comme celle du
+   jour : c'est le même pacte (13.dx, 13.ej). */
+function pdtSuppose(){
+  const c=pdtCandidats();
+  return c.length===1 ? c[0].id : null;
 }
 function actesPdt(id){ return (db.nodes||[]).filter(function(n){ return n.pdt===id; }).sort(parDate); }
 /* Et par routine, sur la fenêtre regardée : combien de fois Il a répondu là-dedans. C'est ce que le lien permet enfin de déduire. */
@@ -1593,10 +1610,15 @@ function actesParDisc(t0, t1){
 function choixPendant(d){
   const cands=pdtCandidats(), cur=d.pdt ? pdtDe(d.pdt) : null;
   if(!cands.length && !cur) return "";
+  /* Dire que c'est une supposition, et seulement quand ça en est une : une
+     circonstance qu'il a choisie lui-même ne se présente pas comme devinée
+     (13.ch — un libellé faux est de la famille d'un chiffre faux). */
+  const sup = !!cur && !!d.pdtSup;
   const vus={}; let l="";
   if(cur){
     vus[cur.id]=1;
-    l+=ligne({titre:esc(cur.nom), sous:esc(cur.quand),
+    l+=ligne({titre:esc(cur.nom),
+      sous: sup ? "Touche si ce n'était pas pendant ça" : esc(cur.quand),
       apres:`<span class="coche">✓</span>`, attr:'data-pdt="'+cur.id+'"'});
   }
   cands.forEach(function(c){
@@ -1604,7 +1626,9 @@ function choixPendant(d){
     l+=ligne({titre:esc(c.nom), sous:esc(c.sous), attr:'data-pdt="'+c.id+'"'});
   });
   return titreBloc("Pendant quoi")+liste(l)
-    + `<div class="block amorce">Ce que tu donnais quand c'est arrivé. Touche à nouveau pour le retirer.</div>`;
+    + `<div class="block amorce">${sup
+        ? "C'est ce qui tournait quand tu l'as écrit. L'app le suppose ; une tape le retire."
+        : "Ce que tu donnais quand c'est arrivé. Touche à nouveau pour le retirer."}</div>`;
 }
 
 /* ---------- un temps mis à part ---------- */

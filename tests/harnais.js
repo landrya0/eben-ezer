@@ -210,7 +210,7 @@ const PONT = `
        bornes, decale, fenetre, nomFen, courtFen, memeAn,
        finDe, voisins, touche, tue, sane, uid, cap, capNom,
        tache, tacheId, tacheNom, tacheCat, blocT, ouverts, fermeBloc,
-       pointe, arrete, poseTache, creuxVif,
+       pointe, arrete, poseTache, creuxVif, load,
        epingles, raccourciSous, raccourciArret,
        disc, discNom, discDeNom, discTache, parDisc, mesureDisc, mesureProposee,
        spanActe,
@@ -233,7 +233,7 @@ const PONT = `
        portesEp, porteEp, epinglePorte, decrochePorte, enPremier,
        epinglesTaches, portables, nomVue, porteBlocEp, portesReglage,
        vOrdre, vEpingles, portePointage, etapes, vNote, vNode, vAccomplis, porteFaits, vPointer, creuxVif,
-       sansDate, precPour, today, quitterPrevu, jourPromis, promisBref, ligneActe, remontees, blocQuand, vEdit, human },
+       sansDate, precPour, today, render, save, VUES, quitterPrevu, jourPromis, promisBref, ligneActe, remontees, blocQuand, vEdit, human },
   c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY, CAT_SOCLE,
        SO_KEY, SO_MAX, ONGLETS, NOM_VUE, SEULES }
 };

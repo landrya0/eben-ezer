@@ -3255,3 +3255,95 @@ test("13.dz — rien de lu : la phrase d'avant tient", () => {
   A.equal(a.f.resumeLus(Array.from(a.f.chapitresFen(j(0, 0), j(23, 59))), a.f.nomPassage), "",
     "et c'est l'écran qui dit « Rien de lu »");
 });
+
+
+/* ========================================================================
+   13.ea — une borne qui n'est pas encore arrivée n'est pas une borne
+   ======================================================================== */
+
+/* « le bug c'est le compteur stoppé. » Le rail disait « Rien de compté ·
+   0 s » à 13 h 10 pendant que « Mon temps » disait « 12 h 39 compté
+   aujourd'hui » — c'est-à-dire depuis 0 h 31, sans un creux. Les deux
+   lisaient le même bloc : une fin posée plus loin que maintenant. */
+
+test("13.ea — une fin qui n'est pas encore arrivée est refusée", () => {
+  const a = app();
+  deuxActivites(a);
+  a.db.temps = [bloc("b1", "a1", j(0, 31), j(11, 0))];
+  a.f.save();
+  a.ouvreBloc(a.db.temps[0]);
+  a.poseHeure("bFin", j(23, 0));
+  a.actions.majBloc();
+  A.equal(a.db.temps[0].fin, j(11, 0),
+    "on ne déclare pas un temps qu'on n'a pas encore vécu");
+  A.match(a.dernierToast(), /pas encore/, "et l'app dit pourquoi elle n'a rien gardé");
+});
+
+test("13.ea — un temps mis à part ne se referme pas non plus dans l'avenir", () => {
+  const a = app();
+  a.db.periodes = [{ id: "p1", d: "jeune", deb: j(6, 0), fin: j(10, 0), maj: 1 }];
+  a.f.save();
+  a.ouvrePeriode(a.db.periodes[0]);
+  a.poseHeure("pdFin", j(20, 0));
+  a.actions.perGarder();
+  A.equal(a.db.periodes[0].fin, j(10, 0), "la même règle vaut pour les deux bornes");
+});
+
+test("13.ea — une fin déjà dans l'archive se lit à maintenant", () => {
+  const a = app();
+  deuxActivites(a);
+  /* Ce que l'app a laissé passer avant la règle, et qui reste sur
+     l'appareil : elle doit pouvoir s'en relever toute seule. */
+  a.ctx.localStorage.setItem(a.c.KEY, JSON.stringify({
+    taches: [{ id: "a1", nom: "Travailler", maj: 1 }],
+    temps: [{ id: "b1", t: "a1", deb: j(0, 31), fin: j(23, 0), maj: 1 }], seq: 9
+  }));
+  a.f.load();
+  A.equal(a.db.temps[0].fin, MIDI, "une borne ne dépasse pas l'instant où on la lit");
+});
+
+test("13.ea — et le rail cesse alors de dire 0 s", () => {
+  const a = app();
+  deuxActivites(a);
+  a.ctx.localStorage.setItem(a.c.KEY, JSON.stringify({
+    taches: [{ id: "a1", nom: "Travailler", maj: 1 }],
+    temps: [{ id: "b1", t: "a1", deb: j(0, 31), fin: j(10, 0), maj: 1 },
+            { id: "b2", t: "a1", deb: j(10, 30), fin: j(23, 0), maj: 1 }], seq: 9
+  }));
+  a.f.load();
+  const vif = a.f.creuxVif();
+  A.ok(vif && vif.deb <= MIDI, "le creux ne commence jamais après l'heure qu'il est");
+});
+
+test("13.ea — rien ne se perd : la borne redressée ne tombe pas sous son début", () => {
+  const a = app();
+  a.ctx.localStorage.setItem(a.c.KEY, JSON.stringify({
+    taches: [{ id: "a1", nom: "Travailler", maj: 1 }],
+    temps: [{ id: "b1", t: "a1", deb: j(14, 0), fin: j(15, 0), maj: 1 }], seq: 9
+  }));
+  a.f.load();
+  const b = a.db.temps[0];
+  A.ok(b, "le bloc est toujours là");
+  A.ok(b.fin > b.deb, "un bloc dont la fin passerait avant le début serait effacé par la réunion");
+});
+
+test("13.ea — une fin passée reste intacte", () => {
+  const a = app();
+  deuxActivites(a);
+  a.db.temps = [bloc("b1", "a1", j(8, 0), j(9, 30))];
+  a.f.save();
+  a.ouvreBloc(a.db.temps[0]);
+  a.poseHeure("bFin", j(10, 0));
+  a.actions.majBloc();
+  A.equal(a.db.temps[0].fin, j(10, 0), "corriger ce qui a eu lieu reste possible");
+});
+
+test("13.ea — un bloc en cours n'est pas une fin dans l'avenir", () => {
+  const a = app();
+  a.ctx.localStorage.setItem(a.c.KEY, JSON.stringify({
+    taches: [{ id: "a1", nom: "Travailler", maj: 1 }],
+    temps: [{ id: "b1", t: "a1", deb: j(0, 31), maj: 1 }], seq: 9
+  }));
+  a.f.load();
+  A.equal(a.db.temps[0].fin, undefined, "personne ne ferme un compteur à la place du disciple");
+});

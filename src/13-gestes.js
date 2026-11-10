@@ -755,6 +755,10 @@ const actions={
     if(b.fin && f===null) return toast("Pose une heure de fin");
     if(f!==null && f<=d) return toast("La fin doit venir après le début");
     if(d>Date.now()) return toast("Ce début n'est pas encore arrivé");
+    /* La fin était la seule borne que personne ne regardait. Posée dans
+       l'avenir, elle déclarait compté un temps qui n'avait pas été vécu, et
+       l'app en restait figée jusqu'à ce que l'heure la rattrape (13.ea). */
+    if(f!==null && f>Date.now()) return toast("Cette fin n'est pas encore arrivée");
     /* Corriger un bloc ne corrige que ce bloc (13.cv). On a longtemps
        entraîné le voisin collé, pour que la journée reste sans trou ; mais
        raccourcir une prière rallongeait d'autant la lecture d'avant, et
@@ -805,6 +809,10 @@ const actions={
     if(!perOuverte(pr) && f===null) return toast("Pose une heure de fin");
     if(f!==null && f<=d) return toast("La fin doit venir après le début");
     if(d>Date.now()) return toast("Ce début n'est pas encore arrivé");
+    /* La même règle pour les deux bornes, et pour les deux sortes de
+       durées : un temps mis à part ne se referme pas davantage sur une
+       heure qui n'est pas venue (13.ea). */
+    if(f!==null && f>Date.now()) return toast("Cette fin n'est pas encore arrivée");
     pr.deb=d; if(f!==null) pr.fin=f;
     notePer(pr); touche(pr); save();
     toast("Gardé."); depile("temps"); render();

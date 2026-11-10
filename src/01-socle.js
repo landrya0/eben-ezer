@@ -9,7 +9,7 @@
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v101";
+const VERSION = "v102";
 const KEY = "ebenezer.v1";
 /* Les sondes vivent dans le 12, chargé APRÈS celui-ci : le socle ne peut
    pas en dépendre, l'ordre est porteur. On appelle donc à travers un
@@ -136,6 +136,24 @@ function sane(v){
      ne tournait : « subitement, rien n'était fait depuis ». Un bloc sans fin
      est un bloc EN COURS, et personne ne le ferme à la place du disciple
      (13.cf). */
+  /* Une borne qui n'est pas encore arrivée n'est pas une borne (13.ea).
+     Rien ne refusait une fin posée plus loin que maintenant : « Mon temps »
+     la ramenait à l'instant présent et annonçait la journée entière comptée,
+     pendant que le rail, qui ne la ramenait pas, lisait un creux de durée
+     négative et affichait « Rien de compté · 0 s ». Deux écrans, deux
+     réponses, et l'app paraissait arrêtée toute la journée.
+     On la relit donc à l'instant du chargement — l'archive garde sa valeur,
+     rien n'est effacé, et le jour où l'heure la rattrape elle redevient
+     exacte. La minute de battement est celle des horloges : deux appareils
+     ne sont jamais à la seconde, et il ne s'agit pas de rogner leur écart.
+     Le plancher d'une seconde est celui de `fermeBloc` : sans lui, une fin
+     ramenée sous son début donnerait un bloc de durée nulle, que la réunion
+     laisse tomber sans rien dire (13.cf). */
+  const ici = Date.now();
+  d.temps.forEach(function(b){
+    if(b && typeof b.fin==="number" && b.fin > ici+60000)
+      b.fin = Math.max(ici, b.deb+1000);
+  });
   d.temps = d.temps.filter(b=>b && typeof b.deb==="number" && b.t)
                    .sort((a,b)=>a.deb-b.deb);
   d.temps.forEach(b=>{ if(!b.id) b.id="b"+(d.seq++)+"-"+DEV; });

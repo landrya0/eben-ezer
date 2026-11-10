@@ -15,12 +15,6 @@ function CATS(){
     .concat((db.cats||[]).map(function(c){ return {id:c.id, nom:c.nom}; }));
 }
 function catNom(id){ const c=CATS().filter(x=>x.id===id)[0]; return c ? c.nom : "Le reste"; }
-function catId(nom){
-  const v=String(nom||"").trim(); if(!v) return "";
-  const t=CATS().filter(c=>c.nom.toLowerCase()===v.toLowerCase())[0];
-  if(t) return t.id;
-  const id=uid("k"); db.cats.push({id:id, nom:cap(v), maj:Date.now()}); return id;
-}
 function tache(id){ return (db.taches||[]).filter(t=>t.id===id)[0]; }
 function tacheNom(id){ const t=tache(id); return t ? t.nom : "—"; }
 function tacheCat(id){ const t=tache(id); return t ? (t.cat||"reste") : "reste"; }
@@ -318,7 +312,6 @@ function barreFen(f){
     <button class="fnp" data-fdec="1" aria-label="Après"${f.apres?"":" disabled"}>&rsaquo;</button>
   </div>`;
 }
-function pcent(x, tot){ return tot ? Math.round(x*100/tot) : 0; }
 /* Sur trente jours, une heure de prière pèse deux dixièmes de pour cent.
    L'arrondir à zéro serait faux — une heure a été donnée — et dur pour
    rien. Sous le demi pour cent, on écrit donc le dixième. */

@@ -76,6 +76,5 @@ function tranche(n, grain){
   const l=lundi(p);
   return "Semaine du "+l.getDate()+" "+MOIS[l.getMonth()]+" "+l.getFullYear();
 }
-function ansDepuis(n){ const p=parse(n.date); if(!p) return 0; return new Date().getFullYear()-p.y; }
 function manCourt(m){ const t=manTxt(m); return t ? t.replace(/^Il (a |m'a |l'a )?/,"") : ""; }
 

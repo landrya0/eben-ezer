@@ -557,32 +557,6 @@ const actions={
   /* Le même écran, mais le curseur déjà dans la note : la porte manquait,
      et « Corriger les heures » ne disait à personne qu'on pouvait écrire. */
   direBloc(){ fermeMenu(); empile(); S.view="bloc"; S.noteFocus=true; render(); },
-  livreGo(){
-    const id=tacheLivre(); if(!id) return;
-    pointe(id, false); S.pile=[]; S.view="today";
-    toast("On compte : "+tacheNom(id)); render();
-  },
-  livreStop(){
-    const id=tacheLivre();
-    const b=ouverts().filter(function(x){ return x.t===id; })[0];
-    if(!b) return render();
-    arreteUn(b); S.pile=[]; S.view="today";
-    toast("Arrêté : "+tacheNom(id));
-    apresArret([b]); render();
-  },
-  bibleGo(){
-    const id=tacheBible() || tacheId("Lecture de la Parole", "dieu", "parole");
-    pointe(id, false); S.pile=[]; S.view="today";
-    toast("On compte : "+tacheNom(id)); render();
-  },
-  bibleStop(){
-    const id=tacheBible();
-    const b=ouverts().filter(function(x){ return x.t===id; })[0];
-    if(!b) return render();
-    arreteUn(b); S.pile=[]; S.view="today";
-    toast("Arrêté : "+tacheNom(id));
-    apresArret([b]); render();
-  },
   direLu(){ fermeMenu(); empile(); S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false;
     S.view="lecture"; render(); },
   direPg(){ fermeMenu(); empile(); S.pgL=null; S.pgA=null; S.pgZ=null;
@@ -925,7 +899,6 @@ const actions={
      Elle hérite de la date de l'acte qu'elle précède — à corriger d'un geste
      en l'ouvrant, c'est toujours plus juste qu'aujourd'hui. */
   causeNeuf(){ S.cNeuf=true; S.cTxt=""; S.cType=""; render(); },
-  causeListe(){ S.cNeuf=false; S.cTxt=""; S.cType=""; render(); },
   ajoute(){
     const el=document.getElementById("cNeuf");
     const v=((el&&el.value)||S.cTxt||"").trim();

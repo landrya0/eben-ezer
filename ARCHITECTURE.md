@@ -32,19 +32,19 @@ trois endroits qui tiennent cet ordre :
 
 | fichier | ce qu'il tient | lignes |
 |---|---|---|
-| `01-socle.js` | constantes du socle, `VERSION`, le crochet des sondes, rangement sur l'appareil | 228 |
-| `02-dates.js` | dire une date comme on la dit de vive voix | 81 |
-| `03-temps.js` | **les blocs** : compter, couper, réunir, les creux | 331 |
+| `01-socle.js` | constantes du socle, `VERSION`, le crochet des sondes, rangement sur l'appareil | 246 |
+| `02-dates.js` | dire une date comme on la dit de vive voix | 80 |
+| `03-temps.js` | **les blocs** : compter, couper, réunir, les creux | 362 |
 | `04-medias.js` | ce qu'on joint à un acte | 247 |
 | `05-acces.js` | lire l'archive : actes, gens, ce qui remonte | 197 |
-| `06-charpente.js` | rail, barres, briques, menu, le nom des écrans — dessiner la page | 410 |
-| `07-ecrans-actes.js` | les écrans du mémorial, et l'assistant qui note | 1138 |
+| `06-charpente.js` | rail, barres, briques, menu, le nom des écrans — dessiner la page | 461 |
+| `07-ecrans-actes.js` | les écrans du mémorial, et l'assistant qui note | 1146 |
 | `08-sync.js` | la copie distante, la réunion de deux appareils | 465 |
-| `09-ecrans-temps.js` | pointer, la frise, mon temps | 730 |
-| `10-ecrans-reste.js` | temps mis à part, lectures, auteurs, réglages, dictée | 1603 |
-| `12-sondes.js` | **les sondes** : ce que l'app coûte en gestes, et ce qu'elle refuse | 432 |
-| `13-gestes.js` | le délégué — un seul écouteur — et le démarrage | 1241 |
-| `src/ebenezer.css` | la feuille de style | 772 |
+| `09-ecrans-temps.js` | pointer, la frise, mon temps | 760 |
+| `10-ecrans-reste.js` | temps mis à part, lectures, auteurs, réglages, dictée | 1987 |
+| `12-sondes.js` | **les sondes** : ce que l'app coûte en gestes, et ce qu'elle refuse | 470 |
+| `13-gestes.js` | le délégué — un seul écouteur — et le démarrage | 1305 |
+| `src/ebenezer.css` | la feuille de style | 789 |
 
 `index.html` ne tient plus que la charpente HTML et les treize balises : **70 lignes**.
 
@@ -64,7 +64,7 @@ DOM ni au HTML**. Cette partie-là se transporte telle quelle ; le reste meurt a
 - **Se transporte** — `02-dates.js`, `03-temps.js`, et la moitié modèle de `05-acces.js`,
   `08-sync.js`, `10-ecrans-reste.js`, et la moitié calcul de `12-sondes.js` :
   les règles, le calcul des parts, les chemins, les périodes, les postes et les sommes, la fusion
-  de deux archives, le bilan des gestes. C'est ce que les 276 tests défendent, et ils n'ouvrent
+  de deux archives, le bilan des gestes. C'est ce que les 285 tests défendent, et ils n'ouvrent
   aucune page.
 - **Meurt à la bascule** — `06-charpente.js`, les trois `ecrans-*.js`, l'écran de
   `12-sondes.js`, `13-gestes.js`, `ebenezer.css` : tout ce qui

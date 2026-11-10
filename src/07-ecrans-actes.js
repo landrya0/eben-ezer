@@ -653,7 +653,7 @@ function choixSujets(sujSel){
   return `<div class="cands">`+titreBloc("Ou un sujet que tu as nommé")
     + liste(suj.map(function(s){
         const pris=(sujSel||[]).indexOf(s.id)!==-1;
-        return ligne({titre:esc(s.txt), sous:esc(sujetHist(s.id)),
+        return ligne({titre:esc(sujetTxt(s.id)), sous:esc(sujetHist(s.id)),
           apres:pris?`<span class="coche">✓</span>`:"",
           attr:'data-sujp="'+s.id+'"'+(pris?' data-sel="1"':"")});
       }).join(""))+`</div>`;
@@ -1111,7 +1111,7 @@ function rappel(p){
    (13.dp). */
 function rappelSuj(ss){
   return `<div class="block amorce" style="margin-top:16px">Il répond à ce que tu portais :
-    ${ss.map(function(s){ return "<b>"+esc(s.txt)+"</b>"; }).join(", ")}</div>`;
+    ${ss.map(function(s){ return "<b>"+esc(sujetTxt(s.id))+"</b>"; }).join(", ")}</div>`;
 }
 /* La date est toujours visible. L'état est une question séparée. */
 function blocQuand(id, val, prec, avecEtat, etat){

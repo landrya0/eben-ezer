@@ -187,7 +187,70 @@ function sujetHist(sid){
    lit. On le retrouve donc au lieu de le recréer — à la casse et aux espaces
    près, puisque personne ne retape deux fois la même phrase à l'identique. */
 function sujet(id){ return (db.sujets||[]).filter(function(s){ return s.id===id; })[0]; }
-function sujetTxt(id){ const s=sujet(id); return s ? s.txt : ""; }
+/* 13.ek — un sujet pris dans une liste n'est plus une chaîne de caractères :
+   il porte l'identifiant de ce dont il s'agit, et son libellé se relit de là.
+   Un frère renommé renomme son sujet. Le texte gardé dans la fiche est un
+   repli, pour le jour où ce qu'elle vise a disparu. */
+function sujetTxt(id){
+  const s=sujet(id); if(!s) return "";
+  if(s.lie){
+    if(String(s.lie).charAt(0)==="g"){ const n=gensNom(s.lie); if(n) return "Pour "+n; }
+    else { const n=node(s.lie); if(n && n.txt) return n.txt; }
+  }
+  return s.txt;
+}
+function sujetDeLie(lie){
+  const f=(db.sujets||[]).filter(function(s){ return s.lie===lie; })[0];
+  return f ? f.id : null;
+}
+function sujetLie(lie, txt){
+  db.sujets=db.sujets||[];
+  const f=sujetDeLie(lie); if(f) return f;
+  const id=uid("s"); db.sujets.push({id:id, txt:txt, lie:lie, maj:Date.now()}); return id;
+}
+/* Ce qu'on porte en prière, l'application le tient déjà : les gens, et ce qui
+   attend. « Ce qui attend » est exactement ce qu'Aujourd'hui lui remonte — le
+   prévu en retard, l'acte de Dieu resté sans réponse de lui. Les retaper
+   serait lui faire recopier son propre mémorial (13.cg, 13.ek). On plafonne :
+   une liste de prière est une liste, pas l'archive entière. */
+const SJ_TEND = 5;
+function sujetsAttente(){
+  const vus={}, o=[];
+  const prends=function(n){ if(n && !vus[n.id]){ vus[n.id]=1; o.push(n); } };
+  (db.nodes||[]).filter(function(n){
+      return n.etat==="prevu" && !sansDate(n) && n.date && n.date<=today(); })
+    .sort(parDateAsc).slice(0, SJ_TEND).forEach(prends);
+  dieuNodes().filter(function(n){
+      return !enfants(n.id).some(function(e){ return e.act==="moi"; }); })
+    .sort(parDateAsc).slice(0, SJ_TEND).forEach(prends);
+  return o;
+}
+function ligneTend(lie, titre, sous){
+  return ligne({titre:esc(titre), sous:sous?esc(sous):"",
+    attr:'data-sjlie="'+lie+'" data-sjn="'+esc(String(titre).toLowerCase())+'"'});
+}
+/* Les deux groupes tendus. Un libellé déjà pris ailleurs sur l'écran n'est
+   pas retendu : il y est, en « déjà nommé », avec son histoire. */
+function tendusSj(pris){
+  let h="";
+  const dispo=function(lie){
+    const sid=sujetDeLie(lie);
+    return !sid || !pris[sid];
+  };
+  const gs=(db.gens||[]).filter(function(g){ return dispo(g.id); })
+    .sort(function(a,b){ return (b.maj||0)-(a.maj||0); });
+  if(gs.length)
+    h+='<div class="sjgrp">'+titreBloc("Ceux que tu portes","ecart")
+      + liste(gs.map(function(g){ return ligneTend(g.id, "Pour "+g.nom, ""); }).join(""))+'</div>';
+  const at=sujetsAttente().filter(function(n){ return dispo(n.id); });
+  if(at.length)
+    h+='<div class="sjgrp">'+titreBloc("Ce qui attend","ecart")
+      + liste(at.map(function(n){
+          return ligneTend(n.id, n.txt,
+            n.etat==="prevu" ? "Tu avais prévu · "+human(n) : "Sans réponse de toi · "+human(n));
+        }).join(""))+'</div>';
+  return h;
+}
 function sujetId(txt){
   const v=String(txt||"").trim().replace(/\s+/g," ");
   if(!v) return null;
@@ -865,20 +928,30 @@ function vSujets(){
     h+=titreBloc((reprise ? "Nommés dans cette séance — " : "Nommés ici — ")+sujetsTxt(sur.length));
     se.forEach(function(x){ if((x.sj||[]).length) h+=listeSj(x, reprise); });
   }
-  h+=titreBloc(sur.length ? "En nommer un autre" : "Les nommer", "ecart");
-  h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
-    <input type="text" id="sjQ" placeholder="Chercher, ou nommer un sujet" value="${esc(S.sjQ||"")}" autocomplete="off" autocapitalize="sentences"></div></div></li>`);
-  h+=`<div class="list list-strong list-outline list-dividers inset" id="sjNeuf" hidden><ul>${
-      ligne({titre:`<span class="qn"></span>`, attr:'data-act="sjAdd"'})}</ul></div>`;
+  /* 13.ek — les tapes d'abord, le clavier ensuite. Un champ de saisie en tête
+     d'écran dit que le clavier est le chemin ; et comme les deux listes
+     d'alors ne se remplissaient que de ce qu'il avait déjà tapé, elles
+     restaient vides le premier jour — et le restaient tout court. Quatre
+     séances de prière, zéro sujet. L'ordre de l'écran est donc l'ordre du
+     coût : ce qu'il a nommé la dernière fois, ce que l'application tient
+     déjà, ce qu'il a nommé un jour, et en dernier le clavier. */
   const der=sujetsDerniers(b).filter(function(id){ return !pris[id] && sujet(id); });
   const vus={}; der.forEach(function(id){ vus[id]=1; });
   if(der.length)
     h+=`<div class="sjgrp">`+titreBloc("La dernière fois","ecart")+liste(der.map(ligneSj).join(""))+`</div>`;
+  const dehors={}; Object.keys(pris).forEach(function(k){ dehors[k]=1; });
+  Object.keys(vus).forEach(function(k){ dehors[k]=1; });
+  h+=tendusSj(dehors);
   const autres=(db.sujets||[]).filter(function(s){ return !pris[s.id] && !vus[s.id]; })
     .sort(function(a,b2){ return (b2.maj||0)-(a.maj||0); });
   if(autres.length)
     h+=`<div class="sjgrp">`+titreBloc("Déjà nommés, une autre fois","ecart")
       + liste(autres.map(function(s){ return ligneSj(s.id); }).join(""))+`</div>`;
+  h+=titreBloc("Nommer autre chose", "ecart");
+  h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
+    <input type="text" id="sjQ" placeholder="Chercher, ou nommer un sujet" value="${esc(S.sjQ||"")}" autocomplete="off" autocapitalize="sentences"></div></div></li>`);
+  h+=`<div class="list list-strong list-outline list-dividers inset" id="sjNeuf" hidden><ul>${
+      ligne({titre:`<span class="qn"></span>`, attr:'data-act="sjAdd"'})}</ul></div>`;
   Z.html=h;
   Z.action=bouton("Terminé", 'data-back="1"');
 }
@@ -971,9 +1044,10 @@ function vCahier(){
   } else {
     h+=liste(vus.map(function(s){
       const ex=exauceTxt(s.id), hi=sujetHist(s.id);
-      return ligne({titre:esc(s.txt),
+      const tx=sujetTxt(s.id);
+      return ligne({titre:esc(tx),
         sous:[hi?esc(hi):"", ex?`<span class="exauce">${esc(ex)}</span>`:""].filter(Boolean).join(""),
-        attr:'data-sujo="'+s.id+'" data-sjn="'+esc(String(s.txt).toLowerCase())+'"'});
+        attr:'data-sujo="'+s.id+'" data-sjn="'+esc(String(tx).toLowerCase())+'"'});
     }).join(""), "lien");
     h+=`<p class="vide" id="sjRien" hidden>Rien ne correspond.</p>`;
   }
@@ -988,8 +1062,11 @@ function vSujet(){
   if(!s){ depile("cahier"); return render(); }
   const ex=exaucesDe(s.id), se=seancesDe(s.id);
   Z.titre="Un sujet"; Z.retour=true;
+  const suit = s.lie ? (String(s.lie).charAt(0)==="g"
+      ? (gensNom(s.lie) ? "Ce sujet suit la fiche de "+gensNom(s.lie)+"." : "")
+      : (node(s.lie) ? "Ce sujet suit un acte de ton mémorial." : "")) : "";
   let h=`<div class="block" style="margin-top:20px">
-      <p class="grand" style="font-size:21px">${esc(s.txt)}</p>
+      <p class="grand" style="font-size:21px">${esc(sujetTxt(s.id))}</p>
       <p class="meta">${esc(sujetHist(s.id) || "jamais nommé dans une séance")}</p>
     </div>`;
   h+=titreBloc("Ce qu'Il a fait");
@@ -1006,7 +1083,11 @@ function vSujet(){
     }).join(""), "lien");
   }
   h+=titreBloc("Le dire autrement","ecart");
-  h+=champ("sjTxt","Le sujet, dans tes mots","text",esc(s.txt),'autocapitalize="sentences"');
+  /* Un sujet est OU bien celui d'une fiche, OU bien dans ses mots — jamais
+     les deux, sinon deux libellés se disputent la même ligne. Ses mots
+     l'emportent toujours, mais l'écran le dit avant, pas après (P9). */
+  if(suit) h+=`<div class="block amorce">${esc(suit)} Si tu écris tes propres mots, il s'en détache.</div>`;
+  h+=champ("sjTxt","Le sujet, dans tes mots","text",esc(sujetTxt(s.id)),'autocapitalize="sentences"');
   h+=`<div class="block">${bouton("Garder ce texte", 'data-act="sjGarder"')}</div>`;
   Z.html=h;
   Z.action = bouton(ex.length ? "Il y a répondu encore" : "Il y a répondu",

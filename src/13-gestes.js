@@ -97,7 +97,7 @@ function supCible(v){
   return p.length>1 ? {b:blocT(p[0]), i:+p[1]} : {b:blocT(S.blocId), i:+p[0]};
 }
 document.addEventListener("click", function(ev){
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-dis],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-dis],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjlie],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
   if(!t) return;
   /* UN SEUL entonnoir pour tous les gestes de l'application : la sonde se
      tient ici, et nulle part ailleurs. Le `finally` est ce qui la rend
@@ -177,6 +177,22 @@ function geste(g, t){
        souvent se retrouve vite, ce qu'on a dit une fois il y a deux ans
        descend tout seul. */
     touche(sujet(g.sjadd)); touche(b); S.sjQ=""; save(); return render();
+  }
+  /* 13.ek — une tape sur ce que l'application tendait. La fiche du sujet
+     naît ici, du lien, et pas du clavier : c'est tout l'objet de la règle.
+     Ensuite c'est un sujet comme un autre, avec les mêmes refus. */
+  if(g.sjlie){
+    const b=blocT(S.blocId); if(!b) return;
+    const quoi = String(g.sjlie).charAt(0)==="g"
+      ? {ok:!!gensNom(g.sjlie), txt:"Pour "+gensNom(g.sjlie)}
+      : {ok:!!node(g.sjlie), txt:(node(g.sjlie)||{}).txt||""};
+    if(!quoi.ok) return;
+    const sid=sujetLie(g.sjlie, quoi.txt);
+    if(seanceDe(b).some(function(x){ return (x.sj||[]).indexOf(sid)!==-1; }))
+      return toast("Déjà nommé dans cette séance");
+    b.sj=(b.sj||[]);
+    if(b.sj.indexOf(sid)<0) b.sj.push(sid);
+    touche(sujet(sid)); touche(b); S.sjQ=""; save(); return render();
   }
   if(g.sjsup){
     const c=supCible(g.sjsup); if(!c.b) return;
@@ -624,12 +640,17 @@ const actions={
     const s=sujet(S.sujId); if(!s) return;
     const v=String(val("sjTxt")||"").trim().replace(/\s+/g," ");
     if(!v) return toast("Un sujet ne peut pas être vide");
-    if(v===s.txt) return;
+    if(v===sujetTxt(s.id)) return;
     const k=v.toLowerCase();
     if((db.sujets||[]).some(function(x){
-        return x.id!==s.id && String(x.txt).trim().toLowerCase()===k; }))
+        return x.id!==s.id && String(sujetTxt(x.id)).trim().toLowerCase()===k; }))
       return toast("Un autre sujet porte déjà ce texte");
-    s.txt=v; touche(s); save(); toast("Noté."); render();
+    /* Ses mots l'emportent, et ils détachent : un sujet est celui d'une
+       fiche OU dans ses mots, jamais les deux (13.ek). L'écran l'avait dit
+       avant, donc rien ne se fait en douce (P9). */
+    const detache=!!s.lie;
+    s.txt=v; s.lie=null; touche(s); save();
+    toast(detache ? "Noté — ce sujet est maintenant dans tes mots." : "Noté."); render();
   },
   qAdd(){
     const b=blocT(S.blocId); if(!b) return;

@@ -4457,3 +4457,135 @@ test("13.ej — changer d'acteur ne perd pas la circonstance", () => {
   A.equal(a.S.draft.pdt, "b1", "la circonstance traverse, comme le sujet (13.cx, 13.dp)");
   A.equal(a.S.draft.pdtSup, true);
 });
+
+/* ------------------------------------------------------------------
+   13.ek — une liste qui ne se remplit qu'au clavier reste vide.
+   Quatre séances de prière, zéro sujet nommé, deux sujets en cinq
+   jours : l'écran tendait bien des tapes, mais seulement de ce qui
+   avait déjà été tapé. L'amorce manquait.
+   ------------------------------------------------------------------ */
+
+/* Une prière qui tourne, un frère à porter, et de quoi attendre :
+   un prévu en retard, un acte de Dieu resté sans réponse, et un
+   autre auquel il a répondu — celui-là ne doit pas être tendu. */
+function aPorter(a) {
+  a.maintenant(MIDI);
+  a.db.taches = [{ id: "p1", nom: "Prière", cat: "dieu", d: "priere", maj: 1 }];
+  a.db.temps = [bloc("P1", "p1", j(20, 17), j(20, 46))];
+  const g1 = a.f.gensId("Estelle");
+  const g2 = a.f.gensId("Papa Théodore");
+  a.db.nodes = [
+    { id: "nv", act: "moi", dest: "dieu", kind: "acte", txt: "Jeûner un jour",
+      etat: "prevu", date: "2026-11-05", prec: "j", par: [], suj: [], maj: 1, ts: 1 },
+    { id: "nd", act: "dieu", dest: null, kind: "acte", txt: "Il a ouvert la porte de Qualitas",
+      etat: "fait", date: "2026-11-02", prec: "j", par: [], suj: [], maj: 1, ts: 2 },
+    { id: "nr", act: "dieu", dest: null, kind: "acte", txt: "Il a guéri la toux de Jonathan",
+      etat: "fait", date: "2026-11-03", prec: "j", par: [], suj: [], maj: 1, ts: 3 },
+    { id: "nm", act: "moi", dest: "dieu", kind: "acte", txt: "Je L'ai remercié",
+      etat: "fait", date: "2026-11-03", prec: "j", par: ["nr"], suj: [], maj: 1, ts: 4 }
+  ];
+  a.S.blocId = "P1"; a.S.view = "sujets"; a.S.sjQ = "";
+  return { g1: g1, g2: g2 };
+}
+
+test("13.ek — l'écran tend ce que l'application tient déjà", () => {
+  const a = app();
+  const o = aPorter(a);
+  A.deepEqual(Array.from(a.db.sujets || []), [], "on part sans un seul sujet, comme le premier jour");
+  a.f.vSujets();
+  A.match(a.Z.html, /Ceux que tu portes/, "les gens sont tendus");
+  A.match(a.Z.html, new RegExp('data-sjlie="' + o.g1 + '"'), "Estelle est à une tape");
+  A.match(a.Z.html, /Pour Estelle/);
+  A.match(a.Z.html, /Ce qui attend/);
+  A.match(a.Z.html, /data-sjlie="nv"/, "ce qu'il avait prévu et n'a pas fait");
+  A.match(a.Z.html, /data-sjlie="nd"/, "l'acte de Dieu resté sans réponse de lui");
+  A.equal(a.Z.html.indexOf('data-sjlie="nr"'), -1,
+    "mais pas celui auquel il a déjà répondu : il n'attend plus");
+  A.equal(a.Z.html.indexOf('data-sjlie="nm"'), -1,
+    "ni ses propres actes faits, qui ne sont pas une dette");
+});
+
+test("13.ek — rien n'est coché : tendre n'est pas nommer", () => {
+  const a = app();
+  aPorter(a);
+  a.f.vSujets();
+  A.deepEqual(Array.from(a.f.blocT("P1").sj || []), [],
+    "l'écran a tout tendu et le bloc est toujours vide (13.de)");
+  A.equal(a.Z.html.indexOf("coche"), -1, "aucune ligne tendue n'arrive cochée");
+});
+
+test("13.ek — le clavier passe sous les tapes", () => {
+  const a = app();
+  aPorter(a);
+  a.f.vSujets();
+  const tape = a.Z.html.indexOf("data-sjlie=");
+  const clavier = a.Z.html.indexOf('id="sjQ"');
+  A.ok(tape > -1 && clavier > -1, "les deux chemins sont là");
+  A.ok(tape < clavier, "un champ de saisie en tête d'écran dit que le clavier est le chemin");
+  A.match(a.Z.html, /Nommer autre chose/, "et le titre du champ dit ce qu'il est : le recours");
+});
+
+test("13.ek — une tape suffit, et la fiche naît du lien", () => {
+  const a = app();
+  const o = aPorter(a);
+  a.geste({ sjlie: o.g1 });
+  const sj = Array.from(a.f.blocT("P1").sj || []);
+  A.equal(sj.length, 1, "une tape, un sujet nommé");
+  const s = a.f.sujet(sj[0]);
+  A.equal(s.lie, o.g1, "le sujet porte l'identifiant de la personne, pas seulement son nom");
+  A.equal(a.f.sujetTxt(sj[0]), "Pour Estelle");
+});
+
+test("13.ek — le libellé se relit de la fiche", () => {
+  const a = app();
+  const o = aPorter(a);
+  a.geste({ sjlie: o.g1 });
+  const sid = Array.from(a.f.blocT("P1").sj)[0];
+  a.db.gens.filter(g => g.id === o.g1)[0].nom = "Estelle A.";
+  A.equal(a.f.sujetTxt(sid), "Pour Estelle A.", "un frère renommé renomme son sujet");
+  a.db.gens = [];
+  A.equal(a.f.sujetTxt(sid), "Pour Estelle",
+    "et si la fiche visée disparaît, le texte gardé sert de repli");
+});
+
+test("13.ek — deux tapes sur la même personne ne font pas deux sujets", () => {
+  const a = app();
+  const o = aPorter(a);
+  a.geste({ sjlie: o.g1 });
+  const sid = Array.from(a.f.blocT("P1").sj)[0];
+  a.db.temps.push(bloc("P9", "p1", jour(3, 6, 0), jour(3, 6, 30)));
+  a.S.blocId = "P9";
+  a.geste({ sjlie: o.g1 });
+  A.deepEqual(Array.from(a.f.blocT("P9").sj), [sid], "la même fiche, pas une seconde");
+  A.equal((a.db.sujets || []).length, 1, "et une seule ligne au cahier");
+});
+
+test("13.ek — ce qui est déjà nommé dans la séance ne se retend pas", () => {
+  const a = app();
+  const o = aPorter(a);
+  a.geste({ sjlie: o.g1 });
+  a.f.vSujets();
+  A.equal(a.Z.html.indexOf('data-sjlie="' + o.g1 + '"'), -1,
+    "Estelle est déjà portée dans cette prière : elle quitte les tendus (13.eh)");
+  A.match(a.Z.html, new RegExp('data-sjlie="' + o.g2 + '"'), "les autres restent tendus");
+  a.geste({ sjlie: o.g1 });
+  A.match(a.dernierToast(), /Déjà nommé dans cette séance/,
+    "et l'autre chemin est refusé de la même façon");
+  A.equal(Array.from(a.f.blocT("P1").sj).length, 1);
+});
+
+test("13.ek — écrire ses propres mots détache, et l'écran l'avait dit", () => {
+  const a = app();
+  const o = aPorter(a);
+  a.geste({ sjlie: o.g1 });
+  const sid = Array.from(a.f.blocT("P1").sj)[0];
+  a.S.sujId = sid; a.S.view = "sujet";
+  a.f.vSujet();
+  A.match(a.Z.html, /Ce sujet suit la fiche de Estelle/, "l'avertissement précède le geste (P9)");
+  A.match(a.Z.html, /il s'en détache/);
+  a.ecrit("sjTxt", "La santé d'Estelle");
+  a.actions.sjGarder();
+  A.equal(a.f.sujet(sid).lie, null, "ses mots l'emportent, et ils détachent");
+  A.equal(a.f.sujetTxt(sid), "La santé d'Estelle");
+  A.match(a.dernierToast(), /dans tes mots/, "et il est prévenu de ce qui vient d'arriver");
+});

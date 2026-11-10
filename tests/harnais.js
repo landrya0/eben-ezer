@@ -232,7 +232,7 @@ const PONT = `
        portesEp, porteEp, epinglePorte, decrochePorte, enPremier,
        epinglesTaches, portables, nomVue, porteBlocEp, portesReglage,
        vOrdre, vEpingles, portePointage, etapes, vNote, vNode, vPointer, creuxVif,
-       sansDate, precPour, quitterPrevu, jourPromis, promisBref, ligneActe, remontees, blocQuand, vEdit, human },
+       sansDate, precPour, today, quitterPrevu, jourPromis, promisBref, ligneActe, remontees, blocQuand, vEdit, human },
   c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY, CAT_SOCLE,
        SO_KEY, SO_MAX, ONGLETS, NOM_VUE, SEULES }
 };

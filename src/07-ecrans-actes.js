@@ -681,7 +681,12 @@ function etapes(d){
   if(d.act==="moi" && d.dest==="gens") e.push("destGens");
   e.push("txt");
   if(d.act!=="moi") e.push("man");
-  e.push("quand");
+  /* Un écran ne se justifie que par une question. Pour un acte à moi, celui
+     du jour en porte une vraie — où ça en est —, et il reste. Pour ce qui
+     vient de Lui ou d'un frère, il ne demandait qu'une date que l'app
+     connaît déjà : c'est aujourd'hui. Elle la dit donc au moment de garder,
+     et ne la demande plus (13.cg, 13.dx). */
+  if(d.act==="moi") e.push("quand");
   if(!d.fige) e.push("par");
   return e;
 }
@@ -1032,6 +1037,21 @@ function vNote(){
     Z.action = bouton(S.step===etapes(d).length-1?"Garder":"Continuer",
       'data-act="'+(S.step===etapes(d).length-1?"saveNote":"suiteDate")+'"');
   }
+  /* Le jour se dit sur le dernier écran, celui où l'on garde : c'est là
+     qu'une supposition de l'application doit se voir, et se défaire d'une
+     tape (P9, 13.dx). Pas sur « ajouter ce qui a précédé », qui garde un
+     autre acte que celui-ci. */
+  if(d.act!=="moi" && !S.cNeuf && S.step===etapes(d).length-1) Z.html += porteJour(d);
+}
+/* Replié tant que la réponse est celle que l'app suppose ; déplié dès qu'elle
+   ne l'est plus, ou dès qu'il le demande. On ne le replie jamais à sa place :
+   replier effacerait sans le dire le jour qu'il vient de choisir (13.dx). */
+function porteJour(d){
+  if(S.qOuv || d.date!==today() || d.prec!=="j")
+    return titreBloc("Quand ?","ecart") + blocQuand("nDate", d.date, d.prec, false, d.etat);
+  return titreBloc("Quand ?","ecart")
+    + liste(ligne({titre:"Aujourd'hui", sous:"Touche si c'était un autre jour",
+                   apres:`<span class="coche">✓</span>`, attr:'data-qouv="1"'}));
 }
 function rappel(p){
   return `<div class="block amorce" style="margin-top:16px">En réponse à :

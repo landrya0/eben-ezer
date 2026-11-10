@@ -2961,3 +2961,93 @@ test("13.dv — une seule porte : toutes les listes le disent du même coup", ()
   a.S.view = "node"; a.S.nodeId = "s1"; a.f.vNode();
   A.match(a.Z.html, /promis le 20 nov\./, "et sous « En réponse à »");
 });
+
+
+/* ========================================================================
+   13.dx — un écran ne se justifie que par une question
+   ======================================================================== */
+
+/* Noter une parole de Lui, par le chemin réel, jusqu'au dernier écran. */
+function paroleDeLui(a) {
+  a.geste({ go: "note" });
+  a.geste({ qui: "dieu" });
+  a.ecrit("nTxt", "Je ne te laisserai point");
+  a.actions.suite();
+  a.geste({ man: "parle" });
+  a.actions.suite();
+  a.f.vNote();
+  return a.S.draft;
+}
+
+test("13.dx — ce qui vient de Lui n'a plus d'écran pour le jour", () => {
+  const a = app();
+  const lui = { act: "dieu", par: [], suj: [], date: a.f.today(), prec: "j", fige: false };
+  const moi = { act: "moi", dest: "dieu", par: [], suj: [], date: a.f.today(), prec: "j", fige: false };
+  A.equal(Array.from(a.f.etapes(lui)).indexOf("quand"), -1,
+    "il ne demandait qu'une date que l'app connaît déjà");
+  A.ok(Array.from(a.f.etapes(moi)).indexOf("quand") !== -1,
+    "pour un acte à moi, ce même écran porte une vraie question : où ça en est");
+  A.equal(Array.from(a.f.etapes(lui)).length,
+          Array.from(a.f.etapes(moi)).length - 1, "un écran de moins");
+});
+
+test("13.dx — le jour se dit quand même, sur l'écran où l'on garde", () => {
+  const a = app();
+  const d = paroleDeLui(a);
+  A.equal(a.S.step, a.f.etapes(d).length - 1, "c'est bien le dernier écran");
+  A.match(a.Z.html, /Aujourd'hui/, "la supposition de l'app se voit avant de garder");
+  A.match(a.Z.html, /data-qouv/, "et une tape la défait");
+  A.match(a.Z.action, /Garder/);
+});
+
+test("13.dx — gardé sans rien toucher, l'acte porte le jour même", () => {
+  const a = app();
+  paroleDeLui(a);
+  a.actions.saveNote();
+  const n = a.db.nodes[a.db.nodes.length - 1];
+  A.equal(n.date, a.f.today());
+  A.equal(n.prec, "j");
+});
+
+test("13.dx — une tape déplie le calendrier, et le jour choisi est gardé", () => {
+  const a = app();
+  paroleDeLui(a);
+  a.geste({ qouv: "1" });
+  A.ok(a.S.qOuv);
+  A.match(a.Z.html, /id="nDate"/, "le calendrier est là, sans changer d'écran");
+  A.doesNotMatch(a.Z.html, /Où ça en est/,
+    "et il ne pose pas la question qui n'est pas la sienne");
+
+  a.ecrit("nDate", "2026-11-03");
+  a.actions.saveNote();
+  const n = a.db.nodes[a.db.nodes.length - 1];
+  A.equal(n.date, "2026-11-03", "c'est son jour, pas celui que l'app supposait");
+});
+
+test("13.dx — on ne replie jamais à sa place", () => {
+  const a = app();
+  const d = paroleDeLui(a);
+  /* Un jour déjà choisi : le replier cacherait ce qu'il vient de dire. */
+  d.date = "2026-11-03";
+  a.f.vNote();
+  A.match(a.Z.html, /id="nDate"/, "le calendrier s'ouvre de lui-même");
+  A.doesNotMatch(a.Z.html, /data-qouv/, "il n'y a plus rien à déplier");
+});
+
+test("13.dx — le calendrier déplié ne survit pas à la capture", () => {
+  const a = app();
+  paroleDeLui(a);
+  a.geste({ qouv: "1" });
+  a.actions.saveNote();
+  A.equal(a.S.qOuv, false,
+    "la note suivante ne rouvre pas une question qui ne se posait pas");
+});
+
+test("13.dx — rien sur l'écran qui garde un autre acte", () => {
+  const a = app();
+  paroleDeLui(a);
+  a.S.cNeuf = true;
+  a.f.vNote();
+  A.doesNotMatch(a.Z.html, /data-qouv/,
+    "« ajouter ce qui a précédé » date l'acte d'avant, pas celui-ci");
+});

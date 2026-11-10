@@ -416,7 +416,48 @@ function vActes(){
               : "")
         : bloc("Planifié", [], 0,
             "Rien de prévu. « Je vais faire… », au moment de noter."))
-    + bloc("Fait", faits.slice(0,12), faits.length-12);
+    + porteFaits(faits);
+}
+/* « Mes actes » répondait à deux questions à la fois : qu'est-ce qui
+   m'attend, et qu'est-ce que j'ai fait. La seconde occupait la moitié de la
+   hauteur de l'écran — douze lignes sous lesquelles il n'y a rien à faire —
+   et elle mentait : elle en montrait douze, annonçait « …et 13 autres », et
+   ces treize-là n'étaient listés nulle part dans l'application. Un chiffre
+   qui accuse doit mener quelque part (13.cb) ; une archive qu'on ne peut pas
+   relire n'est pas une archive. Une porte, donc, et derrière elle tout
+   (13.cs, 13.dy). */
+function porteFaits(faits){
+  if(!faits.length)
+    return titreBloc("Fait")+`<p class="vide">Rien encore. Ce que tu auras fait passera ici.</p>`;
+  return titreBloc("Fait")
+    + liste(ligne({titre:"Ce que j'ai fait",
+        sous: faits.length+" acte"+(faits.length>1?"s":"")
+              +(human(faits[0]) ? " · le dernier "+esc(human(faits[0])) : ""),
+        attr:'data-go="accomplis"'}), "lien");
+}
+
+/* ---------- ce que j'ai fait ---------- */
+/* Rangé par mois, comme « Ses œuvres » range les Siennes : ce qui se relit
+   se relit par tranches de temps, pas en une coulée (13.dy). */
+function vAccomplis(){
+  /* `file` avec un `haut` : sans lui, la charpente remplace la barre par le
+     titre et emporte le bouton Retour avec elle — un écran dont on ne sort
+     pas. Le titre ne se dit donc qu'une fois, en grand dans la page, et la
+     barre ne porte que le retour. */
+  Z.retour=true; Z.file=true;
+  const faits=db.nodes.filter(function(n){ return n.act==="moi" && n.etat==="fait"; }).sort(parDate);
+  if(!faits.length){ Z.titre="Ce que j'ai fait"; Z.file=false;
+    Z.html=`<p class="vide">Rien encore.</p>`; return; }
+  Z.haut=`<p class="titre-page">Ce que j'ai fait</p><p class="ssTitre">${
+    faits.length} acte${faits.length>1?"s":""} gardé${faits.length>1?"s":""}.</p>`;
+  let h="", mois=null, buf="";
+  faits.forEach(function(n){
+    const m=tranche(n, "mois");
+    if(m!==mois){ if(buf){ h+=liste(buf); buf=""; } h+=titreBloc(esc(m), mois===null?"":"ecart"); mois=m; }
+    buf += ligneActe(n, {attr:'data-node="'+n.id+'"'});
+  });
+  if(buf) h+=liste(buf);
+  Z.html=h;
 }
 
 /* ---------- un chemin ---------- */

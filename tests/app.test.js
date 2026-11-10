@@ -2952,8 +2952,10 @@ test("13.dv — une seule porte : toutes les listes le disent du même coup", ()
   a.S.view = "node"; a.S.nodeId = "p1";
   a.geste({ netat: "fait" });
 
-  a.S.view = "actes"; a.f.vActes();
-  A.match(a.Z.html, /promis le 20 nov\./, "dans « Mes actes »");
+  /* Un acte achevé se lit derrière la porte « Ce que j'ai fait » (13.dy) —
+     c'est le même `ligneActe`, donc le même pied. */
+  a.S.view = "accomplis"; a.f.vAccomplis();
+  A.match(a.Z.html, /promis le 20 nov\./, "dans « Ce que j'ai fait »");
 
   a.db.nodes.push({ id: "s1", act: "dieu", dest: "moi", kind: "acte",
     txt: "Il a répondu", man: "", par: ["p1"], suj: [], date: "2026-11-08",
@@ -3050,4 +3052,108 @@ test("13.dx — rien sur l'écran qui garde un autre acte", () => {
   a.f.vNote();
   A.doesNotMatch(a.Z.html, /data-qouv/,
     "« ajouter ce qui a précédé » date l'acte d'avant, pas celui-ci");
+});
+
+
+/* ========================================================================
+   13.dy — « Mes actes » dit ce qui m'attend ; le reste a sa porte
+   ======================================================================== */
+
+function vingtCinqFaits(a) {
+  for (let i = 1; i <= 25; i++)
+    a.db.nodes.push({ id: "f" + i, act: "moi", dest: "dieu", kind: "acte",
+      txt: "Acte accompli numéro " + i, man: "", par: [], suj: [],
+      date: "2026-10-" + String(i).padStart(2, "0"), prec: "j",
+      etat: "fait", ts: i, maj: 1 });
+  return a.db.nodes.filter(n => n.etat === "fait");
+}
+
+test("13.dy — tout ce qui est fait est atteignable, pas seulement douze", () => {
+  const a = app();
+  vingtCinqFaits(a);
+  a.S.view = "accomplis"; a.f.vAccomplis();
+  for (const n of ["Acte accompli numéro 1", "Acte accompli numéro 13",
+                   "Acte accompli numéro 25"])
+    A.match(a.Z.html, new RegExp(n.replace(/ /g, " ")),
+      "une archive qu'on ne peut pas relire n'est pas une archive");
+});
+
+test("13.dy — « Mes actes » n'en porte plus la liste, mais la porte", () => {
+  const a = app();
+  vingtCinqFaits(a);
+  a.S.view = "actes"; a.f.vActes();
+  A.match(a.Z.html, /data-go="accomplis"/, "la porte est là");
+  A.match(a.Z.html, /25 actes/, "et elle dit combien elle garde");
+  A.doesNotMatch(a.Z.html, /Acte accompli numéro 1</,
+    "l'écran ne répond plus qu'à une question : qu'est-ce qui m'attend");
+  A.doesNotMatch(a.Z.html, /et 13 autres/,
+    "et il n'annonce plus un reste qui ne menait nulle part");
+});
+
+test("13.dy — la porte dit le dernier, pour que le geste ait un écho", () => {
+  const a = app();
+  vingtCinqFaits(a);
+  a.S.view = "actes"; a.f.vActes();
+  A.match(a.Z.html, /le dernier 25 octobre 2026/,
+    "ce qu'on vient d'achever se voit sans ouvrir");
+});
+
+test("13.dy — rien de fait : pas de porte vers une pièce vide", () => {
+  const a = app();
+  a.S.view = "actes"; a.f.vActes();
+  A.doesNotMatch(a.Z.html, /data-go="accomplis"/,
+    "une porte qui ne mène nulle part n'est pas une porte");
+  A.match(a.Z.html, /Ce que tu auras fait passera ici/,
+    "un bloc vide dit comment il se remplit");
+});
+
+test("13.dy — l'écran range par mois, comme « Ses œuvres » range les Siennes", () => {
+  const a = app();
+  vingtCinqFaits(a);
+  a.db.nodes.push({ id: "f99", act: "moi", dest: "dieu", kind: "acte",
+    txt: "Un acte de novembre", man: "", par: [], suj: [], date: "2026-11-02",
+    prec: "j", etat: "fait", ts: 99, maj: 1 });
+  a.S.view = "accomplis"; a.f.vAccomplis();
+  A.match(a.Z.html, /novembre 2026/);
+  A.match(a.Z.html, /octobre 2026/);
+  A.ok(a.Z.html.indexOf("novembre 2026") < a.Z.html.indexOf("octobre 2026"),
+    "le plus récent en haut : c'est le sens où l'on relit");
+});
+
+test("13.dy — ce qui m'attend ne passe pas derrière la porte", () => {
+  const a = app();
+  vingtCinqFaits(a);
+  planifie(a, "p1", "Visiter la sœur Mbarga", "2026-11-14");
+  a.db.nodes.push({ id: "e1", act: "moi", dest: "dieu", kind: "acte",
+    txt: "Lire les Actes en entier", man: "", par: [], suj: [],
+    date: "2026-11-02", prec: "j", etat: "encours", ts: 1, maj: 1 });
+  a.S.view = "actes"; a.f.vActes();
+  A.match(a.Z.html, /Lire les Actes en entier/, "ce qui dure reste sous les yeux");
+  A.match(a.Z.html, /Visiter la sœur Mbarga/, "ce qui vient aussi");
+
+  a.S.view = "accomplis"; a.f.vAccomplis();
+  A.doesNotMatch(a.Z.html, /Lire les Actes en entier/,
+    "et ce qui n'est pas fait n'a rien à faire dans ce qui est fait");
+  A.doesNotMatch(a.Z.html, /Visiter la sœur Mbarga/);
+});
+
+test("13.dy — la porte s'épingle, comme toute porte qui tient debout seule", () => {
+  const a = app();
+  A.ok(Array.from(a.f.portables()).indexOf("accomplis") !== -1);
+  a.geste({ potog: "accomplis" });
+  A.ok(a.f.porteEp("accomplis"), "sous le pouce si c'est là qu'il relit");
+});
+
+test("13.dy — un écran dont on ne sort pas n'est pas un écran", () => {
+  const a = app();
+  vingtCinqFaits(a);
+  a.S.pile = []; a.S.view = "actes";
+  a.geste({ go: "accomplis" });
+  A.equal(a.S.view, "accomplis");
+  /* Un `haut` sans `file` remplace la barre par le titre, et emporte le
+     bouton Retour avec elle. */
+  A.ok(a.Z.retour, "la barre garde son retour");
+  A.ok(a.Z.file, "le titre descend dans la page plutôt que de prendre la barre");
+  a.geste({ back: "1" });
+  A.equal(a.S.view, "actes", "et il ramène d'où l'on vient");
 });

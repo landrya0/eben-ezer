@@ -1347,7 +1347,7 @@ function vPeriode(){
   Z.action=bouton("Garder", 'data-act="perGarder"');
 }
 
-const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), actes:vListe(vActes), chemin:vChemin, faits:vFaits,
+const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), actes:vListe(vActes), accomplis:vListe(vAccomplis), chemin:vChemin, faits:vFaits,
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData,
               pointer:vPointer, temps:vMonTemps, bloc:vBloc, quand:vQuand, frise:vFrise,
               tache:vTache, lecture:vLecture, pages:vPages, livre:vLivre, auteur:vAuteur,

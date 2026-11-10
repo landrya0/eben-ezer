@@ -305,7 +305,11 @@ function vFrise(){
    serait, au sens strict, une louange empruntée. */
 function vMonTemps(){
   Z.titre="Mon temps"; Z.retour=true;
-  const f=fenetre(), c=cumul(f.t0, f.t1), v=S.vue||"parts";
+  /* La vue est gardée d'un passage à l'autre, et c'est le seul endroit où
+     elle vit : deux champs à tenir d'accord entre eux n'en font jamais un
+     bon (13.cn, 13.ee). */
+  const f=fenetre(), c=cumul(f.t0, f.t1),
+        v=vueDe(S.view, ONG_TEMPS.map(function(o){ return o[0]; }), "parts");
   /* L'écran disait tout à la fois — les parts, les seize routines, les
      lectures, activité par activité, puis la journée bloc par bloc — et neuf
      sections d'affilée ne se lisent pas, elles se traversent. Ce sont trois

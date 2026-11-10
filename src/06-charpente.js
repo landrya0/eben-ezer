@@ -114,8 +114,11 @@ function render(){
   if(S.view!=="auteur") S.auId=null;
   if(S.view!=="periode") S.perId=null;
   /* On ne rouvre jamais l'application sur une fenêtre passée : revenir à un
-     onglet ramène au présent, comme on ouvre toujours sur Aujourd'hui. */
-  if(ONGLETS.some(function(o){ return o[0]===S.view; })){ S.anc=null; S.vue="parts"; }
+     onglet ramène au présent, comme on ouvre toujours sur Aujourd'hui.
+     Cette ligne emportait aussi la vue choisie. Ce sont deux ordres de
+     choses : la fenêtre dit QUAND on regarde, la vue dit COMMENT — et seul
+     le quand doit revenir au présent. La vue, elle, est gardée (13.ee). */
+  if(ONGLETS.some(function(o){ return o[0]===S.view; })) S.anc=null;
   (VUES[S.view]||vToday)();
   const onglet = ONGLETS.some(o=>o[0]===S.view);
   const colle = Z.haut && !Z.file;
@@ -280,6 +283,35 @@ function railNote(id){
   try{ localStorage.setItem(PLIK+".b", id||""); }catch(e){}
   plieRail(false);
 }
+/* ---------- la vue qu'on a sous les yeux ----------
+   Un écran à vues répond à plusieurs questions distinctes, une par vue
+   (13.cs). La vue revenait à la première à chaque passage par un onglet, si
+   bien qu'on arrivait presque toujours sur celle qu'on ne voulait pas : sur
+   « Mon temps », onze arrivées sur dix-sept commençaient par une tape pour
+   en changer. L'application demande ce qu'elle ne sait pas, et rien d'autre
+   (13.cg) — or elle le savait.
+   Le choix est gardé sur cet appareil, comme celui du rail replié : la vue
+   qu'on aime sur un téléphone n'est pas celle qu'on aime sur un portable, et
+   la mettre dans l'archive pousserait `db.maj` à chaque tape, donc une
+   synchronisation par tape (13.dn).
+   Une table par écran, parce qu'une vue appartient à l'écran qui la pose, et
+   qu'un deuxième écran à vues ne doit pas hériter du choix du premier. La
+   liste des vues permises est passée par l'appelant : une valeur devenue
+   inconnue — une vue retirée depuis — retombe sur celle qui va de soi, au
+   lieu de dessiner un écran vide (13.ee). */
+const VUEK="ebenezer.vues";
+let VUEG={};
+try{ VUEG=JSON.parse(localStorage.getItem(VUEK)||"{}")||{}; }catch(e){ VUEG={}; }
+function vueDe(ecran, permis, parDefaut){
+  const v=VUEG[ecran];
+  return permis.indexOf(v)!==-1 ? v : parDefaut;
+}
+function vueGarde(ecran, v){
+  if(!ecran || VUEG[ecran]===v) return;
+  VUEG[ecran]=v;
+  try{ localStorage.setItem(VUEK, JSON.stringify(VUEG)); }catch(e){}
+}
+
 /* Un glissé vertical sur le rail le replie ou le rouvre. On exige un vrai
    mouvement — dix-huit pixels, et plus haut que large — pour qu'un doigt
    qui tremble en tapant n'emporte pas le bandeau. Et on empêche alors la

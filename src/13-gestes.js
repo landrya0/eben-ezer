@@ -230,7 +230,9 @@ function geste(g, t){
     S.draft=neuf("moi"); S.draft.fige=true; S.draft.par=[g.attach];
     S.step=0; empile(); S.view="note"; return render();
   }
-  if(g.vue){ S.vue=g.vue; return render(); }
+  /* La vue appartient à l'écran où on la choisit : on la range sous son nom,
+     et on la retrouve en revenant (13.ee). */
+  if(g.vue){ vueGarde(S.view, g.vue); return render(); }
   if(g.per){
     fermeMenu();
     /* Changer de grain garde la date qu'on regardait — passer de « octobre »

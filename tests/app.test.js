@@ -3808,3 +3808,69 @@ test("13.ed — aucune vérification de mise à jour ne remonte en raté", () =>
   A.deepEqual(nus, [],
     "une promesse que personne n'attend remonte en « unhandledrejection »");
 });
+
+/* ----------------------------------------------------------------------------
+   13.ee — la vue choisie est la vue
+
+   Les sondes, sur deux jours : onze arrivées sur dix-sept sur « Mon temps »
+   commençaient par une tape pour changer de vue. La remise à zéro portait
+   deux choses différentes — la fenêtre et la vue — et n'en justifiait qu'une.
+---------------------------------------------------------------------------- */
+
+test("13.ee — la vue choisie survit au passage par un onglet", () => {
+  const a = app();
+  a.geste({ go: "temps" });
+  A.match(a.Z.html, /data-vue="parts" aria-selected="true"/,
+    "la première fois, on ouvre sur celle qui va de soi");
+  a.geste({ vue: "blocs" });
+  A.match(a.Z.html, /data-vue="blocs" aria-selected="true"/, "et on en change d'une tape");
+
+  /* Un détour par un onglet ramenait aux parts : il fallait retaper. */
+  a.geste({ go: "actes" });
+  a.geste({ go: "temps" });
+  A.match(a.Z.html, /data-vue="blocs" aria-selected="true"/,
+    "on revient sur celle qu'on regardait, pas sur la première");
+});
+
+test("13.ee — la fenêtre revient au présent, la vue reste", () => {
+  const a = app();
+  a.geste({ go: "temps" });
+  a.geste({ vue: "routines" });
+  /* Deux ordres de choses : la fenêtre dit QUAND on regarde, la vue COMMENT. */
+  a.S.anc = MIDI - 7 * 24 * H;
+  a.geste({ go: "actes" });
+  A.equal(a.S.anc, null, "on ne rouvre jamais l'application sur une fenêtre passée");
+  a.geste({ go: "temps" });
+  A.match(a.Z.html, /data-vue="routines" aria-selected="true"/,
+    "seul le quand revient au présent");
+});
+
+test("13.ee — la vue est gardée sur l'appareil, jamais dans l'archive", () => {
+  const a = app();
+  a.geste({ go: "temps" });
+  const maj = a.db.maj;
+  a.geste({ vue: "blocs" });
+  A.match(String(a.stocke("ebenezer.vues")), /"temps":"blocs"/, "l'appareil s'en souvient");
+  A.equal(a.db.maj, maj,
+    "sans quoi chaque tape sur une vue déclencherait une synchronisation (13.dn)");
+  A.equal(a.db.vues, undefined, "le mémorial garde ce que Dieu a fait, pas mes onglets");
+});
+
+test("13.ee — une vue qui n'existe plus retombe sur celle qui va de soi", () => {
+  const a = app();
+  a.f.vueGarde("temps", "pastilles");   // une vue retirée depuis
+  a.geste({ go: "temps" });
+  A.match(a.Z.html, /data-vue="parts" aria-selected="true"/,
+    "une valeur devenue inconnue ne doit pas dessiner un écran vide");
+});
+
+test("13.ee — une vue appartient à l'écran qui la pose", () => {
+  const a = app();
+  const permis = ["parts", "routines", "blocs"];
+  a.f.vueGarde("temps", "blocs");
+  a.f.vueGarde("ailleurs", "routines");
+  A.equal(a.f.vueDe("temps", permis, "parts"), "blocs");
+  A.equal(a.f.vueDe("ailleurs", permis, "parts"), "routines");
+  A.equal(a.f.vueDe("neuf", permis, "parts"), "parts",
+    "un deuxième écran à vues n'hérite pas du choix du premier");
+});

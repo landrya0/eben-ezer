@@ -234,6 +234,7 @@ const PONT = `
        soEtat, soNom, soDepuis, soPropose, vSondes, vReglages,
        portesEp, porteEp, epinglePorte, decrochePorte, enPremier,
        epinglesTaches, portables, nomVue, porteBlocEp, portesReglage,
+       vueDe, vueGarde,
        vOrdre, vEpingles, portePointage, etapes, vNote, vNode, vAccomplis, porteFaits, vPointer, creuxVif,
        sansDate, precPour, today, render, save, VUES, quitterPrevu, jourPromis, promisBref, ligneActe, remontees, blocQuand, vEdit, human },
   c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY, CAT_SOCLE,

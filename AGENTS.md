@@ -100,6 +100,19 @@ Et, transversal : **rien ne part en clair** (13.bh). Le journal nomme des frère
   avec elle, **jamais en silence**.
 - **Une correction de bug commence par un test qui échoue.** C'est ce qui prouve qu'on a bien
   trouvé la cause, et non un symptôme voisin.
+- **Un test qui ne peut pas échouer ne défend rien.** Avant de le garder, casser exprès ce qu'il
+  surveille et vérifier qu'il tombe. Deux des balayages ci-dessous ont été écrits faux du premier
+  coup et passaient au vert sur du code cassé.
+- **Le harnais a un DOM en carton** : `querySelector()` rend `null`, aucune boîte n'a de
+  dimensions. Une mise en page cassée, un bouton Retour emporté avec la barre, un `data-…` absent
+  du sélecteur du délégué : **invisibles pour toute la batterie**. Ces fautes-là ne se rattrapent
+  pas écran par écran — elles se rattrapent par des **balayages** qui passent TOUS les écrans au
+  même crible et découvrent la liste des écrans eux-mêmes, de sorte qu'un écran neuf y entre sans
+  qu'on y pense. Il y en a cinq, en fin de batterie : aucun écran ne jette ni n'est vide, tout
+  `data-…` affiché est écouté, aucun écran hors onglets ne perd sa porte de sortie, aucun geste
+  n'arrête un compteur sans le dire, et la réunion de deux appareils n'en ferme aucun.
+  **Y ajouter un balayage plutôt qu'un test** chaque fois qu'une faute aurait pu se produire
+  partout.
 - **Une idée = une version**, vérifiée dans le navigateur (375 px) avant de passer à la suivante.
 - **Toute règle fonctionnelle s'écrit dans la spec au fur et à mesure** :
   `../SPEC-EBEN-EZER.md` — **hors dépôt, jamais commitée**. Une règle `13.xx` (les plus récentes

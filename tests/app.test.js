@@ -3347,3 +3347,187 @@ test("13.ea — un bloc en cours n'est pas une fin dans l'avenir", () => {
   a.f.load();
   A.equal(a.db.temps[0].fin, undefined, "personne ne ferme un compteur à la place du disciple");
 });
+
+
+/* ========================================================================
+   Les balayages — ce qu'un test écran par écran ne voit pas
+   ========================================================================
+
+   Le harnais donne à l'application un navigateur de carton : `querySelector`
+   rend toujours `null`, et aucune boîte n'a de dimensions. Toute une classe
+   de fautes lui est donc invisible — une mise en page cassée, un bouton
+   Retour emporté avec la barre, un attribut oublié dans le sélecteur du
+   délégué. Ces fautes-là ne se rattrapent pas en écrivant un test de plus
+   par écran : elles se rattrapent en passant TOUS les écrans au même crible,
+   une fois, et en laissant la liste des écrans se découvrir elle-même. Un
+   écran neuf entre dans le balayage sans qu'on y pense ; c'est tout
+   l'intérêt.
+
+   v100 a failli livrer « Ce que j'ai fait » sans porte de sortie ; v102 a
+   demandé dix minutes de fausses pistes qu'un de ces balayages a coupées
+   net. Ils vivent donc ici. */
+
+const fs = require("node:fs");
+const path = require("node:path");
+
+/* Les écrans qui se tiennent seuls, et ceux qui veulent un contexte. */
+const AVEC_CONTEXTE = ["node", "edit", "lier", "bloc", "tache", "livre",
+  "auteur", "sujet", "periode", "chemin", "frise", "quand", "note"];
+
+/* Une archive ordinaire : de quoi que chaque écran ait quelque chose à dire.
+   Sans elle, un écran vide passerait pour un écran sain. */
+function archiveOrdinaire(a) {
+  a.db.taches = [
+    { id: "a1", nom: "Prière", cat: "dieu", d: "priere", maj: 1 },
+    { id: "a2", nom: "Lecture de la Parole", cat: "dieu", d: "parole", maj: 1 }
+  ];
+  a.db.temps = [bloc("b1", "a1", j(8, 0), j(9, 0)),
+                bloc("b2", "a2", j(10, 0), j(11, 0), { lu: [[42, 1, 3]] })];
+  a.db.livres = [{ id: "l1", nom: "Un livre", pages: 100, maj: 1 }];
+  a.db.auteurs = [{ id: "au1", nom: "Théodore Andoseh", maj: 1 }];
+  a.db.sujets = [{ id: "s1", txt: "La santé de ma mère", maj: 1 }];
+  a.db.periodes = [{ id: "pr1", d: "jeune", deb: j(6, 0), fin: j(7, 0), maj: 1 }];
+  a.db.portes = [{ id: "po1", v: "sondes", ep: 1, maj: 1 }];
+  a.db.nodes = [
+    { id: "n1", act: "dieu", kind: "acte", txt: "Il a guéri", man: "guerit", par: [], suj: [], date: "2026-11-05", prec: "j", etat: "fait", ts: 1, maj: 1 },
+    { id: "n2", act: "moi", dest: "dieu", kind: "acte", txt: "J'ai jeûné", man: "", par: ["n1"], suj: ["s1"], date: "2026-11-06", prec: "j", etat: "fait", ts: 2, maj: 1 },
+    { id: "n3", act: "moi", dest: "dieu", kind: "acte", txt: "Visiter", man: "", par: [], suj: [], date: "2026-11-20", prec: "j", etat: "prevu", ts: 3, maj: 1 },
+    { id: "n4", act: "gens", gid: null, kind: "acte", txt: "Il a prêté", man: "pourvu", par: [], suj: [], date: "2026-11-01", prec: "j", etat: "fait", ts: 4, maj: 1 }
+  ];
+  a.f.save();
+  return a;
+}
+/* Poser un écran avec ce qu'il lui faut sous les pieds.
+   `nu` laisse de côté le bloc désigné : on arrive au pointage pour dire à
+   quoi l'on est, pas toujours pour corriger. Le même écran, deux intentions,
+   et ce n'est pas le même code qui s'exécute. */
+function pose(a, v, nu) {
+  a.S.pile = []; a.S.view = v;
+  a.S.nodeId = "n2"; a.S.blocId = nu ? null : "b1"; a.S.tchId = "a1"; a.S.lvId = "l1";
+  a.S.auId = "au1"; a.S.sujId = "s1"; a.S.perId = "pr1"; a.S.cheminId = "n1";
+  if (v === "note") {
+    a.S.draft = { act: "dieu", dest: "dieu", txt: "", man: "", par: [], suj: [],
+                  pdt: null, etat: "fait", date: "2026-11-08", prec: "j", fige: false };
+    a.S.step = 0;
+  }
+}
+function tousLesEcrans(a) { return a.c.SEULES.concat(AVEC_CONTEXTE); }
+function corps(a) {
+  return String(a.Z.html || "") + String(a.Z.haut || "") + String(a.Z.action || "");
+}
+
+test("balayage — aucun écran ne jette, aucun écran n'est vide", () => {
+  const a = app();
+  archiveOrdinaire(a);
+  const jettent = [], vides = [];
+  for (const v of tousLesEcrans(a)) {
+    pose(a, v);
+    try { a.f.render(); }
+    catch (e) { jettent.push(v + " → " + e.message); continue; }
+    if (!corps(a).trim()) vides.push(v + " (on est reparti sur : " + a.S.view + ")");
+  }
+  A.deepEqual(jettent, [], "un écran qui jette n'est pas un écran");
+  A.deepEqual(vides, [], "un écran qui n'a rien à dire ne répond à aucune question (13.cs)");
+});
+
+test("balayage — tout ce qui s'affiche est écouté", () => {
+  /* Le délégué n'écoute qu'une liste de `data-…` tenue à la main. Un attribut
+     neuf qu'on oublie d'y ajouter donne un bouton qui ne répond pas, sans un
+     mot, sur un écran que personne ne rouvrira peut-être avant des semaines. */
+  const src = fs.readdirSync(path.join(__dirname, "..", "src"))
+    .filter(f => f.endsWith(".js"))
+    .map(f => fs.readFileSync(path.join(__dirname, "..", "src", f), "utf8")).join("\n");
+  const sel = src.match(/ev\.target\.closest\("([^"]+)"\)/);
+  A.ok(sel, "le délégué des gestes a changé de forme : ce balayage ne sait plus le lire");
+  const ecoutes = new Set(sel[1].match(/\[data-([a-z0-9]+)\]/g).map(x => x.slice(6, -1)));
+
+  const a = app();
+  archiveOrdinaire(a);
+  const morts = [];
+  for (const v of tousLesEcrans(a)) {
+    pose(a, v);
+    try { a.f.render(); } catch (e) { continue; }
+    for (const m of corps(a).matchAll(/<[a-z]+\b[^>]*>/g)) {
+      const attrs = [...m[0].matchAll(/data-([a-z0-9]+)=/g)].map(x => x[1]);
+      if (attrs.length && !attrs.some(x => ecoutes.has(x)))
+        morts.push(v + " : data-" + attrs.join(", data-"));
+    }
+  }
+  A.deepEqual(morts, [], "un bouton qu'on ne peut pas toucher n'est pas un bouton");
+});
+
+test("balayage — aucun écran dont on ne sort pas", () => {
+  /* `Z.haut` sans `Z.file` remplace la barre par le titre, et emporte le
+     bouton Retour avec elle. Sur un onglet il reste la barre du bas ;
+     partout ailleurs, c'est un écran sans porte. v100 l'a livré de
+     justesse. */
+  const a = app();
+  archiveOrdinaire(a);
+  const onglets = new Set(a.c.ONGLETS.map(o => o[0]));
+  const sansPorte = [];
+  for (const v of tousLesEcrans(a)) {
+    pose(a, v);
+    try { a.f.render(); } catch (e) { continue; }
+    if (a.Z.haut && !a.Z.file && !onglets.has(a.S.view)) sansPorte.push(v);
+  }
+  A.deepEqual(sansPorte, [], "un écran dont on ne sort pas n'est pas un écran");
+});
+
+test("balayage — aucun geste n'arrête un compteur sans le dire", () => {
+  /* 13.dt : une position par défaut qui PREND se rattrape mal. Rien ne doit
+     fermer un compteur en silence — et ce qui le ferme doit l'avoir dit. */
+  const a0 = app();
+  archiveOrdinaire(a0);
+  /* Tous les `data-…` que les écrans proposent vraiment, avec leur valeur. */
+  const gestes = new Map();
+  for (const nu of [false, true]) for (const v of tousLesEcrans(a0)) {
+    pose(a0, v, nu);
+    try { a0.f.render(); } catch (e) { continue; }
+    for (const m of corps(a0).matchAll(/data-([a-z0-9]+)="([^"]*)"/g))
+      gestes.set(v + nu + "\u0000" + m[1] + "\u0000" + m[2], [v, nu, m[1], m[2]]);
+  }
+  A.ok(gestes.size > 80, "le balayage ne voit presque rien : la fixture a dû se tarir");
+
+  const muets = [];
+  for (const [, [v, nu, cle, val]] of gestes) {
+    const a = app();
+    archiveOrdinaire(a);
+    a.db.temps.push(bloc("b9", "a1", j(11, 30), null));
+    a.f.save();
+    pose(a, v, nu);
+    try { a.f.render(); } catch (e) { continue; }
+    const d = {}; d[cle] = val;
+    try { a.geste(d); } catch (e) { continue; }
+    /* Le bloc qui tournait tourne-t-il encore ? Compter les compteurs
+       ouverts ne suffit pas : une tape qui arrête l'un en ouvre un autre,
+       et le total ne bouge pas. C'est CE bloc-là qu'on suit. */
+    const b9 = (a.db.temps || []).filter(b => b.id === "b9")[0];
+    if (b9 && !b9.fin) continue;
+    /* Il l'a fermé — ou effacé : qu'il l'ait dit. */
+    if (!/arrêté|effacé|exemple/i.test(a.dernierToast() || ""))
+      muets.push(v + (nu ? " (sans bloc désigné)" : "") + " : data-" + cle
+        + '="' + val + '" → ' + (a.dernierToast() || "(rien dit)"));
+  }
+  A.deepEqual(muets, [], "personne n'arrête un compteur à la place du disciple (13.dt)");
+});
+
+test("balayage — la réunion de deux appareils ne ferme pas un compteur", () => {
+  /* La synchro est le seul acteur qui touche l'archive sans que le disciple
+     ait rien demandé. Elle réunit, elle ne tranche pas (13.cf, 13.bd) : seule
+     une parole plus récente de l'autre appareil peut fermer ce qui tourne. */
+  const a = app();
+  const taches = [{ id: "a1", nom: "Travailler", maj: 1 }];
+  const arch = (temps, morts) => a.f.sane({ taches, temps, morts: morts || {}, maj: 1 });
+  const ici = () => arch([bloc("b1", "a1", j(8, 0), null)]);
+  const ouverts = r => (r.temps || []).filter(b => !b.fin).length;
+
+  A.equal(ouverts(a.f.fusionne(ici(), arch([]))), 1,
+    "l'autre appareil ne sait rien de ce bloc : il ne le ferme pas");
+  A.equal(ouverts(a.f.fusionne(ici(), arch([bloc("b2", "a1", j(10, 0), j(11, 0))]))), 1,
+    "un bloc fermé plus tard, de la même activité, ne referme pas celui qui tourne");
+  A.equal(ouverts(a.f.fusionne(ici(), arch([bloc("b2", "a2", j(10, 0), j(11, 0))]))), 1,
+    "ni un bloc d'une autre activité (13.by)");
+  A.equal(ouverts(a.f.fusionne(ici(),
+    arch([Object.assign(bloc("b1", "a1", j(8, 0), j(9, 0)), { maj: j(9, 0) })]))), 0,
+    "mais l'autre appareil l'a vraiment arrêté, et c'est lui qui a parlé en dernier");
+});

@@ -1096,7 +1096,7 @@ test("13.db — mais reprendre le temps non compté reste à une tape", () => {
   a.maintenant(j(7, 23));
   a.f.arrete();
   a.maintenant(j(7, 30));
-  a.S.vifPrend = true;
+  a.S.vifPour = "suite";
   a.f.poseTache("a2");
 
   const b = a.db.temps.filter(x => x.t === "a2")[0];
@@ -1113,9 +1113,9 @@ test("13.db — reprendre ne vaut que pour le geste qu'on vient de faire", () =>
   a.maintenant(j(7, 23));
   a.f.arrete();
   a.maintenant(j(7, 30));
-  a.S.vifPrend = true;
+  a.S.vifPour = "suite";
   a.f.poseTache("a2");
-  A.equal(a.S.vifPrend, false, "l'interrupteur retombe : il ne vaut pas pour la suite");
+  A.equal(a.S.vifPour, "", "l'interrupteur retombe : il ne vaut pas pour la suite");
 
   a.maintenant(j(8, 0));
   /* La prière tourne : sur le vrai chemin, l'application demande avant de
@@ -2510,7 +2510,7 @@ test("13.dq — reprendre un creux à plusieurs : un seul départ", () => {
   a.maintenant(j(7, 30));
   a.geste({ go: "pointer" });
   a.geste({ plus: "1" });
-  a.S.vifPrend = true;
+  a.S.vifPour = "suite";
   a.geste({ tache: "t1" });
   a.maintenant(j(7, 31));
   a.geste({ tache: "t2" });
@@ -3978,7 +3978,8 @@ test("balayage — tout ce que le rail affiche est écouté", () => {
   /* Les trois états du rail : un compteur, plusieurs, et le creux. */
   a.f.pointe("a1", false, MIDI - 3 * H); a.f.majChrono(); etats.push(rail(a));
   a.f.pointe("a2", true, MIDI - H);      a.f.majChrono(); etats.push(rail(a));
-  a.f.arrete();                          a.f.majChrono(); etats.push(rail(a));
+  a.f.arrete();
+  a.maintenant(MIDI + 10 * MIN);         a.f.majChrono(); etats.push(rail(a));
 
   const morts = [];
   for (const h of etats) {
@@ -3989,4 +3990,114 @@ test("balayage — tout ce que le rail affiche est écouté", () => {
   A.deepEqual(morts, [], "un bouton du rail que personne n'écoute est muet partout");
   A.ok(etats[0].includes("data-stop") && etats[2].includes("data-act"),
     "le balayage a bien vu les états qu'il croit balayer");
+});
+
+/* ----------------------------------------------------------------------------
+   13.eg — un creux a trois réponses, pas deux
+
+   Les sondes, sur deux jours : douze tapes sur « Rien de compté », et pas une
+   seule qui ait abouti du premier coup. Quatre tombaient sur un creux de
+   quelques secondes, que l'écran ouvert derrière ne regardait même pas. Et
+   pour dire ce qu'avaient été quarante-six minutes passées, il fallait
+   reprendre depuis l'arrêt, toucher l'activité, revenir, puis l'arrêter.
+---------------------------------------------------------------------------- */
+
+/* Un arrêt, puis un vide de la durée qu'on veut. */
+function creuxDe_(a, minutes) {
+  a.db.taches = [{ id: "a1", nom: "Sommeil", cat: "soi", maj: 1 },
+                 { id: "a2", nom: "Prière", cat: "dieu", maj: 1 },
+                 { id: "a3", nom: "Marche", cat: "soi", maj: 1 }];
+  a.db.temps = [{ id: "b1", t: "a1", deb: MIDI - 2 * H, maj: 1 }];
+  a.maintenant(MIDI);
+  a.f.arrete();
+  a.maintenant(MIDI + minutes * MIN);
+  return a;
+}
+
+test("13.eg — le rail ne montre pas un creux que l'écran ignore", () => {
+  const a = app();
+  creuxDe_(a, 0);
+  a.maintenant(MIDI + 30 * 1000);
+  a.f.majChrono();
+  A.ok(!/Rien de compté/.test(rail(a)),
+    "trente secondes ne sont pas un vide : quatre tapes sur douze y tombaient");
+
+  a.maintenant(MIDI + 2 * MIN);
+  a.f.majChrono();
+  A.match(rail(a), /Rien de compté/, "deux minutes en sont un");
+  A.match(rail(a), /data-act="comblerVif"/, "et il mène à l'écran qui en parle");
+});
+
+test("13.eg — « c'était ça » comble en une tape, et rien ne se met à tourner", () => {
+  const a = app();
+  creuxDe_(a, 46);
+  a.actions.comblerVif();
+  A.match(a.Z.html, /data-vif="clos"/, "la réponse est là, sur le même rang que les deux autres");
+
+  a.geste({ vif: "clos" });
+  a.geste({ tache: "a2" });
+
+  const b = a.db.temps.filter(x => x.t === "a2")[0];
+  A.ok(b, "le bloc est posé");
+  A.equal(b.deb, MIDI, "il couvre le creux depuis l'arrêt");
+  A.equal(b.fin, MIDI + 46 * MIN, "jusqu'à la tape sur le rail");
+  A.equal(Array.from(a.f.ouverts()).length, 0, "et rien ne tourne : c'était fini");
+});
+
+test("13.eg — on en pose plusieurs, et on en retire d'une tape", () => {
+  const a = app();
+  creuxDe_(a, 46);
+  a.actions.comblerVif();
+  a.geste({ vif: "clos" });
+  a.geste({ tache: "a2" });
+  /* Les bornes sont gelées, et elles le restent même si l'on retouche la
+     réponse déjà choisie : sans cela le creux glisserait d'une demi-minute,
+     la première activité posée tomberait hors de lui, l'écran redirait
+     « rien n'a été compté » et « retirer » ne retrouverait plus rien. */
+  a.maintenant(MIDI + 46 * MIN + 30 * 1000);
+  a.geste({ vif: "clos" });
+  A.equal(a.S.trou.fin, MIDI + 46 * MIN, "le creux ne glisse pas sous la main");
+  a.geste({ tache: "a3" });
+  const dedans = Array.from(a.db.temps).filter(x => x.deb === MIDI && x.fin === MIDI + 46 * MIN);
+  A.equal(dedans.length, 2, "on marchait en priant : le creux en reçoit deux (13.dr)");
+
+  a.geste({ tache: "a3" });
+  A.equal(Array.from(a.db.temps).filter(x => x.t === "a3" && x.deb === MIDI).length, 0,
+    "et toucher à nouveau la retire");
+  A.match(a.dernierToast(), /Retiré/);
+});
+
+test("13.eg — « à personne » reste la position par défaut", () => {
+  const a = app();
+  creuxDe_(a, 46);
+  a.actions.comblerVif();
+  A.match(a.Z.html, /data-vif="rien" aria-pressed="true"/,
+    "ce temps-là, il venait de le retirer à tout le monde (13.db)");
+  a.geste({ tache: "a2" });
+  const b = a.db.temps.filter(x => x.t === "a2")[0];
+  A.equal(b.deb, MIDI + 46 * MIN, "une tape sans réponse ne redonne rien au creux");
+  A.equal(b.fin, undefined, "et le compteur part");
+});
+
+test("13.eg — « j'y suis encore » reprend depuis l'arrêt, par le chemin réel", () => {
+  const a = app();
+  creuxDe_(a, 46);
+  a.actions.comblerVif();
+  a.geste({ vif: "suite" });
+  a.geste({ tache: "a2" });
+  const b = a.db.temps.filter(x => x.t === "a2")[0];
+  A.equal(b.deb, MIDI, "on priait déjà : le compte reprend à l'arrêt (13.db)");
+  A.equal(b.fin, undefined, "et il tourne encore");
+});
+
+test("13.eg — changer d'avis ne laisse pas de creux gelé derrière", () => {
+  const a = app();
+  creuxDe_(a, 46);
+  a.actions.comblerVif();
+  a.geste({ vif: "clos" });
+  A.ok(a.S.trou, "le creux est gelé");
+  a.geste({ vif: "rien" });
+  A.equal(a.S.trou, null, "et il se dégèle avec la réponse qui l'avait posé");
+  a.geste({ tache: "a2" });
+  A.equal(a.db.temps.filter(x => x.t === "a2")[0].deb, MIDI + 46 * MIN);
 });

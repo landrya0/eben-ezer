@@ -213,6 +213,12 @@ function cumul(t0, t1){
    l'année. Les pastilles ne disent plus que le grain ; c'est la barre en
    dessous qui dit laquelle on regarde. */
 const ONG_TEMPS = [["parts","Les parts"],["routines","Les routines"],["blocs","Les blocs"]];
+/* Ce qui est trop court pour être appelé un vide. Une minute, et non dix :
+   le récap tient pour non compté tout ce qui dépasse la minute, et deux
+   seuils sur un même écran font un reproche sans porte (13.cb).
+   Il vit ici, avec le temps, parce que le rail s'en sert et que le rail est
+   chargé avant les écrans — un `const` lu trop tôt n'existe pas encore. */
+const SEUIL_CREUX = 60000;
 const PERIODES = [["jour","Jour"],["sem","Semaine"],["mois","Mois"],["an","Année"],["tout","Tout"]];
 /* Les bornes se calculent toujours sur un objet Date, jamais en ajoutant des
    millisecondes : l'heure d'hiver fait des journées de vingt-cinq heures, et

@@ -255,7 +255,18 @@ function geste(g, t){
     if(att) return poseTache(att);
     return render();
   }
-  if(g.vif!==undefined){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.vifPrend=(g.vif==="1"); return render(); }
+  if(g.vif!==undefined){
+    const e=document.getElementById("tQ"); if(e) S.tQ=e.value;
+    S.vifPour = (g.vif==="clos" || g.vif==="suite") ? g.vif : "";
+    /* « C'était ça » gèle les bornes du creux, et c'est ce gel qui fait de
+       lui un trou ordinaire : on y pose plusieurs activités, on en retire
+       d'une tape, exactement comme sur un creux de la journée (13.dr). */
+    if(S.vifPour==="clos"){
+      const v = S.trou || (ouverts().length ? null : creuxVif());
+      if(v){ S.trou={deb:v.deb, fin:S.trou ? S.trou.fin : Date.now()}; S.trouVif=true; }
+    } else if(S.trouVif){ S.trou=null; S.trouVif=false; }
+    return render();
+  }
   if(g.tcat){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.tCat=g.tcat; return render(); }
   if(g.creux){
     const p=g.creux.split("|");
@@ -500,9 +511,9 @@ function poseTache(id){
      n'a qu'un départ : sans cela, la deuxième activité partirait de
      maintenant alors qu'il vient de dire « depuis 14 h » (13.dq). */
   let deb=null;
-  if(S.vifPrend){
+  if(S.vifPour==="suite"){
     const vif=creuxVif(); deb=(vif && vif.deb) || null;
-    S.vifPrend=false; S.plusDeb = enPlus ? deb : null;
+    S.vifPour=""; S.plusDeb = enPlus ? deb : null;
   } else if(enPlus && S.plusDeb) deb=S.plusDeb;
   const chg=pointe(id, enPlus, deb);
   save();
@@ -884,7 +895,7 @@ const actions={
      quelqu'un un temps que le disciple vient de retirer à tout le monde
      (13.db). Le rail ouvre donc le pointage, et rien de plus ; la reprise se
      choisit là-bas, en clair. */
-  comblerVif(){ S.blocId=null; S.trou=null; S.vifPrend=false;
+  comblerVif(){ S.blocId=null; S.trou=null; S.trouVif=false; S.vifPour="";
     empile(); S.view="pointer"; render(); },
   arretNet(){ const o=ouvert(); const n=o?tacheNom(o.t):""; const ouv=ouverts().slice();
     arrete(); S.pile=[]; S.view="today";

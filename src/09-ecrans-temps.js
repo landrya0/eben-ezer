@@ -24,7 +24,13 @@ function vPointer(){
   /* Un creux vif ne naît que d'un arrêt voulu (13.db) : on le mesure avant
      tout, parce que c'est lui qui décide de ce que la page a à dire. */
   const vif = (!corr && !S.trou && !ouverts().length) ? creuxVif() : null;
-  const dv = vif ? Date.now()-vif.deb : 0;
+  /* Dès qu'on répond « c'était ça », les bornes du creux sont gelées : sans
+     cela la deuxième activité tomberait sur un bloc d'une seconde plus
+     tard, et « toucher à nouveau pour retirer » ne retrouverait rien
+     (13.dr, 13.eg). Le creux gelé se lit ensuite comme le creux vif qu'il
+     reste — c'est la même question, et elle garde son rang. */
+  const trVif = (trou && S.trouVif) ? trou : null;
+  const dv = trVif ? trVif.fin-trVif.deb : vif ? Date.now()-vif.deb : 0;
   const choixVif = !!vif && dv>=SEUIL_CREUX;
   let h = "";
   if(corr) h += `<div class="block amorce" style="margin-top:16px"><b>${esc(tacheNom(corr.t))}</b>, de ${hmin(new Date(corr.deb))} à ${corr.fin?hmin(new Date(corr.fin)):"maintenant"}.</div>`;
@@ -48,13 +54,26 @@ function vPointer(){
      — alors on le reprend, d'une tape. Deux positions, et l'écran dit
      laquelle il tient : la forme déjà employée pour « à la place / en
      plus » (13.db). */
-  if(choixVif){
+  /* Une seule question — ce temps-là, et après ? —, donc un seul rang
+     (13.cu). Il lui manquait sa troisième réponse : « c'était ça, et c'est
+     fini ». Sans elle, dire ce qu'avaient été quarante-six minutes passées
+     coûtait cinq gestes — reprendre depuis l'arrêt, toucher l'activité,
+     revenir au pointage, l'arrêter —, et c'est par ce détour-là que le
+     disciple passait (13.eg).
+     « À personne » reste la position par défaut, et 13.db ne bouge pas :
+     ce temps, il venait de le retirer à tout le monde, et l'application ne
+     le redonne à personne sans qu'il le dise. */
+  if(choixVif || trVif){
     h += `<div class="puces" style="padding-top:2px">`
-      + `<button class="puce" data-vif="0" aria-pressed="${!S.vifPrend}">Depuis maintenant</button>`
-      + `<button class="puce" data-vif="1" aria-pressed="${!!S.vifPrend}">Depuis ${hmin(new Date(vif.deb))}</button></div>`
-      + `<div class="block amorce">${S.vifPrend
-          ? "Ce qui s'est écoulé depuis ton arrêt — <b>"+esc(hm(dv))+"</b> — ira à ce que tu choisis."
-          : "Ce temps-là — <b>"+esc(hm(dv))+"</b> — n'ira à personne."}</div>`;
+      + `<button class="puce" data-vif="rien" aria-pressed="${!S.vifPour}">À personne</button>`
+      + `<button class="puce" data-vif="clos" aria-pressed="${S.vifPour==="clos"}">C'était ça</button>`
+      + `<button class="puce" data-vif="suite" aria-pressed="${S.vifPour==="suite"}">J'y suis encore</button></div>`
+      + `<div class="block amorce">${
+          S.vifPour==="clos"
+            ? "Ces <b>"+esc(hm(dv))+"</b> iront à ce que tu touches, et rien ne se mettra à tourner. Touches-en plusieurs si c'était plusieurs."
+          : S.vifPour==="suite"
+            ? "Ces <b>"+esc(hm(dv))+"</b> iront à ce que tu touches, et le compteur continuera — comme s'il n'avait jamais été arrêté."
+          : "Ce temps-là — <b>"+esc(hm(dv))+"</b> — n'ira à personne : ce que tu touches part de maintenant."}</div>`;
   }
   /* S'arrêter n'était possible qu'au fond d'un menu, sur un bloc, depuis
      « Mon temps » : trois gestes pour dire qu'on ne fait plus rien. Or on
@@ -140,8 +159,9 @@ function vPointer(){
    Une minute, et non dix. Le récap tient pour non compté tout ce qui dépasse
    la minute ; la liste n'en montrait qu'au-delà de dix. L'app accusait donc
    trois minutes sans offrir de les dire. Deux seuils sur un même écran, c'est
-   un reproche sans porte : il n'en reste qu'un (13.cb). */
-const SEUIL_CREUX = 60000;
+   un reproche sans porte : il n'en reste qu'un (13.cb).
+   Le seuil lui-même est déclaré dans `03-temps.js` : le rail s'en sert, et
+   le rail est chargé avant cet écran. */
 function creuxDe(t0, t1, seuil){
   const n=Date.now(), fus=[];
   (db.temps||[]).map(function(b){ return [Math.max(b.deb,t0), Math.min(b.fin||n, t1)]; })

@@ -98,10 +98,10 @@ function render(){
   /* `enPlus` repart à null, pas à false : une position par défaut est un
      choix que l'application fait à sa place, et celui-là arrête un
      compteur (13.dt). */
-  if(S.view!=="pointer" && S.view!=="note"){ S.tQ=""; S.tCat=""; S.enPlus=null; S.vifPrend=false; S.plusDeb=null; S.poseEn=null; }
+  if(S.view!=="pointer" && S.view!=="note"){ S.tQ=""; S.tCat=""; S.enPlus=null; S.vifPour=""; S.plusDeb=null; S.poseEn=null; }
   if(S.view!=="pointer" && S.view!=="temps" && S.view!=="bloc" && S.view!=="frise"
      && S.view!=="lecture" && S.view!=="pages" && S.view!=="livre"
-     && S.view!=="sujets" && S.view!=="annonce"){ S.blocId=null; S.trou=null; }
+     && S.view!=="sujets" && S.view!=="annonce"){ S.blocId=null; S.trou=null; S.trouVif=false; }
   if(S.view!=="sujets" && S.view!=="cahier") S.sjQ="";
   if(S.view!=="sujet") S.sujId=null;
   if(S.view!=="annonce") S.gQ="";
@@ -338,7 +338,14 @@ rail.addEventListener("click", function(ev){
 }, true);
 function majChrono(){
   const o=ouvert();
-  const vif = o ? null : creuxVif();
+  /* Le rail montrait un creux de treize secondes, et l'écran qu'il ouvre
+     n'en savait rien — il ne regarde un vide qu'à partir d'une minute.
+     Quatre des douze tapes sur « Rien de compté » tombaient dans ce trou-là :
+     on touchait, et on arrivait devant une page qui ne parlait pas de ce
+     qu'on venait de toucher. Les deux lisent désormais le même seuil (13.eg,
+     13.ea). */
+  const v0 = o ? null : creuxVif();
+  const vif = (v0 && Date.now()-v0.deb >= SEUIL_CREUX) ? v0 : null;
   const etait=rail.hidden;
   rail.hidden = !o && !vif;
   if(rail.hidden){

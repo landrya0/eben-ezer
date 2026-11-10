@@ -374,10 +374,21 @@ function majChrono(){
   const etat = o.id+"|"+tacheNom(o.t)+"|"+(vieux?"v":"")+"|"+autres;
   if(etat!==chronoEtat || !rail.firstElementChild){
     chronoEtat=etat;
+    /* Arrêter coûtait deux gestes : ouvrir le pointage, puis y toucher la
+       ligne d'arrêt. C'était l'écriture la plus fréquente de toutes — onze
+       des quarante-trois en deux jours — et le rail disait déjà, sur tous
+       les écrans, ce qui tournait. Il manquait seulement de quoi le poser
+       (13.ef).
+       Le bouton arrête CE QUE LE RAIL NOMME, et rien d'autre : sept des
+       neuf arrêts relevés ne fermaient qu'un bloc, et « tout arrêter » est
+       un geste de plus, pas le geste par défaut — il reste au pointage, en
+       clair. Quand d'autres tournent encore, le rail ne s'en va pas : il
+       affiche le suivant, et c'est le reçu du geste qu'on vient de faire. */
     rail.innerHTML = `<a class="tic${vieux?" vieux":""}" data-go="pointer"><i class="pt"></i>`
       + `<span class="quoi">${esc(tacheNom(o.t))}</span>`
       + (autres>0 ? `<span class="pl">+${autres}</span>` : "")
-      + `<span class="dur"></span></a>`;
+      + `<span class="dur"></span></a>`
+      + `<button class="arr" data-stop="${esc(o.id)}" aria-label="Arrêter « ${esc(tacheNom(o.t))} »">Arrêter</button>`;
   }
   /* Le rail qui apparaît ou disparaît décale toute la page : on remesure,
      mais seulement à ce moment-là, jamais à chaque seconde. */

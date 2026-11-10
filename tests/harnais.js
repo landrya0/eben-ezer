@@ -210,7 +210,7 @@ const PONT = `
        bornes, decale, fenetre, nomFen, courtFen, memeAn,
        finDe, voisins, touche, tue, sane, uid, cap, capNom,
        tache, tacheId, tacheNom, tacheCat, blocT, ouverts, fermeBloc,
-       pointe, arrete, poseTache, creuxVif, load,
+       pointe, arrete, poseTache, creuxVif, load, ouvert, majChrono,
        verifArchive, verifCompte, verifDit, vVerif, rappelVerif,
        archivePartante, sondesPartantes, sondesPoids,
        epingles, raccourciSous, raccourciArret,

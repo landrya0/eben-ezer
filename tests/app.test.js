@@ -3874,3 +3874,119 @@ test("13.ee — une vue appartient à l'écran qui la pose", () => {
   A.equal(a.f.vueDe("neuf", permis, "parts"), "parts",
     "un deuxième écran à vues n'hérite pas du choix du premier");
 });
+
+/* ----------------------------------------------------------------------------
+   13.ef — arrêter est un geste, pas un trajet
+
+   Les sondes, sur deux jours : onze arrêts, tous précédés d'une ouverture du
+   pointage. C'était l'écriture la plus fréquente de toutes — onze des
+   quarante-trois — et le rail disait déjà, sur tous les écrans, ce qui
+   tournait. Il lui manquait seulement de quoi le poser.
+---------------------------------------------------------------------------- */
+
+function rail(a) { return a.ctx.document.getElementById("rail").innerHTML; }
+function arretDuRail(a) {
+  a.f.majChrono();
+  return (rail(a).match(/data-stop="([^"]+)"/) || [])[1];
+}
+
+test("13.ef — le rail porte de quoi arrêter ce qu'il nomme", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Prière", cat: "dieu", maj: 1 }];
+  a.f.pointe("a1", false, MIDI - H);
+  a.f.majChrono();
+  A.match(rail(a), /Prière/, "il nomme ce qui tourne");
+  A.match(rail(a), /data-go="pointer"/, "et mène au pointage, comme avant");
+  A.equal(arretDuRail(a), a.f.ouvert().id, "et il porte de quoi l'arrêter sur place");
+});
+
+test("13.ef — il arrête ce que le rail nomme, et pas ce qui tourne à côté", () => {
+  const a = app();
+  a.db.taches = [
+    { id: "a1", nom: "Travail", cat: "moi", maj: 1 },
+    { id: "a2", nom: "Prière", cat: "dieu", maj: 1 }
+  ];
+  a.f.pointe("a1", false, MIDI - 3 * H);
+  a.f.pointe("a2", true, MIDI - H);
+  A.equal(Array.from(a.f.ouverts()).length, 2, "deux choses de front couvrent la journée (13.by)");
+
+  const id = arretDuRail(a);
+  const nom = a.f.tacheNom(a.f.blocT(id).t);
+  a.geste({ stop: id });
+  const reste = Array.from(a.f.ouverts());
+  A.equal(reste.length, 1,
+    "« tout arrêter » reste un geste de plus, en clair, au pointage");
+  A.ok(reste[0].id !== id, "et c'est bien celui que le rail nommait qui s'est arrêté");
+  A.match(a.dernierToast(), new RegExp("Arrêté"), "aucun geste n'arrête un compteur sans le dire");
+  A.match(a.dernierToast(), new RegExp(nom), "et il dit lequel");
+});
+
+test("13.ef — le rail reste, et nomme le suivant", () => {
+  const a = app();
+  a.db.taches = [
+    { id: "a1", nom: "Travail", cat: "moi", maj: 1 },
+    { id: "a2", nom: "Prière", cat: "dieu", maj: 1 }
+  ];
+  a.f.pointe("a1", false, MIDI - 3 * H);
+  a.f.pointe("a2", true, MIDI - H);
+  const id = arretDuRail(a);
+  a.geste({ stop: id });
+  a.f.majChrono();
+  const encore = a.f.ouvert();
+  A.ok(encore, "quelque chose tourne encore");
+  A.match(rail(a), new RegExp(a.f.tacheNom(encore.t)),
+    "le rail ne s'en va pas : il dit ce qui reste, et c'est le reçu du geste");
+});
+
+test("13.ef — arrêter depuis le rail pose la question que la routine demande", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Lecture de la Parole", cat: "dieu", d: "parole", maj: 1 }];
+  a.f.pointe("a1", false, MIDI - H);
+  const id = arretDuRail(a);
+  a.geste({ stop: id });
+  A.equal(a.S.view, "lecture",
+    "on vient de fermer la lecture, on sait jusqu'où on est allé (13.dt)");
+});
+
+test("13.ef — un seul compteur : le rail l'arrête tout entier", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Prière", cat: "dieu", maj: 1 }];
+  a.f.pointe("a1", false, MIDI - H);
+  a.geste({ stop: arretDuRail(a) });
+  A.equal(Array.from(a.f.ouverts()).length, 0, "plus rien ne tourne");
+  a.f.majChrono();
+  A.ok(!/data-stop/.test(rail(a)), "et il n'y a plus rien à arrêter");
+});
+
+test("balayage — tout ce que le rail affiche est écouté", () => {
+  /* Le rail n'est pas un écran : le balayage des écrans ne le voit pas. Un
+     `data-…` posé là serait muet sans qu'une ligne de la batterie bouge —
+     et le rail est le seul objet présent sur TOUS les écrans. */
+  const src = fs.readdirSync(path.join(__dirname, "..", "src"))
+    .filter(f => f.endsWith(".js"))
+    .map(f => fs.readFileSync(path.join(__dirname, "..", "src", f), "utf8")).join("\n");
+  const sel = src.match(/ev\.target\.closest\("([^"]+)"\)/);
+  A.ok(sel, "le délégué des gestes a changé de forme : ce balayage ne sait plus le lire");
+  const ecoutes = new Set(sel[1].match(/\[data-([a-z0-9]+)\]/g).map(x => x.slice(6, -1)));
+
+  const a = app();
+  a.db.taches = [
+    { id: "a1", nom: "Travail", cat: "moi", maj: 1 },
+    { id: "a2", nom: "Prière", cat: "dieu", maj: 1 }
+  ];
+  const etats = [];
+  /* Les trois états du rail : un compteur, plusieurs, et le creux. */
+  a.f.pointe("a1", false, MIDI - 3 * H); a.f.majChrono(); etats.push(rail(a));
+  a.f.pointe("a2", true, MIDI - H);      a.f.majChrono(); etats.push(rail(a));
+  a.f.arrete();                          a.f.majChrono(); etats.push(rail(a));
+
+  const morts = [];
+  for (const h of etats) {
+    for (const m of h.matchAll(/\sdata-([a-z0-9]+)=/g)) {
+      if (!ecoutes.has(m[1]) && morts.indexOf(m[1]) === -1) morts.push(m[1]);
+    }
+  }
+  A.deepEqual(morts, [], "un bouton du rail que personne n'écoute est muet partout");
+  A.ok(etats[0].includes("data-stop") && etats[2].includes("data-act"),
+    "le balayage a bien vu les états qu'il croit balayer");
+});

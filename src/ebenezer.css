@@ -594,6 +594,23 @@ body.avecRail .entete .rouage{top:calc(var(--rail,0px) + 5px)}
   color:var(--muted);border:1px solid var(--filet);border-radius:999px;
   padding:1px 6px;letter-spacing:.01em}
 #rail.plie .tic .pl{display:none}
+/* Le rail porte deux choses : ce qui tourne, qui ouvre le pointage, et de
+   quoi l'arrêter sur place. Deux ordres de choses, donc deux cibles — et
+   l'arrêt est un bouton, pas un lien, parce qu'il agit au lieu de mener
+   (13.cu, 13.ef). Replié, le rail n'est plus qu'un trait qui se rouvre :
+   rien à viser dedans. */
+#rail{display:flex;align-items:stretch}
+.tic{flex:1 1 auto;min-width:0}
+/* `width:auto` n'est pas décoratif : Framework7 pose `button{width:100%}`
+   sur l'ÉLÉMENT, pas sur une de ses classes. Sans cette ligne, le bouton
+   prenait les 375 pixels et écrasait le nom de l'activité à zéro. */
+.arr{flex:0 0 auto;width:auto;display:flex;align-items:center;
+  padding:0 max(16px,env(safe-area-inset-right,0px)) 0 0;
+  background:none;border:0;cursor:pointer;
+  font-family:var(--sans);font-size:13px;font-weight:700;letter-spacing:.01em;
+  color:var(--f7-theme-color);white-space:nowrap}
+.arr:active{opacity:.55}
+#rail.plie .arr{display:none}
 .tic.vieux .dur,.tic.rien .dur{color:var(--muted)}
 .tic.rien .quoi{font-weight:500;font-style:italic;color:var(--muted)}
 .tic .dur i{font-style:normal;font-size:.76em;font-weight:600;opacity:.5;

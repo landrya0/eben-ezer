@@ -136,7 +136,9 @@ Et, transversal : **rien ne part en clair** (13.bh). Le journal nomme des frère
   `sw.js`. Le harnais de test, lui, relit l'ordre dans `index.html`.
 - **Les `url()` du CSS se résolvent depuis `src/`**, pas depuis la page.
 - **Vérifier qu'un nom de classe CSS est libre** dans `vendor/framework7-bundle.min.css` avant de
-  l'employer. (`.fb` existait : les trois boutons se sont empilés au même point.)
+  l'employer. (`.fb` existait : les trois boutons se sont empilés au même point.) **Et vérifier
+  aussi l'ÉLÉMENT**, pas seulement la classe : `button{width:100%}` y est posé sur la balise, et
+  un `<button>` neuf dans le rail a pris les 375 pixels en écrasant le nom de l'activité.
 - **Un nouveau tableau de données se câble à quatre endroits**, sinon il ne survit ni au
   rechargement ni à la synchro : le littéral `db`, `sane()`, la boucle `maj`, et `fusionne()`.
   Une suppression passe par `tue(id)` → `db.morts`.

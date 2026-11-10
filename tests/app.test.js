@@ -4581,11 +4581,21 @@ test("13.ek — écrire ses propres mots détache, et l'écran l'avait dit", () 
   const sid = Array.from(a.f.blocT("P1").sj)[0];
   a.S.sujId = sid; a.S.view = "sujet";
   a.f.vSujet();
-  A.match(a.Z.html, /Ce sujet suit la fiche de Estelle/, "l'avertissement précède le geste (P9)");
+  A.match(a.Z.html, /Ce sujet suit la fiche d'Estelle/,
+    "l'avertissement précède le geste (P9), et il s'élide : « de Estelle » se lit comme une faute");
   A.match(a.Z.html, /il s'en détache/);
   a.ecrit("sjTxt", "La santé d'Estelle");
   a.actions.sjGarder();
   A.equal(a.f.sujet(sid).lie, null, "ses mots l'emportent, et ils détachent");
   A.equal(a.f.sujetTxt(sid), "La santé d'Estelle");
   A.match(a.dernierToast(), /dans tes mots/, "et il est prévenu de ce qui vient d'arriver");
+});
+
+test("13.ek — l'élision tient sur les noms qui commencent par une voyelle", () => {
+  const a = app();
+  A.equal(a.f.de("Estelle"), "d'Estelle");
+  A.equal(a.f.de("Henriette"), "d'Henriette", "le h muet s'élide aussi");
+  A.equal(a.f.de("Joseph"), "de Joseph");
+  A.equal(a.f.de("Élise"), "d'Élise", "accentuée ou non, c'est la même voyelle");
+  A.equal(a.f.de(""), "de ", "et rien ne jette sur un nom vide");
 });

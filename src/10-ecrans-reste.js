@@ -1063,7 +1063,7 @@ function vSujet(){
   const ex=exaucesDe(s.id), se=seancesDe(s.id);
   Z.titre="Un sujet"; Z.retour=true;
   const suit = s.lie ? (String(s.lie).charAt(0)==="g"
-      ? (gensNom(s.lie) ? "Ce sujet suit la fiche de "+gensNom(s.lie)+"." : "")
+      ? (gensNom(s.lie) ? "Ce sujet suit la fiche "+de(gensNom(s.lie))+"." : "")
       : (node(s.lie) ? "Ce sujet suit un acte de ton mémorial." : "")) : "";
   let h=`<div class="block" style="margin-top:20px">
       <p class="grand" style="font-size:21px">${esc(sujetTxt(s.id))}</p>

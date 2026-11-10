@@ -7,6 +7,14 @@
    démarrage. Voir ARCHITECTURE.md. */
 "use strict";
 /* ---------- dates ---------- */
+/* « la fiche de Estelle » : l'élision n'est pas une coquetterie, c'est ce qui
+   fait qu'une phrase se lit sans buter. Les noms propres commençant par une
+   voyelle ou un h muet sont trop fréquents — Estelle, Olivier, Henriette —
+   pour écrire la règle au cas par cas. */
+function de(nom){
+  const v=String(nom||"");
+  return (/^[aàâäeéèêëiîïoôöuùûüyh]/i.test(v) ? "d'" : "de ")+v;
+}
 function today(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function parse(s){ if(!s) return null; const p=String(s).split("-"); if(p.length<3) return null; return {y:+p[0], m:+p[1], d:+p[2]}; }
 /* Une date qui n'existe pas encore n'est pas une date oubliée. Un acte

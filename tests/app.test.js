@@ -3531,3 +3531,120 @@ test("balayage — la réunion de deux appareils ne ferme pas un compteur", () =
     arch([Object.assign(bloc("b1", "a1", j(8, 0), j(9, 0)), { maj: j(9, 0) })]))), 0,
     "mais l'autre appareil l'a vraiment arrêté, et c'est lui qui a parlé en dernier");
 });
+
+
+/* ========================================================================
+   13.eb — l'application se vérifie, elle ne se répare pas
+   ======================================================================== */
+
+/* Le compteur figé de v102 a été trouvé à l'œil, par le disciple, parce que
+   deux écrans ne disaient pas la même chose. Une valeur impossible ne fait
+   pas tomber l'application : elle la fait mentir doucement, et elle peut
+   rester là des semaines. */
+
+function abimee(a) {
+  a.db.taches = [{ id: "a1", nom: "Prière", cat: "dieu", maj: 1 }];
+  a.db.sujets = [{ id: "s1", txt: "La santé de ma mère", maj: 1 }];
+  a.db.nodes = [{ id: "n1", act: "dieu", kind: "acte", txt: "Il a guéri", man: "guerit",
+                  par: [], suj: [], date: "2026-11-05", prec: "j", etat: "fait", ts: 1, maj: 1 }];
+  a.db.temps = [];
+  a.db.periodes = [];
+  a.db.morts = {};
+  return a;
+}
+/* Les tableaux qui sortent du bac à sable ne sont pas ceux d'ici : on les
+   rapatrie avant de les comparer. */
+function signale(a) {
+  return Array.from(a.f.verifArchive()).map(v => v.titre);
+}
+
+test("13.eb — un début qui n'est pas encore arrivé est signalé", () => {
+  const a = app();
+  abimee(a);
+  a.db.temps = [bloc("b1", "a1", j(18, 0), null)];
+  A.match(signale(a).join(" | "), /pas encore arrivée/,
+    "un temps qu'on n'a pas vécu ne se déclare pas (13.ea)");
+});
+
+test("13.eb — une fin avant son début est signalée", () => {
+  const a = app();
+  abimee(a);
+  a.db.temps = [bloc("b1", "a1", j(10, 0), j(9, 0))];
+  A.match(signale(a).join(" | "), /fin avant son début/,
+    "ce bloc ne pèse rien, et la prochaine réunion le laisse tomber");
+});
+
+test("13.eb — un bloc dont l'activité a disparu est signalé", () => {
+  const a = app();
+  abimee(a);
+  a.db.temps = [bloc("b1", "aDisparue", j(8, 0), j(9, 0))];
+  A.match(signale(a).join(" | "), /activité a disparu/,
+    "le temps est compté mais ne va plus à rien de nommé");
+});
+
+test("13.eb — un acte qui répond à un acte effacé est signalé", () => {
+  const a = app();
+  abimee(a);
+  a.db.nodes.push({ id: "n2", act: "moi", dest: "dieu", kind: "acte", txt: "J'ai jeûné",
+                    par: ["nEfface"], suj: [], date: "2026-11-06", prec: "j",
+                    etat: "fait", ts: 2, maj: 1 });
+  A.match(signale(a).join(" | "), /acte effacé/, "c'est le fil du mémorial qui est coupé");
+});
+
+test("13.eb — une fiche que sa pierre tombale va emporter est signalée", () => {
+  const a = app();
+  abimee(a);
+  /* Tout est à sa place à l'écran, et la prochaine synchro l'emporte (13.be).
+     C'est la seule faute qu'on ne peut pas voir autrement. */
+  a.db.morts = { n1: j(11, 0) };
+  A.match(signale(a).join(" | "), /pierre tombale/,
+    "elle est là, et elle porte sa propre pierre tombale");
+});
+
+test("13.eb — quand tout se tient, l'écran le dit et Aujourd'hui se tait", () => {
+  const a = app();
+  abimee(a);
+  a.db.temps = [bloc("b1", "a1", j(8, 0), j(9, 0))];
+  A.deepEqual(signale(a), [], "rien à signaler");
+  A.equal(a.f.rappelVerif(), "",
+    "une porte « tout va bien » qu'on ouvre tous les jours n'apprend plus rien (13.cb)");
+  a.S.pile = []; a.S.view = "verif"; a.f.render();
+  A.match(a.Z.html, /Tout se tient/, "mais derrière le rouage, on vient pour savoir");
+  A.equal(a.f.verifDit(), "Tout se tient", "et la porte le dit avant qu'on la pousse");
+});
+
+test("13.eb — Aujourd'hui parle quand l'archive ne se tient pas", () => {
+  const a = app();
+  abimee(a);
+  a.db.temps = [bloc("b1", "aDisparue", j(8, 0), j(9, 0))];
+  A.match(a.f.rappelVerif(), /data-go="verif"/,
+    "jamais un reproche sans porte (13.cb)");
+  A.match(a.f.verifDit(), /1 chose à regarder/, "et le rouage dit combien");
+});
+
+test("13.eb — chaque ligne mène quelque part", () => {
+  const a = app();
+  abimee(a);
+  a.db.temps = [bloc("b1", "aDisparue", j(8, 0), j(9, 0)),
+                bloc("b2", "a1", j(10, 0), j(9, 0))];
+  a.db.periodes = [{ id: "p1", d: "routineDisparue", deb: j(6, 0), fin: j(7, 0), maj: 1 }];
+  a.db.nodes.push({ id: "n2", act: "moi", dest: "dieu", kind: "acte", txt: "J'ai jeûné",
+                    par: ["nEfface"], suj: ["sEfface"], date: "2026-11-06", prec: "j",
+                    etat: "fait", ts: 2, maj: 1 });
+  const sansPorte = [];
+  for (const v of Array.from(a.f.verifArchive()))
+    for (const x of Array.from(v.items))
+      if (!/data-(vbloc|prd|node)="/.test(x.attr || "")) sansPorte.push(v.titre);
+  A.deepEqual(sansPorte, [], "un chiffre qui accuse doit mener quelque part (13.cb)");
+});
+
+test("13.eb — vérifier ne répare rien", () => {
+  const a = app();
+  abimee(a);
+  a.db.temps = [bloc("b1", "a1", j(18, 0), null)];
+  const avant = JSON.stringify(a.db);
+  a.S.pile = []; a.S.view = "verif"; a.f.render();
+  a.f.verifArchive(); a.f.verifCompte(); a.f.rappelVerif();
+  A.equal(JSON.stringify(a.db), avant,
+    "l'app prépare et prévient ; elle ne corrige pas à sa place (P9, 13.cf)");
+});

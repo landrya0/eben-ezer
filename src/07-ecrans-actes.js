@@ -106,7 +106,7 @@ function vToday(){
     Z.file = true;
     Z.haut = RAMEAU("marque") + `<p class="titre-page">Rien ne revient aujourd'hui.</p><p class="ssTitre">${d}</p>`;
     Z.html = `<div class="block amorce" style="margin-top:20px">Tout ce qu'Il a fait a reçu quelque chose de toi. Note la suite quand elle vient.</div>`
-      + rappelPer() + rappelTemps() + rappelFichier();
+      + rappelPer() + rappelTemps() + rappelVerif() + rappelFichier();
     return;
   }
   /* Quatre derniers gardés remplissent un téléphone et laissent une tablette
@@ -121,6 +121,7 @@ function vToday(){
     ${rappelTemps()}
     ${titreBloc("Derniers gardés")}
     ${liste(recents.map(n=>ligneActe(n,{attr:'data-node="'+n.id+'"'})).join(""))}
+    ${rappelVerif()}
     ${rappelFichier()}`;
 }
 

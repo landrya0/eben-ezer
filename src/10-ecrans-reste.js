@@ -1212,6 +1212,142 @@ function vSync(){
    était, à la suite des chiffres, et personne n'irait l'y chercher. Un seul
    endroit, atteint du même rouage depuis n'importe quel onglet. Ce qu'on
    règle une fois et ce qu'on relit tous les jours ne se mélangent pas. */
+/* ---------- l'état de l'archive ----------
+   Le compteur figé de v102 a été trouvé à l'œil : le disciple a vu, à
+   13 h 10, que le rail et « Mon temps » ne disaient pas la même chose. Ce
+   n'est pas son travail. Une valeur impossible — une heure posée plus loin
+   que maintenant, un acte qui répond à un acte effacé — ne fait pas tomber
+   l'application : elle la fait mentir doucement, sur un écran, et elle peut
+   rester là des semaines.
+
+   L'application se mesure déjà elle-même (13.dn) ; elle se vérifie
+   maintenant. Elle NOMME ce qui ne se tient pas, elle dit ce que ça coûte,
+   et chaque ligne mène à la fiche — jamais un reproche sans porte (13.cb).
+   Elle ne répare rien : corriger une heure, c'est dire ce qu'on a vécu, et
+   personne ne le dit à la place du disciple (P9, 13.cf).
+
+   Et elle ne parle que lorsqu'elle a trouvé quelque chose : une porte
+   « tout va bien » qu'on ouvre tous les jours pour lire « tout va bien »
+   n'apprend plus rien à personne (13.cb). */
+const VERIF_MAX = 6;
+/* Une minute de battement : deux appareils ne sont jamais à la seconde, et
+   il ne s'agit pas de leur reprocher leur écart (13.ea). */
+const VERIF_JEU = 60000;
+function verifArchive(){
+  const n=Date.now(), out=[];
+  const T=db.temps||[], P=db.periodes||[], N=db.nodes||[], M=db.morts||{};
+  function dit(titre, quoi, items){ if(items.length) out.push({titre:titre, quoi:quoi, items:items}); }
+  function pb(b){ return {txt: tacheNom(b.t)+" · "+jourBref(b.deb)+hmin(new Date(b.deb)),
+                          attr:'data-vbloc="'+b.id+'"'}; }
+  function pp(pr){ return {txt: (discNom(pr.d)||"Un temps mis à part")+" · "+jourBref(pr.deb)+hmin(new Date(pr.deb)),
+                           attr:'data-prd="'+pr.id+'"'}; }
+  function pn(x){ return {txt: (x.txt||"Un acte sans mot").slice(0,70),
+                          attr:'data-node="'+x.id+'"'}; }
+  const aVenir = function(ms){ return typeof ms==="number" && ms > n+VERIF_JEU; };
+
+  dit("Une heure qui n'est pas encore arrivée",
+      "Un temps qu'on n'a pas vécu ne se déclare pas. Tant qu'il est là, « Mon temps » compte la journée jusqu'au bout et le rail ne compte plus rien (13.ea).",
+      T.filter(function(b){ return aVenir(b.deb) || aVenir(b.fin); }).map(pb)
+       .concat(P.filter(function(x){ return aVenir(x.deb) || aVenir(x.fin); }).map(pp)));
+
+  dit("Une fin avant son début",
+      "Ce bloc ne dure rien. Il ne pèse dans aucun total, et la prochaine réunion de tes deux appareils le laissera tomber sans rien dire.",
+      T.filter(function(b){ return typeof b.fin==="number" && b.fin<=b.deb; }).map(pb)
+       .concat(P.filter(function(x){ return typeof x.fin==="number" && x.fin<=x.deb; }).map(pp)));
+
+  dit("Un bloc dont l'activité a disparu",
+      "Le temps est compté, mais il ne va plus à rien de nommé : les écrans affichent « — » à sa place. Rouvre le bloc et rends-lui son activité.",
+      T.filter(function(b){ return !tache(b.t); }).map(pb));
+
+  dit("Un temps mis à part dont la routine a disparu",
+      "Il n'a plus de nom, donc plus de place dans « Les routines ».",
+      P.filter(function(x){ return !discNom(x.d); }).map(pp));
+
+  dit("Un acte qui répond à un acte effacé",
+      "C'est le fil du mémorial qui est coupé : la réponse est là, la recherche qui l'a précédée ne l'est plus. Rouvre l'acte et relie-le à ce qui l'a vraiment précédé.",
+      N.filter(function(x){ return (x.par||[]).some(function(id){ return !node(id); }); }).map(pn));
+
+  dit("Un acte lié à un sujet effacé",
+      "Le sujet exaucé ne se retrouve plus depuis l'acte, ni l'acte depuis le sujet.",
+      N.filter(function(x){ return (x.suj||[]).some(function(id){
+        return !(db.sujets||[]).some(function(s){ return s.id===id; }); }); }).map(pn));
+
+  dit("Un acte rattaché à un temps effacé",
+      "Il dit « pendant » quelque chose qui n'existe plus (13.cx).",
+      N.filter(function(x){ return x.pdt && !pdtDe(x.pdt); }).map(pn));
+
+  dit("Un acte dont la personne a disparu",
+      "On ne sait plus par qui Il est passé.",
+      N.filter(function(x){ return x.gid && !(db.gens||[]).some(function(g){ return g.id===x.gid; }); }).map(pn));
+
+  /* La plus grave, et la seule qu'on ne voit jamais : tout est à sa place à
+     l'écran, et la prochaine synchronisation l'emporte (13.be). */
+  const registres = [["nodes", N, pn], ["temps", T, pb], ["periodes", P, pp]];
+  const condamnes = [];
+  registres.forEach(function(r){
+    r[1].forEach(function(x){
+      const t=M[x.id];
+      if(t && t >= (x.maj||0)) condamnes.push(r[2](x));
+    });
+  });
+  dit("Une fiche qu'une pierre tombale va emporter",
+      "Elle est là, et elle porte sa propre pierre tombale : la prochaine réunion de tes deux appareils l'effacera. Rouvre-la et touche-la — la dernière écriture l'emporte.",
+      condamnes);
+
+  const vus={}, doubles=[];
+  registres.forEach(function(r){
+    const dejaVu={};
+    r[1].forEach(function(x){
+      if(dejaVu[x.id]){ if(!vus[x.id]){ vus[x.id]=1; doubles.push(r[2](x)); } }
+      else dejaVu[x.id]=1;
+    });
+  });
+  dit("Deux fiches sous le même identifiant",
+      "Elles se disputent la même place : réunir deux appareils n'en gardera qu'une, au hasard.",
+      doubles);
+
+  return out;
+}
+function verifCompte(){
+  return verifArchive().reduce(function(a, v){ return a+v.items.length; }, 0);
+}
+/* Derrière le rouage, la ligne parle dans les deux cas : on y vient pour
+   savoir, et « rien à signaler » est une réponse. Sur Aujourd'hui, non — là,
+   le silence est la réponse (13.cb). */
+function verifDit(){
+  const k=verifCompte();
+  return k ? k+" chose"+(k>1?"s":"")+" à regarder" : "Tout se tient";
+}
+function vVerif(){
+  Z.titre="L'état de l'archive"; Z.retour=true;
+  const vs=verifArchive();
+  if(!vs.length){
+    Z.html = `<div class="block amorce" style="margin-top:18px">Tout se tient. Chaque acte répond à un acte qui existe, chaque bloc porte une activité, et aucune heure n'est posée plus loin que maintenant.</div>`;
+    return;
+  }
+  Z.html = `<div class="block amorce" style="margin-top:18px">Rien n'est cassé : l'application fonctionne. Mais ces fiches-là disent quelque chose d'impossible, et un écran finira par te mentir à cause d'elles. Touche une ligne pour l'ouvrir — c'est toi qui corriges.</div>`
+    + vs.map(function(v, i){
+        const trop = v.items.length - VERIF_MAX;
+        return titreBloc(esc(v.titre)+" · "+v.items.length, i ? "ecart" : "")
+          + `<div class="block amorce">${esc(v.quoi)}</div>`
+          + liste(v.items.slice(0, VERIF_MAX).map(function(x){
+              return ligne({titre:esc(x.txt), attr:x.attr}); }).join("")
+            + (trop>0 ? ligne({titre:"…et "+trop+" de plus"}) : ""), "lien");
+      }).join("");
+}
+/* Une porte qu'on ne pousse jamais ne vérifie rien : quand l'archive a
+   quelque chose à dire, elle le dit là où le disciple passe tous les jours —
+   tout en bas, après ce qu'il est venu lire, jamais devant (13.cb). */
+function rappelVerif(){
+  const k=verifCompte();
+  if(!k) return "";
+  return titreBloc("Ce qui ne se tient pas","ecart")
+    + liste(ligne({titre:"L'état de l'archive",
+        sous: k+" fiche"+(k>1?"s":"")+" dise"+(k>1?"nt":"")+" quelque chose d'impossible",
+        attr:'data-go="verif"'}), "lien")
+    + `<div style="height:18px"></div>`;
+}
+
 function vReglages(){
   Z.titre="Réglages"; Z.retour=true;
   const sauve = db.exp
@@ -1221,7 +1357,8 @@ function vReglages(){
     + titreBloc("Sur mes deux appareils")
     + liste(ligne({titre:"Synchronisation", sous:esc(syEtat()), attr:'data-go="sync"'}), "lien")
     + titreBloc("Mon archive","ecart")
-    + liste(ligne({titre:"Mes données", sous:esc(sauve), attr:'data-go="data"'}), "lien")
+    + liste(ligne({titre:"Mes données", sous:esc(sauve), attr:'data-go="data"'})
+          + ligne({titre:"L'état de l'archive", sous:esc(verifDit()), attr:'data-go="verif"'}), "lien")
     + titreBloc("Cette application","ecart")
     + liste(ligne({titre:"Comment je m'en sers", sous:esc(soEtat()),
                    attr:'data-go="sondes"'}), "lien")
@@ -1399,7 +1536,7 @@ const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), acte
               tache:vTache, lecture:vLecture, pages:vPages, livre:vLivre, auteur:vAuteur,
               sujets:vSujets, annonce:vAnnonce, cahier:vCahier, sujet:vSujet,
               perNeuf:vPerNeuf, periode:vPeriode, epingles:vEpingles,
-              sync:vSync, reglages:vReglages, ordre:vOrdre};
+              sync:vSync, reglages:vReglages, ordre:vOrdre, verif:vListe(vVerif)};
 
 /* ---------- dictée ---------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;

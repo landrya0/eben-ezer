@@ -211,6 +211,7 @@ const PONT = `
        finDe, voisins, touche, tue, sane, uid, cap, capNom,
        tache, tacheId, tacheNom, tacheCat, blocT, ouverts, fermeBloc,
        pointe, arrete, poseTache, creuxVif, load,
+       verifArchive, verifCompte, verifDit, vVerif, rappelVerif,
        epingles, raccourciSous, raccourciArret,
        disc, discNom, discDeNom, discTache, parDisc, mesureDisc, mesureProposee,
        spanActe,

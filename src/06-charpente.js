@@ -54,7 +54,8 @@ const NOM_VUE = {
   sujet:"Un sujet", perNeuf:"Mettre un temps à part", periode:"Un temps mis à part",
   accomplis:"Ce que j'ai fait",
   sync:"Synchronisation", reglages:"Réglages", data:"Mes données",
-  sondes:"Comment je m'en sers", ordre:"Dans quel ordre"
+  sondes:"Comment je m'en sers", ordre:"Dans quel ordre",
+  verif:"L'état de l'archive"
 };
 function nomVue(v){ return NOM_VUE[v] || v; }
 /* Les écrans qui tiennent debout tout seuls : les autres attendent qu'on
@@ -62,7 +63,7 @@ function nomVue(v){ return NOM_VUE[v] || v; }
    ouvrirait un écran vide. */
 const SEULES = ["today","oeuvres","actes","revel","faits","epingles","pointer",
                 "temps","cahier","sujets","annonce","lecture","pages",
-                "accomplis","perNeuf","sync","reglages","data","sondes"];
+                "accomplis","perNeuf","sync","reglages","data","sondes","verif"];
 /* Ce qui vaut la peine d'être épinglé : pas les quatre onglets ni les
    Réglages, déjà à une tape de partout ; ni « À quoi maintenant » et « Ce qui
    est ici », qui sont déjà deux lignes de l'écran où les épingles se posent.

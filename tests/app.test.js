@@ -3382,7 +3382,11 @@ function archiveOrdinaire(a) {
     { id: "a2", nom: "Lecture de la Parole", cat: "dieu", d: "parole", maj: 1 }
   ];
   a.db.temps = [bloc("b1", "a1", j(8, 0), j(9, 0)),
-                bloc("b2", "a2", j(10, 0), j(11, 0), { lu: [[42, 1, 3]] })];
+                bloc("b2", "a2", j(10, 0), j(11, 0), { lu: [[42, 1, 3]] }),
+                /* Une séance qu'on vient de quitter : sans elle, tout ce que
+                   l'app montre dans la demi-heure qui suit un arrêt échappe
+                   aux balayages (13.ei). */
+                bloc("b3", "a1", j(11, 30), j(11, 50))];
   a.db.livres = [{ id: "l1", nom: "Un livre", pages: 100, maj: 1 }];
   a.db.auteurs = [{ id: "au1", nom: "Théodore Andoseh", maj: 1 }];
   a.db.sujets = [{ id: "s1", txt: "La santé de ma mère", maj: 1 }];
@@ -3444,13 +3448,20 @@ test("balayage — tout ce qui s'affiche est écouté", () => {
   const a = app();
   archiveOrdinaire(a);
   const morts = [];
-  for (const v of tousLesEcrans(a)) {
-    pose(a, v);
-    try { a.f.render(); } catch (e) { continue; }
-    for (const m of corps(a).matchAll(/<[a-z]+\b[^>]*>/g)) {
-      const attrs = [...m[0].matchAll(/data-([a-z0-9]+)=/g)].map(x => x[1]);
-      if (attrs.length && !attrs.some(x => ecoutes.has(x)))
-        morts.push(v + " : data-" + attrs.join(", data-"));
+  /* Deux passages, parce qu'un écran peut répondre à deux intentions : au
+     pointage, corriger un bloc ou dire à quoi l'on est maintenant. Le second
+     cas ne s'affichait jamais ici, et tout ce qu'il montre — le creux, ses
+     trois réponses, la porte de la séance — passait au travers (13.ei). */
+  for (const nu of [false, true]) {
+    for (const v of tousLesEcrans(a)) {
+      pose(a, v, nu);
+      try { a.f.render(); } catch (e) { continue; }
+      if (nu && a.S.view !== v) continue;
+      for (const m of corps(a).matchAll(/<[a-z]+\b[^>]*>/g)) {
+        const attrs = [...m[0].matchAll(/data-([a-z0-9]+)=/g)].map(x => x[1]);
+        if (attrs.length && !attrs.some(x => ecoutes.has(x)))
+          morts.push(v + (nu ? " (sans bloc)" : "") + " : data-" + attrs.join(", data-"));
+      }
     }
   }
   A.deepEqual(morts, [], "un bouton qu'on ne peut pas toucher n'est pas un bouton");
@@ -4225,4 +4236,103 @@ test("balayage — aucune ligne à retirer ne tait le bloc dont elle vient", () 
     A.match(f, /data-[a-z]+sup="'\+b\.id\+'\|'/,
       nom + " : un indice sans bloc retirerait la ligne d'un autre bloc");
   });
+});
+
+/* ——— 13.ei — une séance, une question ——— */
+
+/* Une prière reprise après neuf minutes, et qui tourne encore : le cas où
+   l'arrêt posait la question une seconde fois. */
+function seanceVive(a, nomme) {
+  a.db.taches = [{ id: "p1", nom: "Prière", cat: "dieu", d: "priere", maj: 1 }];
+  const s = a.f.sujetId("La santé de maman");
+  a.db.temps = [
+    bloc("P1", "p1", MIDI - 60 * MIN, MIDI - 31 * MIN, nomme ? { sj: [s] } : {}),
+    bloc("P2", "p1", MIDI - 22 * MIN)
+  ];
+  a.S.view = "today";
+  return s;
+}
+
+test("13.ei — le premier arrêt d'une séance pose la question, comme avant", () => {
+  const a = app();
+  a.db.taches = [{ id: "p1", nom: "Prière", cat: "dieu", d: "priere", maj: 1 }];
+  a.db.temps = [bloc("P1", "p1", MIDI - 29 * MIN)];
+  a.geste({ stop: "P1" });
+  A.equal(a.S.view, "sujets", "elle se pose où elle est naturelle (13.cd)");
+  A.equal(a.S.blocId, "P1");
+});
+
+test("13.ei — la reprise ne repose pas l'écran : une séance, une question", () => {
+  const a = app();
+  seanceVive(a, false);
+  a.geste({ stop: "P2" });
+  A.equal(a.S.view, "today", "aucun écran imposé une seconde fois");
+  A.match(a.dernierToast(), /Même séance qu'à 11 h 00/,
+    "elle dit pourquoi elle ne demande pas, au lieu de se taire");
+});
+
+test("13.ei — la reprise dit ce que la séance tient déjà", () => {
+  const a = app();
+  const s = seanceVive(a, true);
+  a.geste({ stop: "P2" });
+  A.match(a.dernierToast(), /1 sujet déjà/);
+
+  const z = app();
+  const s2 = seanceVive(z, true);
+  z.f.blocT("P1").sj.push(z.f.sujetId("Le projet de Qualitas"));
+  A.ok(s && s2);
+  z.geste({ stop: "P2" });
+  A.match(z.dernierToast(), /2 sujets déjà/);
+});
+
+test("13.ei — la porte de la séance se tient au pointage, et y ramène", () => {
+  const a = app();
+  seanceVive(a, true);
+  a.geste({ stop: "P2" });
+  a.S.view = "pointer"; a.f.vPointer();
+  A.match(a.Z.html, /data-dis="P2"/, "elle vise le dernier bloc de la séance");
+  A.match(a.Z.html, /En nommer un autre/);
+  A.match(a.Z.html, /1 sujet pour cette séance/);
+  a.geste({ dis: "P2" });
+  A.equal(a.S.view, "sujets");
+  A.equal(a.S.blocId, "P2");
+  a.geste({ back: "1" });
+  A.equal(a.S.view, "pointer", "et Retour revient d'où l'on vient, pas sur Aujourd'hui");
+});
+
+test("13.ei — la porte ouvre sans rien reprocher quand la séance n'a rien dit", () => {
+  const a = app();
+  seanceVive(a, false);
+  a.geste({ stop: "P2" });
+  a.S.view = "pointer"; a.f.vPointer();
+  A.match(a.Z.html, /Dire ce que tu as nommé/);
+  A.equal(a.Z.html.indexOf("pour cette séance"), -1,
+    "aucun compte à zéro : un chiffre qui accuse doit mener quelque part, celui-là n'accuse pas");
+});
+
+test("13.ei — la porte s'efface quand la séance est finie", () => {
+  const a = app();
+  seanceVive(a, true);
+  a.geste({ stop: "P2" });
+  a.S.view = "pointer"; a.f.vPointer();
+  A.match(a.Z.html, /data-dis=/);
+
+  a.db.temps.push(bloc("X", "p1", MIDI + MIN));
+  a.f.vPointer();
+  A.equal(a.Z.html.indexOf("data-dis="), -1, "dès qu'autre chose tourne, la séance est finie");
+
+  a.db.temps = a.db.temps.filter(b => b.id !== "X");
+  a.maintenant(MIDI + 31 * MIN);
+  a.f.vPointer();
+  A.equal(a.Z.html.indexOf("data-dis="), -1,
+    "et passé la demi-heure : on ne laisse pas traîner un chemin vers hier");
+});
+
+test("13.ei — la porte ne s'ouvre pas sur une question qui n'existe pas", () => {
+  const a = app();
+  a.db.taches = [{ id: "v1", nom: "En voiture", cat: "moi", d: "", maj: 1 }];
+  a.db.temps = [bloc("V1", "v1", MIDI - 40 * MIN, MIDI - MIN)];
+  a.S.view = "pointer"; a.f.vPointer();
+  A.equal(a.Z.html.indexOf("data-dis="), -1,
+    "un trajet ne mesure rien : l'app demande ce qu'elle ne sait pas, et rien d'autre (13.cg)");
 });

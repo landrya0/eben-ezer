@@ -97,7 +97,7 @@ function supCible(v){
   return p.length>1 ? {b:blocT(p[0]), i:+p[1]} : {b:blocT(S.blocId), i:+p[0]};
 }
 document.addEventListener("click", function(ev){
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-dis],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
   if(!t) return;
   /* UN SEUL entonnoir pour tous les gestes de l'application : la sonde se
      tient ici, et nulle part ailleurs. Le `finally` est ce qui la rend
@@ -333,6 +333,12 @@ function geste(g, t){
     c.b.lu.splice(c.i, 1);
     if(!c.b.lu.length) delete c.b.lu;
     touche(c.b); save(); toast("Retiré : "+nomPassage(r)); return render();
+  }
+  /* Rouvrir la question d'une séance : le même écran que l'arrêt, mais
+     demandé celui-là, et le Retour revient d'où l'on vient (13.ei). */
+  if(g.dis){
+    const b=blocT(g.dis); if(!b) return;
+    ecranDit(b, S.view); return render();
   }
   if(g.tache) return poseTache(g.tache);
   if(g.sugg){ return poseTache(tacheId(g.sugg, g.cat)); }

@@ -75,6 +75,12 @@ function vPointer(){
             ? "Ces <b>"+esc(hm(dv))+"</b> iront à ce que tu touches, et le compteur continuera — comme s'il n'avait jamais été arrêté."
           : "Ce temps-là — <b>"+esc(hm(dv))+"</b> — n'ira à personne : ce que tu touches part de maintenant."}</div>`;
   }
+  /* La séance qu'on vient de quitter garde sa porte ici, le temps qu'elle
+     reste fraîche : l'arrêt ne pose plus la question une seconde fois, et
+     sans cette ligne il faudrait traverser « Mon temps » pour y revenir
+     (13.ei). Pas pendant une correction ni dans un creux : là, l'écran
+     répond déjà à une autre question (13.cs). */
+  if(!corr && !trou) h += porteSeance();
   /* S'arrêter n'était possible qu'au fond d'un menu, sur un bloc, depuis
      « Mon temps » : trois gestes pour dire qu'on ne fait plus rien. Or on
      s'arrête souvent, et sans savoir ce qui vient après. L'arrêt est donc

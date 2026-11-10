@@ -362,21 +362,21 @@ function passagesDe(a, z){
   }
   return out;
 }
-/* La question se pose au moment où elle est naturelle : on vient de fermer
-   la lecture, on sait jusqu'où on est allé, et on est déjà là — aucun écran
-   à traverser. L'app demande ; elle n'inscrit rien, et Retour suffit à ne
-   rien dire. Un bloc trop court a déjà été effacé : on ne demande pas ce
-   qu'on a lu en vingt secondes.
-   Elle demande encore à la reprise d'une séance, et c'est voulu : la seconde
-   moitié d'une prière peut avoir nommé autre chose, et l'app ne le sait pas.
-   Ce qui change, c'est qu'elle n'arrive plus sur une page blanche — l'écran
-   rouvre la fiche de la séance (13.eh). */
-function apresArret(bs, repli){
-  const b=(bs||[]).filter(function(x){
-    const sp=x ? spTache(x.t) : "";
-    return x && blocT(x.id) && (sp==="bible" || sp==="livre" || sp==="sujets" || sp==="gens");
-  })[0];
-  if(!b) return false;
+/* Ce que chaque support appelle sa prise, et comment on le dit. Le mot
+   change ; la question est la même, et il n'y en a qu'une par séance. */
+const MOTS_SP={
+  bible: {champ:"lu",  nom:"passage",  dire:"Dire les chapitres lus",  plus:"Ajouter un passage"},
+  livre: {champ:"pg",  nom:"passage",  dire:"Dire les pages lues",     plus:"Ajouter un passage"},
+  sujets:{champ:"sj",  nom:"sujet",    dire:"Dire ce que tu as nommé", plus:"En nommer un autre"},
+  gens:  {champ:"qui", nom:"personne", dire:"Dire à qui tu as annoncé",plus:"En ajouter"}
+};
+function compteSeance(se, m){
+  let n=0; (se||[]).forEach(function(x){ n+=(x[m.champ]||[]).length; });
+  return n;
+}
+/* Ouvrir l'écran de la question pour ce bloc-là. Deux chemins y mènent : un
+   arrêt qui la pose, et la porte du pointage qui la rouvre (13.ei). */
+function ecranDit(b, repli){
   S.pile=[]; S.view=repli||"today"; empile();
   S.blocId=b.id;
   S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false;
@@ -386,6 +386,62 @@ function apresArret(bs, repli){
   S.view = sp==="livre" ? "pages" : sp==="sujets" ? "sujets"
          : sp==="gens" ? "annonce" : "lecture";
   return true;
+}
+/* La question se pose au moment où elle est naturelle : on vient de fermer
+   la lecture, on sait jusqu'où on est allé, et on est déjà là — aucun écran
+   à traverser. L'app demande ; elle n'inscrit rien, et Retour suffit à ne
+   rien dire. Un bloc trop court a déjà été effacé : on ne demande pas ce
+   qu'on a lu en vingt secondes.
+   Et elle ne la pose qu'UNE fois par séance (13.ei). J'avais écrit le
+   contraire en 13.eh, en me disant que la seconde moitié d'une prière
+   pouvait avoir nommé autre chose. Ses mots : « Sur la question de la
+   pause, c'est un seul sujet, pas 4. » Une prière coupée en quatre porte un
+   sujet ; redemander trois fois n'était pas de la prudence, c'était la même
+   question à quelqu'un qui avait déjà répondu. La reprise dit donc ce que
+   la séance tient, et la porte reste au pointage. */
+function apresArret(bs, repli){
+  const b=(bs||[]).filter(function(x){
+    return x && blocT(x.id) && MOTS_SP[x ? spTache(x.t) : ""];
+  })[0];
+  if(!b) return false;
+  const se=seanceDe(b);
+  if(se.length>1 && se[0]!==b){
+    const m=MOTS_SP[spTache(b.t)], n=compteSeance(se, m);
+    toast("Arrêté. Même séance qu'à "+hmin(new Date(se[0].deb))
+      + (n ? " — "+n+" "+m.nom+(n>1?"s":"")+" déjà." : "."));
+    return false;
+  }
+  return ecranDit(b, repli);
+}
+/* La séance qu'on vient de quitter, tant qu'elle peut encore être reprise :
+   rien ne tourne, et son dernier bloc s'est fermé il y a moins d'une
+   demi-heure — le même seuil que la séance elle-même, puisque c'est la même
+   question : est-ce encore ça ? Passé ce délai, ou dès qu'autre chose
+   commence, elle est finie et la porte s'efface d'elle-même. On ne laisse
+   pas traîner un chemin vers hier. */
+function seanceFraiche(){
+  if(ouverts().length) return null;
+  let d=null;
+  (db.temps||[]).forEach(function(b){
+    if(typeof b.fin!=="number") return;
+    if(!d || b.fin>d.fin) d=b;
+  });
+  if(!d || Date.now()-d.fin > SEUIL_SEANCE) return null;
+  return MOTS_SP[spTache(d.t)] ? d : null;
+}
+/* La question ne s'impose plus à la reprise — mais elle doit rester à une
+   tape, sinon on retombe sur les sept gestes de « Mon temps → le bloc →
+   l'écran » que 13.cd avait déjà payés une fois. La porte se tient donc au
+   pointage, où l'on revient pour dire ce qui suit. Elle ne reproche rien
+   quand la séance n'a rien dit : elle nomme la séance, et ouvre (13.cb). */
+function porteSeance(){
+  const b=seanceFraiche(); if(!b) return "";
+  const m=MOTS_SP[spTache(b.t)], se=seanceDe(b), n=compteSeance(se, m);
+  return titreBloc(esc(tacheNom(b.t))+" · "+hmin(new Date(se[0].deb))
+      + " → "+hmin(new Date(b.fin)), "ecart")
+    + liste(ligne({titre: n ? m.plus : m.dire,
+        sous: n ? n+" "+m.nom+(n>1?"s":"")+" pour cette séance" : "",
+        attr:'data-dis="'+b.id+'"'}), "lien");
 }
 function debutPlat(){
   const der=derniereLu();

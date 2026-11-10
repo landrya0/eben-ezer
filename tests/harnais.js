@@ -225,7 +225,7 @@ const PONT = `
        sujet, sujetId, sujetTxt, sujetsTxt, sujetsDerniers, apresArret, spTache,
        gensId, gensNom, gensTxt,
        exaucesDe, exauceTxt, sujetDepuis, sujetFois, sujetHist, vActes, minuit,
-       sujetDernier, seancesDe, vCahier, vSujet, vSujets, vAnnonce, vLecture,
+       sujetDernier, seancesDe, seanceFraiche, porteSeance, ecranDit, vCahier, vSujet, vSujets, vAnnonce, vLecture,
        vPages, vBloc, dejaSeance, vToday, rappelPer, vPeriode,
        livre, livreId, pageLue, nbLu, chapitresTxt, pagesTxt,
        vReglages,

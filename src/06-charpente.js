@@ -52,7 +52,6 @@ const NOM_VUE = {
   lecture:"Ce que tu as lu", pages:"Les pages lues", livre:"Un livre", auteur:"Un auteur",
   sujets:"Ce que tu as nommé", annonce:"À qui tu as annoncé", cahier:"Mes sujets",
   sujet:"Un sujet", perNeuf:"Mettre un temps à part", periode:"Un temps mis à part",
-  argent:"Mon argent", sou:"Un mouvement", devise:"Ma monnaie", charger:"Charger un relevé",
   sync:"Synchronisation", reglages:"Réglages", data:"Mes données",
   sondes:"Comment je m'en sers", ordre:"Dans quel ordre"
 };
@@ -62,7 +61,7 @@ function nomVue(v){ return NOM_VUE[v] || v; }
    ouvrirait un écran vide. */
 const SEULES = ["today","oeuvres","actes","revel","faits","epingles","pointer",
                 "temps","cahier","sujets","annonce","lecture","pages",
-                "argent","charger","devise","perNeuf","sync","reglages","data","sondes"];
+                "perNeuf","sync","reglages","data","sondes"];
 /* Ce qui vaut la peine d'être épinglé : pas les quatre onglets ni les
    Réglages, déjà à une tape de partout ; ni « À quoi maintenant » et « Ce qui
    est ici », qui sont déjà deux lignes de l'écran où les épingles se posent.
@@ -106,10 +105,8 @@ function render(){
   if(S.view!=="annonce") S.gQ="";
   /* Un mouvement en cours de saisie n'a de sens que sur son écran : le
      garder ailleurs ferait réapparaître une somme à demi tapée. */
-  if(S.view!=="sou") S.sd=null;
   /* Un relevé à demi lu n'a de sens que sur son écran ; le garder ferait
      revenir un lot déjà ajouté. */
-  if(S.view!=="charger"){ S.ch=null; S.chTxt=""; }
   if(S.view!=="lecture"){ S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false; }
   if(S.view!=="pages" && S.view!=="livre"){ S.pgL=null; S.pgA=null; S.pgZ=null; }
   if(S.view!=="auteur") S.auId=null;

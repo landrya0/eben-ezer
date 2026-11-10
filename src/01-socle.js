@@ -9,7 +9,7 @@
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v97";
+const VERSION = "v98";
 const KEY = "ebenezer.v1";
 /* Les sondes vivent dans le 12, chargé APRÈS celui-ci : le socle ne peut
    pas en dépendre, l'ordre est porteur. On appelle donc à travers un
@@ -55,13 +55,18 @@ const TACHES_SOCLE = [
   ["Attente","reste"],["Écrans","reste"]
 ];
 
+/* `sous` et `dev` sont l'argent, dont les écrans sont sortis de l'app en
+   v98. Ils restent câblés ici, dans `sane()`, dans la boucle `maj` et dans
+   `fusionne()` : `sane()` est une liste blanche, et les retirer effacerait
+   le registre au premier enregistrement — puis, par la synchro, sur l'autre
+   appareil. On ne supprime pas, et rien ne se perd (2.d, 13.be, 13.dw).
+   L'export les emporte : c'est par là qu'ils sortent. */
 let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], periodes:[], livres:[], auteurs:[], sujets:[], sous:[], portes:[], dev:"EUR", exp:0, seq:1};
 let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an", rev:"noms", pile:[], nodeId:null,
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
          per:"jour", anc:null, vue:"parts", tQ:"", tCat:"", blocId:null, medId:null, trou:null, quand:null,
          noteFocus:false, frisZ:null, enPlus:null, plusDeb:null, poseEn:null, tchId:null, sjQ:"", gQ:"", sujId:null, sjF:"attente",
-         vueA:"parts", sd:null, ch:null, chTxt:"",
          lu:null, luA:null, luZ:null, luPlein:false,
          pgL:null, pgA:null, pgZ:null, lvId:null, auId:null, perId:null};
 

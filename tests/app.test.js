@@ -1765,406 +1765,6 @@ test("13.dj — la ligne dit le geste, et le geste se reprend", () => {
   A.equal(a.f.perOuverte(pr), true, "une fin posée par erreur se reprend (13.cl)");
 });
 
-/* ---------- 13.dk — l'argent est le troisième registre ---------- */
-
-/* « là ou est ton trésor là sera ton coeur » : ce qui se mesure, c'est la
-   destination, et le poste la porte à lui seul. */
-function mvt(id, d, m, p, q) {
-  return { id: id, t: jour(d, 0, 0), m: m, p: p, q: q || "", maj: 1 };
-}
-function enArgent(a) {
-  a.db.sous = [
-    mvt("mv1", 2, 250000, "salaire", "Salaire d'octobre"),
-    mvt("mv2", 3, 25000, "dieu", "Dîme"),
-    mvt("mv3", 4, 90000, "moi", "Le loyer"),
-    mvt("mv4", 5, 40000, "epargne"),
-    mvt("mv5", 6, 5000, "dieu", "Offrande")
-  ];
-  return a.db.sous;
-}
-function argent(a, vue) {
-  a.S.view = "argent"; a.S.per = "mois"; a.S.anc = null;
-  if (vue) a.S.vueA = vue;
-  a.f.vArgent();
-  return a.Z.html;
-}
-
-test("13.dk — le poste porte le sens : aucun champ à tenir d'accord", () => {
-  const a = app();
-  enArgent(a);
-  /* Rien, dans une fiche, ne dit « entrée » ou « sortie » : c'est le poste
-     qui le dit, et lui seul (13.cn). */
-  a.db.sous.forEach(function (x) {
-    A.equal(x.sens, undefined, "pas de champ de sens à saisir");
-  });
-  A.equal(a.f.posteSens("salaire"), "e");
-  A.equal(a.f.posteSens("dieu"), "s");
-  A.equal(a.f.posteSens("retour"), "e", "reprendre son épargne est une entrée");
-
-  const b = a.f.bornes("mois", MIDI);
-  const c = a.f.cumulSous(b[0], b[1]);
-  A.equal(c.entre, 250000);
-  A.equal(c.sorti, 25000 + 90000 + 40000 + 5000);
-  A.equal(c.par.dieu, 30000, "deux lignes pour Dieu font une seule part");
-  A.equal(c.n, 5);
-});
-
-test("13.dk — l'heure et le franc vont aux mêmes destinataires", () => {
-  const a = app();
-  const sorties = Array.from(a.f.postesDe("s"));
-  /* Les cinq de CAT_SOCLE se retrouvent à l'identique : c'est le même cœur
-     qui répartit l'heure et le franc. */
-  Array.from(a.c.CAT_SOCLE).forEach(function (cat) {
-    A.ok(sorties.indexOf(cat[0]) !== -1, "le temps donne à « " + cat[1] + " », l'argent aussi");
-  });
-  /* Et l'argent en ajoute deux que le temps n'a pas : on n'épargne pas une
-     heure, on ne l'investit pas. */
-  A.ok(sorties.indexOf("epargne") !== -1);
-  A.ok(sorties.indexOf("invest") !== -1);
-  A.equal(sorties.length, Array.from(a.c.CAT_SOCLE).length + 2);
-});
-
-test("13.dk — les sommes se gardent en entiers, et se lisent comme on les tape", () => {
-  const a = app();
-  A.equal(a.f.montantLu("12,50"), 1250);
-  A.equal(a.f.montantLu("12.5"), 1250, "le point d'un clavier étranger vaut la virgule");
-  A.equal(a.f.montantLu("12"), 1200);
-  A.equal(a.f.montantLu("1 234,56"), 123456, "l'espace des milliers ne gêne pas");
-  A.equal(a.f.montantLu("1.234"), 123400, "mille deux cent trente-quatre, pas un euro vingt-trois");
-  A.equal(a.f.montantLu("-43,20"), -4320, "un relevé recopié arrive négatif");
-  A.equal(a.f.montantLu("12 €"), 1200);
-  A.equal(a.f.montantLu(""), null);
-  A.equal(a.f.montantLu("rien"), null);
-  /* Le centime ne se perd pas en route : 0,1 + 0,2 doit faire 0,3. */
-  A.equal(a.f.montantLu("0,10") + a.f.montantLu("0,20"), a.f.montantLu("0,30"));
-  /* Et ce qui s'affiche dans un champ se retape tel quel. */
-  A.equal(a.f.sousNu(123456), "1234,56");
-  A.equal(a.f.montantLu(a.f.sousNu(123456)), 123456);
-});
-
-test("13.dk — le signe ne se garde pas : le poste dit le sens", () => {
-  const a = app();
-  a.S.view = "argent";
-  a.actions.souNeuf();
-  a.ecrit("souM", "-43,20");
-  a.geste({ poste: "moi" });
-  A.equal(a.S.sd.mTxt, "-43,20", "choisir un poste ne perd pas ce qui est tapé (13.ct)");
-  a.actions.souGarder();
-  A.equal(a.db.sous.length, 1);
-  A.equal(a.db.sous[0].m, 4320, "on n'en retient que la somme");
-  A.equal(a.db.sous[0].p, "moi");
-  A.equal(a.S.view, "argent");
-});
-
-test("13.dk — un mouvement sans somme ou sans poste n'entre pas", () => {
-  const a = app();
-  a.actions.souNeuf();
-  a.actions.souGarder();
-  A.equal(a.db.sous.length, 0, "rien à garder");
-
-  a.ecrit("souM", "0");
-  a.actions.souGarder();
-  A.equal(a.db.sous.length, 0, "zéro n'a rien bougé");
-
-  a.ecrit("souM", "30");
-  a.actions.souGarder();
-  A.equal(a.db.sous.length, 0, "sans poste, la somme n'irait nulle part");
-
-  a.geste({ poste: "dieu" });
-  a.actions.souGarder();
-  A.equal(a.db.sous.length, 1);
-  A.equal(a.db.sous[0].m, 3000);
-});
-
-test("13.dk — un jour qui n'est pas arrivé ne se note pas", () => {
-  const a = app();
-  a.actions.souNeuf();
-  a.ecrit("souM", "30");
-  a.ecrit("souJ", "2026-12-01");
-  a.geste({ poste: "dieu" });
-  a.actions.souGarder();
-  A.equal(a.db.sous.length, 0);
-
-  a.ecrit("souJ", "2026-11-08");
-  a.actions.souGarder();
-  A.equal(a.db.sous.length, 1, "aujourd'hui passe");
-  A.equal(a.db.sous[0].t, jour(8, 0, 0));
-});
-
-test("13.dk — une fiche se corrige et s'efface, et l'effacement laisse sa pierre", () => {
-  const a = app();
-  enArgent(a);
-  a.geste({ sou: "mv3" });
-  A.equal(a.S.view, "sou");
-  A.equal(a.S.sd.mTxt, "900,00", "la somme revient telle qu'elle se retape");
-  a.ecrit("souM", "950");
-  a.actions.souGarder();
-  A.equal(a.f.sou("mv3").m, 95000);
-
-  a.geste({ sou: "mv3" });
-  a.actions.souEffacer();
-  A.equal(a.f.sou("mv3"), null);
-  /* Sans pierre tombale, la synchro le ressusciterait (13.be). */
-  A.ok(a.db.morts["mv3"], "une suppression se dit à l'autre appareil");
-});
-
-test("13.dk — l'écart n'est pas un solde, et l'écran le dit", () => {
-  const a = app();
-  enArgent(a);
-  const h = argent(a, "parts");
-  A.match(h, /Il est entré/);
-  A.match(h, /il est resté/, "entré moins sorti, nommé pour ce qu'il est");
-  A.match(h, /pas un solde de compte/, "l'application ignore ce qu'il y avait avant");
-  /* La part de Dieu se dit en une phrase : c'est la question du registre. */
-  A.match(h, /sont allés à Dieu/);
-  A.match(h, /19\u202f%/, "30 000 sur 160 000 sortis");
-  A.match(h, /Où c'est allé/);
-  A.match(h, /D'où c'est venu/);
-});
-
-test("13.dk — la part vide se dit, et mène quelque part", () => {
-  const a = app();
-  a.db.sous = [mvt("mv1", 3, 90000, "moi", "Le loyer")];
-  const h = argent(a, "parts");
-  A.match(h, /Rien n'est allé à Dieu/, "un chiffre qui accuse ne se cache pas");
-  A.match(a.Z.action, /data-act="souNeuf"/, "et jamais un reproche sans porte (13.cb)");
-});
-
-test("13.dk — les mouvements se relisent un par un, du plus récent au plus ancien", () => {
-  const a = app();
-  enArgent(a);
-  const h = argent(a, "mvts");
-  const ordre = (h.match(/data-sou="(mv\d)"/g) || []).join(" ");
-  A.equal(ordre, 'data-sou="mv5" data-sou="mv4" data-sou="mv3" data-sou="mv2" data-sou="mv1"');
-  A.match(h, /Le loyer/, "le libellé se lit, mais c'est le poste qui structure");
-  A.match(h, /− 900,00/, "une sortie se voit au signe");
-  A.match(h, /\+ 2[\s\u202f\u00a0]?500,00/, "une entrée aussi");
-});
-
-test("13.dk — un registre dont on ne peut pas dire la monnaie n'est pas un registre", () => {
-  const a = app();
-  enArgent(a);
-  A.equal(a.db.dev, "EUR");
-  A.match(a.f.sousTxt(123456), /€/);
-
-  a.S.view = "reglages"; a.f.vReglages();
-  A.match(a.Z.html, /data-go="devise"/, "le réglage a une porte (13.cl)");
-
-  a.geste({ dev: "XAF" });
-  A.equal(a.db.dev, "XAF");
-  A.match(a.f.sousTxt(1234), /FCFA/);
-  A.equal(a.f.sousTxt(1234), "1 234 FCFA".replace(" ", " "), "le franc CFA n'a pas de centimes");
-  /* Changer de monnaie ne convertit rien : aucun taux ne se devine. */
-  A.equal(a.f.sou("mv3").m, 90000, "le nombre gardé ne bouge pas");
-  a.S.view = "devise"; a.f.vDevise();
-  A.match(a.Z.html, /ne convertit rien/, "et l'écran le dit avant qu'on y touche");
-});
-
-test("13.dk — le registre survit au rechargement et à la réunion", () => {
-  const a = app();
-  enArgent(a);
-  a.db.dev = "XAF";
-  /* Les quatre points de câblage : le littéral, sane(), la boucle maj,
-     fusionne(). */
-  const r = a.f.sane(JSON.parse(JSON.stringify(a.db)));
-  A.equal(r.sous.length, 5, "le tableau traverse le rechargement");
-  A.equal(r.dev, "XAF");
-  A.equal(r.sous[0].id, "mv1", "et il est rangé du plus ancien au plus récent");
-
-  /* Un mouvement né sur l'autre appareil arrive ; celui qu'on a effacé ici
-     ne revient pas. */
-  const B = JSON.parse(JSON.stringify(r));
-  B.sous.push(mvt("mv9", 7, 10000, "dieu", "Soutien"));
-  const A2 = JSON.parse(JSON.stringify(r));
-  A2.sous = A2.sous.filter(function (x) { return x.id !== "mv2"; });
-  A2.morts = { mv2: Date.now() };
-  const d = a.f.fusionne(A2, B);
-  const ids = Array.from(d.sous).map(function (x) { return x.id; });
-  A.ok(ids.indexOf("mv9") !== -1, "ce qui est né ailleurs arrive");
-  A.equal(ids.indexOf("mv2"), -1, "ce qui est effacé ne ressuscite pas (13.be)");
-  A.equal(d.dev, "XAF");
-});
-
-test("13.dk — la porte de Mes actes dit la part de Dieu du mois", () => {
-  const a = app();
-  enArgent(a);
-  a.S.view = "actes"; a.f.vActes();
-  A.match(a.Z.html, /data-go="argent"/, "le troisième registre a sa porte (13.di)");
-  A.match(a.Z.html, /19\u202f% à Dieu ce mois-ci/);
-
-  a.db.sous = [];
-  a.f.vActes();
-  A.match(a.Z.html, /Ce qui entre, ce qui sort/, "et vide, elle invite sans accuser");
-});
-
-/* ---------- 13.dl — un relevé se verse, il ne remplace pas ---------- */
-
-const RELEVE = [
-  "2026-11-02 | salaire | 2500,00 | Salaire d'octobre",
-  "2026-11-03 | dieu | 250,00 | Dîme de novembre",
-  "2026-11-04 | moi | 900,00 | Loyer"
-].join("\n");
-
-function colle(a, txt) {
-  a.S.pile = []; a.S.view = "argent";
-  a.geste({ go: "charger" });
-  a.f.vCharger();
-  a.ecrit("chTxt", txt);
-  a.actions.chLire();
-  return a.S.ch;
-}
-
-test("13.dl — le format se lit, et rien n'entre avant le dernier geste", () => {
-  const a = app();
-  const r = colle(a, RELEVE);
-  A.equal(r.ok.length, 3);
-  A.equal(r.deja.length, 0);
-  A.equal(r.ko.length, 0);
-  /* Lire ne touche pas au registre : l'application montre, le disciple
-     ajoute (13.bc). */
-  A.equal(a.db.sous.length, 0, "lire n'écrit rien");
-
-  a.actions.chAjoute();
-  A.equal(a.db.sous.length, 3);
-  A.equal(a.S.view, "argent", "et il revient là d'où il venait");
-  const x = a.db.sous.filter(function (y) { return y.p === "dieu"; })[0];
-  A.equal(x.m, 25000, "les centimes, en entier");
-  A.equal(x.t, jour(3, 0, 0));
-  A.equal(x.q, "Dîme de novembre");
-  A.ok(x.id, "et chaque mouvement reçoit son identifiant");
-  A.equal(a.S.ch, null, "le lot ne reste pas en mémoire");
-});
-
-test("13.dl — coller deux fois ne double pas la dîme", () => {
-  const a = app();
-  colle(a, RELEVE);
-  a.actions.chAjoute();
-  A.equal(a.db.sous.length, 3);
-
-  const r = colle(a, RELEVE);
-  A.equal(r.ok.length, 0, "tout est déjà là");
-  A.equal(r.deja.length, 3);
-  a.actions.chAjoute();
-  A.equal(a.db.sous.length, 3, "un registre qui double ce qu'on donne ne prouve rien");
-});
-
-test("13.dl — une ligne répétée dans le collage même ne passe qu'une fois", () => {
-  const a = app();
-  const r = colle(a, RELEVE + "\n" + "2026-11-03 | dieu | 250,00 | Dîme de novembre");
-  A.equal(r.ok.length, 3);
-  A.equal(r.deja.length, 1);
-});
-
-test("13.dl — deux mouvements du même jour passent s'ils se distinguent", () => {
-  const a = app();
-  const r = colle(a, [
-    "2026-11-03 | moi | 3,50 | Café",
-    "2026-11-03 | moi | 3,50 | Le marché",
-    "2026-11-03 | moi | 4,00 | Café"
-  ].join("\n"));
-  A.equal(r.ok.length, 3, "le libellé et la somme les séparent");
-  A.equal(r.deja.length, 0);
-});
-
-test("13.dl — ce qui ne se lit pas se dit, et n'entre pas", () => {
-  const a = app();
-  const r = colle(a, [
-    RELEVE,
-    "2026-13-01 | dieu | 10,00 | Mois impossible",
-    "2026-02-31 | dieu | 10,00 | Jour impossible",
-    "2026-11-09 | dieu | 10,00 | Demain",
-    "2026-11-03 | cantine | 10,00 | Poste inconnu",
-    "2026-11-03 | dieu | zéro | Montant illisible",
-    "2026-11-03 dieu 10,00 Sans séparateur"
-  ].join("\n"));
-  A.equal(r.ok.length, 3, "les bonnes lignes passent quand même");
-  A.equal(r.ko.length, 6);
-  const raisons = Array.from(r.ko).map(function (k) { return k[1]; }).join(" ~ ");
-  A.match(raisons, /le jour ne se lit pas/);
-  A.match(raisons, /n'est pas encore arrivé/);
-  A.match(raisons, /« cantine » n'est pas un poste/);
-  A.match(raisons, /le montant ne se lit pas/);
-  A.match(raisons, /il manque des colonnes/);
-
-  a.f.vCharger();
-  A.match(a.Z.html, /je n'ai pas su lire/, "l'écran les montre une par une");
-  A.match(a.Z.html, /Jour impossible/, "avec la ligne telle qu'elle a été collée");
-
-  a.actions.chAjoute();
-  A.equal(a.db.sous.length, 3, "rien d'illisible n'est entré");
-});
-
-test("13.dl — un nom qui désigne deux postes ne se devine pas", () => {
-  const a = app();
-  /* « Mon travail » est une sortie ET une entrée : deviner serait inventer
-     un chiffre (13.ch). */
-  A.equal(a.f.chPoste("Mon travail"), false);
-  A.equal(a.f.chPoste("Le reste"), false);
-  A.equal(a.f.chPoste("travail"), "travail", "l'identifiant, lui, tranche");
-  A.equal(a.f.chPoste("salaire"), "salaire");
-
-  const r = colle(a, "2026-11-03 | Mon travail | 10,00 | Péage");
-  A.equal(r.ok.length, 0);
-  A.match(r.ko[0][1], /peut être une entrée ou une sortie/);
-});
-
-test("13.dl — on accepte ce qu'un relevé recopié donne vraiment", () => {
-  const a = app();
-  const r = colle(a, [
-    "jour | poste | montant | à qui, à quoi",
-    "03/11/2026 ; Pour Dieu ; 250,00 ; Dîme",
-    "2026-11-04\tMA FAMILLE\t1 234,56 €\tEnvoi à maman",
-    "2026-11-05 | moi | -43,20 | Courses",
-    "2026-11-06 | epargne | 400 | Virement | automatique"
-  ].join("\n"));
-  A.equal(r.ko.length, 0, Array.from(r.ko).map(function (k) { return k.join(" → "); }).join(" ~ "));
-  A.equal(r.ok.length, 4, "l'en-tête du modèle n'est pas un mouvement");
-  const o = Array.from(r.ok);
-  A.equal(o[0].p, "dieu", "le nom du poste, accents et majuscules compris");
-  A.equal(o[1].p, "famille");
-  A.equal(o[1].m, 123456, "l'espace des milliers et le symbole ne gênent pas");
-  A.equal(o[2].m, 4320, "le signe d'un relevé ne se garde pas : le poste dit le sens");
-  A.equal(o[3].q, "Virement | automatique", "une barre dans le libellé reste dans le libellé");
-});
-
-test("13.dl — l'écran donne la consigne avant de demander le texte", () => {
-  const a = app();
-  a.S.pile = []; a.S.view = "argent";
-  a.geste({ go: "charger" });
-  a.f.vCharger();
-  A.match(a.Z.html, /jour \| poste \| montant/, "le format est écrit noir sur blanc");
-  A.match(a.Z.html, /data-act="chCopie"/, "et se copie d'un geste");
-  A.match(a.Z.html, /id="chTxt"/);
-  A.match(a.Z.action, /data-act="chLire"/);
-  /* Tous les postes sont nommés dans la consigne, sans quoi Claude en
-     inventerait. */
-  Array.from(a.c.POSTES).forEach(function (p) {
-    A.match(a.c.CONSIGNE, new RegExp("\\b" + p[0] + "\\b"), p[0] + " manque à la consigne");
-  });
-});
-
-test("13.dl — la porte est sur Mon argent, vide ou plein", () => {
-  const a = app();
-  a.S.view = "argent"; a.S.per = "mois"; a.S.anc = null;
-  a.f.vArgent();
-  A.match(a.Z.html, /data-go="charger"/, "registre vide : c'est là qu'on commence");
-
-  a.db.sous = [{ id: "mv1", t: jour(3, 0, 0), m: 25000, p: "dieu", q: "Dîme", maj: 1 }];
-  a.S.vueA = "parts"; a.f.vArgent();
-  A.match(a.Z.html, /data-go="charger"/);
-  a.S.vueA = "mvts"; a.f.vArgent();
-  A.match(a.Z.html, /data-go="charger"/);
-});
-
-test("13.dl — un relevé à demi lu ne survit pas à l'écran", () => {
-  const a = app();
-  colle(a, RELEVE);
-  A.ok(a.S.ch, "le lot est là tant qu'on le regarde");
-  a.geste({ go: "today" });
-  A.equal(a.S.ch, null, "il ne revient pas par la porte d'à côté");
-  A.equal(a.S.chTxt, "");
-});
-
 /* ---------- 13.dm — une activité se renomme, se range et se réunit ---------- */
 
 /* « je dois pouvoir corriger le nom d'une action dont j'ai mesuré le temps.
@@ -2315,7 +1915,7 @@ test("13.dn — la profondeur se remet à zéro sur un onglet", () => {
      onglet que se mesure ce qu'une porte coûte. */
   a.geste({ go: "actes" });
   A.equal(Array.from(a.SO.g).pop().d, 0, "un onglet ne coûte rien");
-  a.geste({ go: "argent" });
+  a.geste({ go: "sync" });
   A.equal(Array.from(a.SO.g).pop().d, 1, "et le compte reprend à un");
 });
 
@@ -2328,7 +1928,7 @@ test("13.dn — rien de ce qu'il écrit n'entre dans une sonde", () => {
   A.equal(a.f.soSauf("node", "n42-ab12cd"), "#");
   A.equal(a.f.soSauf("tache", "a12-7f3k2b"), "#");
   /* Un mot de code écrit dans le source, lui, se garde : c'est le geste. */
-  A.equal(a.f.soSauf("go", "argent"), "argent");
+  A.equal(a.f.soSauf("go", "sync"), "sync");
   A.equal(a.f.soSauf("qui", "moiPrevu"), "moiPrevu");
   A.equal(a.f.soSauf("mes", "1"), "1");
   /* Et tout le reste — donc tout ce qui est ajouté demain — est muet. */
@@ -2347,28 +1947,27 @@ test("13.dn — ce que l'app cite de lui est retiré de ses paroles", () => {
   const a = app();
   A.equal(a.f.soSigne("Combien ?"), "Combien ?", "un refus sec reste entier");
   A.equal(a.f.soSigne("Arrêté : Prière du matin"), "Arrêté : …");
-  A.equal(a.f.soSigne("Noté : Euro"), "Noté : …");
+  A.equal(a.f.soSigne("Commencé : Jeûne"), "Commencé : …");
   A.equal(a.f.soSigne("« Prière » existe déjà — réunis les deux activités"),
     "«…» existe déjà — réunis les deux activités");
-  A.equal(a.f.soSigne("2 mouvements ajoutés."), "n mouvements ajoutés.",
+  A.equal(a.f.soSigne("2 blocs réunis."), "n blocs réunis.",
     "les chiffres se rangent ensemble");
 });
 
 test("13.dn — un refus se distingue d'une confirmation sans le déclarer", () => {
   const a = app();
   surOnglet(a);
-  a.geste({ go: "argent" });
-  a.geste({ act: "souNeuf" });
-  /* Garder sans montant : l'app parle, et rien ne s'écrit. */
-  a.geste({ act: "souGarder" });
+  a.geste({ go: "perNeuf" });
+  /* Commencer sans dire quelle routine : l'app parle, et rien ne s'écrit. */
+  a.geste({ act: "perCommencer" });
   const x = Array.from(a.SO.g).pop();
-  A.equal(x.r, "Combien ?", "la parole est gardée");
+  A.equal(x.r, "Choisis la routine", "la parole est gardée");
   A.equal(x.s, undefined, "et rien n'a été écrit : c'est un refus");
 
   /* Un vrai enregistrement, lui, porte la marque de l'écriture. */
-  a.ecrit("souM", "2500");
-  a.geste({ poste: "dieu" });
-  a.geste({ act: "souGarder" });
+  a.ctx.document.getElementById("pdDisc").value = "jeune";
+  a.poseHeure("pdDeb", MIDI - H);
+  a.geste({ act: "perCommencer" });
   const y = Array.from(a.SO.g).pop();
   A.equal(y.s, 1, "une écriture a eu lieu");
   A.equal(a.f.soBilan().refus.length, 1, "la confirmation ne compte pas pour un refus");
@@ -2378,34 +1977,34 @@ test("13.dn — le bilan nomme la porte qui coûte, et mène à elle", () => {
   const a = app();
   for (let i = 0; i < 3; i++) {
     a.geste({ go: "actes" });
-    a.geste({ go: "argent" });
-    a.geste({ go: "charger" });
+    a.geste({ go: "sync" });
+    a.geste({ go: "data" });
   }
   const b = a.f.soBilan();
-  const c = b.couts.filter(function (x) { return x.v === "charger"; })[0];
+  const c = b.couts.filter(function (x) { return x.v === "data"; })[0];
   A.ok(c, "l'écran atteint le plus loin est là");
   A.equal(c.n, 3, "trois visites");
   A.equal(c.med, 2, "deux gestes chaque fois");
   A.equal(c.poids, 3, "trois gestes qu'un raccourci lui aurait rendus");
-  A.equal(b.couts[0].v, "charger", "et il passe devant, parce qu'il coûte plus");
+  A.equal(b.couts[0].v, "data", "et il passe devant, parce qu'il coûte plus");
 
   /* Un chiffre qui accuse doit mener quelque part (13.cb). */
   a.f.vSondes();
-  A.match(a.Z.html, /data-go="charger"/);
-  A.match(a.Z.html, /Charger un relevé/);
+  A.match(a.Z.html, /data-go="data"/);
+  A.match(a.Z.html, /Mes données/);
 });
 
 test("13.dn — le demi-tour dit où il voulait aller", () => {
   const a = app();
   for (let i = 0; i < 2; i++) {
     a.geste({ go: "actes" });
-    a.geste({ go: "argent" });   // la mauvaise porte
+    a.geste({ go: "sync" });   // la mauvaise porte
     a.geste({ back: "1" });      // reparti aussitôt, sans rien écrire
     a.geste({ go: "temps" });    // ce qu'il cherchait
     a.geste({ go: "actes" });
   }
   const b = a.f.soBilan();
-  const t = b.tours.filter(function (x) { return x.v === "argent"; })[0];
+  const t = b.tours.filter(function (x) { return x.v === "sync"; })[0];
   A.ok(t, "le demi-tour est vu");
   A.equal(t.n, 2);
   A.equal(t.suite[0].v, "temps", "et l'écran suivant dit ce qu'il cherchait");
@@ -2415,11 +2014,11 @@ test("13.dn — le demi-tour dit où il voulait aller", () => {
 
 test("13.dn — un écran où il écrit n'est pas un demi-tour", () => {
   const a = app();
-  a.db.sous = [{ id: "mv1", t: MIDI - H, m: 1000, p: "dieu", q: "", maj: 1 }];
+  a.db.periodes = [{ id: "pr1", d: "jeune", deb: MIDI - H, fin: MIDI, maj: 1 }];
   a.geste({ go: "actes" });
-  a.geste({ go: "argent" });
-  a.geste({ sou: "mv1" });
-  a.geste({ act: "souEffacer" });      // il a fait ce qu'il venait faire
+  a.geste({ go: "temps" });
+  a.geste({ prd: "pr1" });
+  a.geste({ act: "perEffacer" });      // il a fait ce qu'il venait faire
   a.geste({ back: "1" });
   A.equal(a.f.soBilan().tours.length, 0,
     "être reparti après avoir écrit, c'est avoir réussi");
@@ -2427,15 +2026,14 @@ test("13.dn — un écran où il écrit n'est pas un demi-tour", () => {
 
 test("13.dn — les refus se regroupent par écran", () => {
   const a = app();
-  a.geste({ go: "argent" });
-  a.geste({ act: "souNeuf" });
-  a.geste({ act: "souGarder" });
-  a.geste({ act: "souGarder" });
-  a.geste({ act: "souGarder" });
+  a.geste({ go: "perNeuf" });
+  a.geste({ act: "perCommencer" });
+  a.geste({ act: "perCommencer" });
+  a.geste({ act: "perCommencer" });
   const b = a.f.soBilan();
   A.equal(b.refus[0].n, 3, "trois fois le même refus");
-  A.equal(b.refus[0].r, "Combien ?");
-  A.equal(b.refus[0].w, "sou", "et l'écran qui demande mal est nommé");
+  A.equal(b.refus[0].r, "Choisis la routine");
+  A.equal(b.refus[0].w, "perNeuf", "et l'écran qui demande mal est nommé");
   a.f.vSondes();
   A.match(a.Z.html, /Ce que l'app a refusé/);
 });
@@ -2504,10 +2102,10 @@ test("13.dn — les Réglages disent déjà ce que ça coûte", () => {
   const a = app();
   for (let i = 0; i < 3; i++) {
     a.geste({ go: "actes" });
-    a.geste({ go: "argent" });
-    a.geste({ go: "charger" });
+    a.geste({ go: "sync" });
+    a.geste({ go: "data" });
   }
-  A.match(a.f.soEtat(), /3 gestes de trop sur « Charger un relevé »/);
+  A.match(a.f.soEtat(), /3 gestes de trop sur « Mes données »/);
   a.f.vReglages();
   A.match(a.Z.html, /data-go="sondes"/, "la porte est dans les Réglages");
   A.match(a.Z.html, /Comment je m'en sers/);
@@ -2528,9 +2126,9 @@ test("13.dn — la liste des gestes ne grossit pas sans fin", () => {
 test("13.dn — une porte déjà à portée ne figure pas dans ce qui coûte", () => {
   const a = app();
   /* Depuis un onglet, un seul geste : il n'y a rien à gagner. */
-  for (let i = 0; i < 6; i++) { a.geste({ go: "actes" }); a.geste({ go: "argent" }); }
+  for (let i = 0; i < 6; i++) { a.geste({ go: "actes" }); a.geste({ go: "sync" }); }
   const b = a.f.soBilan();
-  A.equal(b.couts.filter(function (c) { return c.v === "argent"; }).length, 0,
+  A.equal(b.couts.filter(function (c) { return c.v === "sync"; }).length, 0,
     "six visites à un geste ne coûtent rien");
   a.f.vSondes();
   A.ok(!/CE QUI TE COÛTE|Ce qui te coûte/.test(a.Z.html),
@@ -2542,7 +2140,7 @@ test("13.dn — un onglet n'est pas une porte où l'on se trompe", () => {
   for (let i = 0; i < 3; i++) {
     a.geste({ go: "temps" });
     a.geste({ go: "actes" });   // un onglet : un carrefour, pas une erreur
-    a.geste({ go: "argent" });
+    a.geste({ go: "sync" });
   }
   const b = a.f.soBilan();
   A.equal(b.tours.filter(function (t) { return t.v === "actes"; }).length, 0,
@@ -2563,13 +2161,13 @@ test("13.dn — un chemin se lit sans être décodé", () => {
   const a = app();
   for (let i = 0; i < 3; i++) {
     a.geste({ go: "actes" });
-    a.geste({ go: "argent" });
-    a.geste({ go: "charger" });
+    a.geste({ go: "sync" });
+    a.geste({ go: "data" });
     a.geste({ back: "1" });
   }
   const c = a.f.soBilan().chemins[0];
   A.ok(c, "le trajet repris trois fois est là");
-  A.equal(c.suite, "Mon argent → Charger un relevé → Retour",
+  A.equal(c.suite, "Synchronisation → Mes données → Retour",
     "en mots, pas en noms d'attributs");
 });
 
@@ -2586,65 +2184,65 @@ test("13.do — une porte épinglée s'ouvre d'une tape, sous le pouce", () => {
   const a = app();
   A.ok(!/Aller tout de suite/.test(sousLePouce(a)), "rien tant que rien n'est épinglé");
 
-  a.geste({ potog: "charger" });
+  a.geste({ potog: "data" });
   const h = sousLePouce(a);
   A.match(h, /Aller tout de suite/);
-  A.match(h, /data-go="charger"/, "la ligne mène à l'écran");
-  A.match(h, /Charger un relevé/);
+  A.match(h, /data-go="data"/, "la ligne mène à l'écran");
+  A.match(h, /Mes données/);
   A.equal(a.f.portesEp().length, 1);
 });
 
 test("13.do — une porte et un raccourci ne portent pas la même forme", () => {
   const a = app();
   a.db.taches = [{ id: "a1", nom: "Prière", cat: "dieu", ep: 1, maj: 1 }];
-  a.geste({ potog: "argent" });
+  a.geste({ potog: "sync" });
   const h = sousLePouce(a);
   /* Un raccourci d'activité fait partir le compteur ; une porte ouvre un
      écran. Deux blocs, deux titres : les mêler ferait démarrer un compteur
      à qui voulait seulement regarder (13.cu). */
   A.match(h, /data-ep="a1"/, "le raccourci d'activité est là");
   A.match(h, /Le compteur part/, "et il dit ce qu'il fait");
-  A.match(h, /data-go="argent"/, "la porte aussi");
+  A.match(h, /data-go="sync"/, "la porte aussi");
   A.ok(a.Z.html.indexOf("Le compteur part") < a.Z.html.indexOf("Aller tout de suite"),
     "chacune dans son bloc, et le compteur d'abord");
-  A.ok(!/data-ep="argent"/.test(h), "une porte ne démarre rien");
+  A.ok(!/data-ep="sync"/.test(h), "une porte ne démarre rien");
 });
 
 test("13.do — décrocher laisse une pierre tombale", () => {
   const a = app();
-  a.geste({ potog: "argent" });
+  a.geste({ potog: "sync" });
   const id = a.f.portesEp()[0].id;
-  a.geste({ potog: "argent" });
+  a.geste({ potog: "sync" });
   A.equal(a.f.portesEp().length, 0, "la seconde tape décroche");
   A.ok(a.db.morts[id], "et laisse sa pierre (13.be)");
 
   /* Sans elle, l'autre appareil la remettrait à la synchronisation. */
   const B = JSON.parse(JSON.stringify(a.db));
   B.morts = {};
-  B.portes = [{ id: id, v: "argent", ep: 1, maj: 1 }];
+  B.portes = [{ id: id, v: "sync", ep: 1, maj: 1 }];
   const d = a.f.fusionne(JSON.parse(JSON.stringify(a.db)), B);
   A.equal(Array.from(d.portes).length, 0, "elle ne ressuscite pas");
 });
 
 test("13.do — les portes voyagent à la synchronisation", () => {
   const a = app();
-  a.geste({ potog: "argent" });
+  a.geste({ potog: "sync" });
   const B = a.f.sane({ portes: [{ id: "po9-zz", v: "cahier", ep: 1, maj: 2 }] });
   const d = a.f.fusionne(JSON.parse(JSON.stringify(a.db)), B);
   const vs = Array.from(d.portes).map(function (p) { return p.v; }).sort();
-  A.deepStrictEqual(vs, ["argent", "cahier"], "les deux appareils se réunissent");
+  A.deepStrictEqual(vs, ["cahier", "sync"], "les deux appareils se réunissent");
 });
 
 test("13.do — deux fois la même porte n'est pas deux raccourcis", () => {
   const a = app();
   /* Deux appareils peuvent l'avoir épinglée chacun de son côté. */
   const d = a.f.sane({ portes: [
-    { id: "po1-aa", v: "argent", ep: 1, maj: 1 },
-    { id: "po2-bb", v: "argent", ep: 2, maj: 1 },
+    { id: "po1-aa", v: "sync", ep: 1, maj: 1 },
+    { id: "po2-bb", v: "sync", ep: 2, maj: 1 },
     { id: "po3-cc", v: "cahier", ep: 3, maj: 1 }
   ] });
   A.equal(Array.from(d.portes).length, 2);
-  A.equal(Array.from(d.portes)[0].v, "argent");
+  A.equal(Array.from(d.portes)[0].v, "sync");
 
   /* Et la même tape deux fois n'ajoute rien non plus. */
   a.geste({ potog: "cahier" });
@@ -2663,25 +2261,25 @@ test("13.do — on n'épingle pas une porte qui ne mène nulle part", () => {
   A.equal(a.f.portesEp().length, 0);
   /* Et ce qu'on propose de cocher est exactement ça. */
   const vs = Array.from(a.f.portables());
-  A.ok(vs.indexOf("charger") !== -1);
+  A.ok(vs.indexOf("data") !== -1);
   A.equal(vs.indexOf("actes"), -1);
   A.equal(vs.indexOf("node"), -1);
 });
 
 test("13.do — l'ordre se règle à la main : ce qu'on touche passe en premier", () => {
   const a = app();
-  a.geste({ potog: "argent" });
+  a.geste({ potog: "sync" });
   a.geste({ potog: "cahier" });
-  a.geste({ potog: "charger" });
+  a.geste({ potog: "data" });
   A.deepStrictEqual(Array.from(a.f.portesEp()).map(function (p) { return p.v; }),
-    ["argent", "cahier", "charger"], "d'abord l'ordre où on les a posées");
+    ["sync", "cahier", "data"], "d'abord l'ordre où on les a posées");
 
   a.geste({ go: "ordre" });
   A.match(a.Z.html, /Dans quel ordre|en premier/);
-  a.geste({ pohaut: "charger" });
+  a.geste({ pohaut: "data" });
   A.deepStrictEqual(Array.from(a.f.portesEp()).map(function (p) { return p.v; }),
-    ["argent", "cahier", "charger"].filter(function (v) { return v !== "charger"; })
-      .reduce(function (o, v) { o.push(v); return o; }, ["charger"]),
+    ["sync", "cahier", "data"].filter(function (v) { return v !== "data"; })
+      .reduce(function (o, v) { o.push(v); return o; }, ["data"]),
     "la touchée passe devant, les autres gardent leur ordre");
 
   /* Et les rangs se suivent : c'est ce qui les réunit sans ambiguïté. */
@@ -2689,7 +2287,7 @@ test("13.do — l'ordre se règle à la main : ce qu'on touche passe en premier"
 
   /* La première ne bouge plus : elle n'a pas de ligne à toucher. */
   a.f.vOrdre();
-  A.ok(!/data-pohaut="charger"/.test(a.Z.html));
+  A.ok(!/data-pohaut="data"/.test(a.Z.html));
 });
 
 test("13.do — l'ordre des activités se règle de la même main", () => {
@@ -2720,7 +2318,7 @@ test("13.do — l'ordre des activités se règle de la même main", () => {
 
 test("13.do — à une seule épingle, il n'y a pas d'ordre à régler", () => {
   const a = app();
-  a.geste({ potog: "argent" });
+  a.geste({ potog: "sync" });
   a.f.vEpingles();
   A.ok(!/data-go="ordre"/.test(a.Z.html), "une épingle, aucun ordre");
   a.geste({ potog: "cahier" });
@@ -2734,48 +2332,48 @@ test("13.do — le bilan propose ce qui vaut la peine, et rien d'autre", () => {
      deux. Ça vaut la peine. */
   for (let i = 0; i < 3; i++) {
     a.geste({ go: "actes" });
-    a.geste({ go: "argent" });
-    a.geste({ go: "charger" });
-    a.geste({ go: "devise" });
+    a.geste({ go: "sync" });
+    a.geste({ go: "data" });
+    a.geste({ go: "sondes" });
   }
   const b = a.f.soBilan();
-  A.match(a.f.soPropose(b), /Mettre « Ma monnaie » sous le pouce/);
+  A.match(a.f.soPropose(b), /Mettre « Comment je m'en sers » sous le pouce/);
   /* Trois tapes réelles : l'onglet, puis deux. Sous le pouce : le bouton du
      milieu, puis la ligne. Les deux comptent leur tape de rail. */
   A.match(a.f.soPropose(b), /4 gestes aujourd'hui, 2 depuis n'importe où/);
-  A.match(a.f.soPropose(b), /data-eppo="devise"/);
+  A.match(a.f.soPropose(b), /data-eppo="sondes"/);
 
   /* Une fois épinglée, elle n'est plus proposée — et la suivante non plus,
      si elle ne coûte que deux gestes : promettre un gain de rien serait un
      chiffre faux. */
-  a.geste({ eppo: "devise" });
-  A.ok(a.f.porteEp("devise"), "le disciple épingle, l'application proposait");
+  a.geste({ eppo: "sondes" });
+  A.ok(a.f.porteEp("sondes"), "le disciple épingle, l'application proposait");
   const b2 = a.f.soBilan();
-  A.equal(b2.couts.filter(function (x) { return x.v === "argent"; }).length, 0,
-    "Mon argent est déjà à un geste du rail : une épingle ne rendrait rien");
-  /* Charger un relevé reste à deux gestes : c'est le suivant qu'on propose. */
-  A.match(a.f.soPropose(b2), /Mettre « Charger un relevé » sous le pouce/);
-  a.geste({ eppo: "charger" });
+  A.equal(b2.couts.filter(function (x) { return x.v === "sync"; }).length, 0,
+    "Synchronisation est déjà à un geste du rail : une épingle ne rendrait rien");
+  /* Mes données reste à deux gestes : c'est le suivant qu'on propose. */
+  A.match(a.f.soPropose(b2), /Mettre « Mes données » sous le pouce/);
+  a.geste({ eppo: "data" });
   A.equal(a.f.soPropose(a.f.soBilan()), "", "et quand tout est épinglé, plus rien");
 });
 
 test("13.do — revenir sur un écran n'est pas s'y rendre", () => {
   const a = app();
-  /* Le chemin réel : l'onglet, Mon argent, Charger un relevé, puis retour.
-     Le retour repasse par Mon argent — sans que ce soit un trajet vers lui. */
+  /* Le chemin réel : l'onglet, Synchronisation, Mes données, puis retour.
+     Le retour repasse par Synchronisation — sans que ce soit un trajet vers lui. */
   for (let i = 0; i < 3; i++) {
     a.geste({ go: "actes" });
-    a.geste({ go: "argent" });
-    a.geste({ go: "charger" });
+    a.geste({ go: "sync" });
+    a.geste({ go: "data" });
     a.geste({ back: "1" });
     a.geste({ back: "1" });
   }
   const b = a.f.soBilan();
-  A.equal(b.couts.filter(function (c) { return c.v === "argent"; }).length, 0,
-    "Mon argent est à un geste de l'onglet : il ne coûte rien");
-  A.equal(b.couts.filter(function (c) { return c.v === "charger"; })[0].med, 2,
-    "et Charger un relevé en coûte deux, pas davantage à chaque tour");
-  A.match(a.f.soPropose(b), /Mettre « Charger un relevé » sous le pouce/,
+  A.equal(b.couts.filter(function (c) { return c.v === "sync"; }).length, 0,
+    "Synchronisation est à un geste de l'onglet : il ne coûte rien");
+  A.equal(b.couts.filter(function (c) { return c.v === "data"; })[0].med, 2,
+    "et Mes données en coûte deux, pas davantage à chaque tour");
+  A.match(a.f.soPropose(b), /Mettre « Mes données » sous le pouce/,
     "c'est donc lui qu'on propose, pas celui par où l'on repasse");
 });
 

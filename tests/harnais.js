@@ -225,11 +225,7 @@ const PONT = `
        exaucesDe, exauceTxt, sujetDepuis, sujetFois, sujetHist, vActes, minuit,
        sujetDernier, seancesDe, vCahier, vSujet, vToday, rappelPer, vPeriode,
        livre, livreId, pageLue, nbLu, chapitresTxt, pagesTxt,
-       sou, cumulSous, sousDans, souJour, souTitre, souLit, sousTxt, sousNu,
-       montantLu, poste, posteNom, posteSens, postesDe, partsSous,
-       devLig, devNom, devSym, devDec, jdate, jourLu,
-       vArgent, vSou, vDevise, vReglages, listePostes,
-       chLis, chJour, chPoste, chNu, chDeja, vCharger, porteCharger,
+       vReglages,
        vTache, heuresTache, heuresTxt, catNom, CATS, tacheCat, finDe, cap,
        soBilan, soSauf, soSigne, soVide, soBascule, soEcris, soLoad, soRate,
        soEtat, soNom, soDepuis, soPropose, vSondes, vReglages,
@@ -237,8 +233,8 @@ const PONT = `
        epinglesTaches, portables, nomVue, porteBlocEp, portesReglage,
        vOrdre, vEpingles, portePointage, etapes, vNote, vNode, vPointer, creuxVif,
        sansDate, precPour, quitterPrevu, jourPromis, promisBref, ligneActe, remontees, blocQuand, vEdit, human },
-  c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY, POSTES, DEVISES, CAT_SOCLE, ONG_ARG,
-       CONSIGNE, SO_KEY, SO_MAX, ONGLETS, NOM_VUE, SEULES }
+  c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY, CAT_SOCLE,
+       SO_KEY, SO_MAX, ONGLETS, NOM_VUE, SEULES }
 };
 `;
 

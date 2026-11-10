@@ -95,19 +95,6 @@ document.addEventListener("click", function(ev){
 });
 function geste(g, t){
   if(g.mic) return micBascule(g.mic);
-  if(g.vuea){ S.vueA=g.vuea; return render(); }
-  if(g.sou){
-    const x=sou(g.sou); if(!x) return;
-    S.sd={id:x.id, t:x.t, p:x.p, q:x.q||"", mTxt:sousNu(x.m)};
-    empile(); S.view="sou"; return render();
-  }
-  /* Le poste est le seul attribut à choisir : le sens en découle (13.cn). */
-  if(g.poste){ souLit(); if(S.sd){ S.sd.p=g.poste; } return render(); }
-  if(g.dev){
-    if(!DEVISES.some(function(x){ return x[0]===g.dev; })) return;
-    if(db.dev!==g.dev){ db.dev=g.dev; db.maj=Date.now(); save(); toast("Noté : "+devNom()); }
-    return render();
-  }
   /* Un onglet est un point de départ : il vide la pile. Le reste s'empile. */
   if(g.go){ fermeMenu();
     if(ONGLETS.some(o=>o[0]===g.go)){ S.pile=[]; }
@@ -820,64 +807,6 @@ const actions={
     pr.deb=d; if(f!==null) pr.fin=f;
     notePer(pr); touche(pr); save();
     toast("Gardé."); depile("temps"); render();
-  },
-  chCopie(){
-    try{ navigator.clipboard.writeText(CONSIGNE).then(
-      function(){ toast("Copié — colle-le à Claude avec ton relevé."); },
-      function(){ toast("Sélectionne le texte et copie-le"); }); }
-    catch(x){ toast("Sélectionne le texte et copie-le"); }
-  },
-  chLire(){
-    const e=document.getElementById("chTxt");
-    S.chTxt = e ? e.value : "";
-    if(!String(S.chTxt).trim()) return toast("Colle d'abord ce que Claude t'a rendu");
-    S.ch = chLis(S.chTxt);
-    if(!S.ch.ok.length && !S.ch.deja.length && !S.ch.ko.length){
-      S.ch=null; return toast("Aucune ligne de mouvement là-dedans");
-    }
-    render();
-  },
-  chRetour(){ S.ch=null; render(); },
-  chAjoute(){
-    const r=S.ch; if(!r || !r.ok.length) return;
-    const n=r.ok.length;
-    db.sous=(db.sous||[]).concat(r.ok.map(function(x){
-      return {id:uid("mv"), t:x.t, m:x.m, p:x.p, q:x.q, maj:Date.now()};
-    }));
-    db.sous.sort(function(a,b){ return a.t-b.t; });
-    save();
-    S.ch=null; S.chTxt="";
-    toast(n>1 ? n+" mouvements ajoutés." : "Ajouté.");
-    depile("argent"); render();
-  },
-  souNeuf(){ empile(); S.sd={id:null, t:minuit(0), p:"", q:"", mTxt:""}; S.view="sou"; render(); },
-  souGarder(){
-    souLit();
-    const d=S.sd; if(!d) return;
-    const m=montantLu(d.mTxt);
-    /* Un mouvement de zéro n'a rien bougé : il ne pèserait dans aucune part
-       et encombrerait le registre d'une ligne qui ne dit rien. */
-    if(!m) return toast("Combien ?");
-    if(!d.p) return toast("Dis d'où ça vient, ou où ça va");
-    if(d.t>minuit(0)) return toast("Ce jour n'est pas encore arrivé");
-    /* Le signe ne se garde pas : c'est le poste qui dit le sens (13.cn). Un
-       montant recopié d'un relevé arrive souvent négatif — on le prend tel
-       quel et on n'en retient que la somme. */
-    const v=Math.abs(m), q=String(d.q||"").trim();
-    if(d.id){
-      const x=sou(d.id); if(!x) return;
-      x.t=d.t; x.m=v; x.p=d.p; x.q=q; touche(x);
-    } else {
-      db.sous=(db.sous||[]).concat([{id:uid("mv"), t:d.t, m:v, p:d.p, q:q, maj:Date.now()}]);
-    }
-    db.sous.sort(function(a,b){ return a.t-b.t; });
-    save(); S.sd=null; toast("Noté."); depile("argent"); render();
-  },
-  souEffacer(){
-    const d=S.sd; if(!d || !d.id) return;
-    db.sous=(db.sous||[]).filter(function(x){ return x.id!==d.id; });
-    tue(d.id); S.sd=null; save(); toast("Effacé.");
-    depile("argent"); render();
   },
   perEffacer(){
     const id=S.perId;

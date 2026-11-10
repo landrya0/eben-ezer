@@ -111,9 +111,9 @@ Et, transversal : **rien ne part en clair** (13.bh). Le journal nomme des frère
 
 ## 5. Le code
 
-- **Lire `ARCHITECTURE.md` avant de toucher au code.** L'application est en onze fichiers
-  `src/01-…` à `src/11-…`, des `<script>` classiques chargés **dans l'ordre**, une seule portée
-  globale. Ce ne sont pas des modules. L'ordre est porteur : une fonction du 09 n'existe pas
+- **Lire `ARCHITECTURE.md` avant de toucher au code.** L'application est en douze fichiers
+  `src/01-…` à `src/13-…` — le numéro 11 est vide depuis v98, c'est la place de l'argent sorti de
+  l'app —, des `<script>` classiques chargés **dans l'ordre**, une seule portée globale. Ce ne sont pas des modules. L'ordre est porteur : une fonction du 09 n'existe pas
   encore pendant le code racine du 06. JS vanilla, aucun build, `localStorage` (`ebenezer.v1`),
   CSS de Framework7 9.3.0 seulement (vendored, allégé).
 - **Chaque livraison bump les deux** : `const CACHE = "ebenezer-vNN"` dans `sw.js` **et**

@@ -219,6 +219,38 @@ const ONG_TEMPS = [["parts","Les parts"],["routines","Les routines"],["blocs","L
    Il vit ici, avec le temps, parce que le rail s'en sert et que le rail est
    chargé avant les écrans — un `const` lu trop tôt n'existe pas encore. */
 const SEUIL_CREUX = 60000;
+/* Une prière de deux heures coupée trois fois reste une prière. L'app ne
+   peut pas le déduire du geste — arrêter puis reprendre s'écrit exactement
+   comme commencer autre chose : deux blocs, et rien pour les relier. Elle
+   le déduit donc de l'écart : la même activité reprise dans la demi-heure
+   continue la même séance (13.eh).
+   Pourquoi une demi-heure, et pas un autre nombre : les quatre interruptions
+   de l'archive font 9, 15, 9 et 11 minutes, et deux trajets en voiture d'une
+   même nuit sont séparés de 54. C'est un jugement, pas une loi, et il se
+   révise — la structure, elle, ne bouge pas.
+   Ce qui tourne par-dessus ne compte pas : la soirée du 7 novembre a prié
+   quatre fois DANS une même lecture, et deux choses menées ensemble ne se
+   disputent pas la journée (13.by). Exiger un creux vide aurait fait que la
+   séance ne se forme jamais, précisément dans le cas qui l'a demandée. */
+const SEUIL_SEANCE = 1800000;
+function suitDe(p, s){
+  if(!p || !s || typeof p.fin!=="number") return false;
+  return (s.deb - p.fin) <= SEUIL_SEANCE;
+}
+/* Les blocs d'une même séance, du plus ancien au plus récent. Un bloc seul
+   rend une séance d'un seul bloc : l'appelant n'a jamais deux cas à écrire,
+   et le code qui ne connaît pas les séances continue de marcher. */
+function seanceDe(b){
+  if(!b) return [];
+  const mm=(db.temps||[]).filter(function(x){ return x.t===b.t; })
+    .slice().sort(function(x,y){ return x.deb-y.deb; });
+  const i=mm.indexOf(b);
+  if(i===-1) return [b];
+  let a=i, z=i;
+  while(a>0 && suitDe(mm[a-1], mm[a])) a--;
+  while(z+1<mm.length && suitDe(mm[z], mm[z+1])) z++;
+  return mm.slice(a, z+1);
+}
 const PERIODES = [["jour","Jour"],["sem","Semaine"],["mois","Mois"],["an","Année"],["tout","Tout"]];
 /* Les bornes se calculent toujours sur un objet Date, jamais en ajoutant des
    millisecondes : l'heure d'hiver fait des journées de vingt-cinq heures, et

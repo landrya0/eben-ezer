@@ -4101,3 +4101,128 @@ test("13.eg — changer d'avis ne laisse pas de creux gelé derrière", () => {
   a.geste({ tache: "a2" });
   A.equal(a.db.temps.filter(x => x.t === "a2")[0].deb, MIDI + 46 * MIN);
 });
+
+/* ——— 13.eh — une séance interrompue reste une séance ——— */
+
+/* La soirée du 7 novembre, telle que l'archive la garde : une lecture de
+   trois heures et quart, et QUATRE prières dedans, séparées de neuf, quinze
+   et neuf minutes. C'est le cas qui a demandé la règle — et celui qui casse
+   la définition facile, « un creux que rien n'occupe » : ici la lecture
+   occupe tous les creux, et la séance ne se serait jamais formée. */
+function seance(a, ecart) {
+  a.db.taches = [{ id: "p1", nom: "Prière", cat: "dieu", d: "priere", maj: 1 },
+                 { id: "l1", nom: "Lecture", cat: "dieu", d: "litt", maj: 1 }];
+  const s1 = a.f.sujetId("La santé de maman");
+  const s2 = a.f.sujetId("Le projet de Qualitas");
+  a.db.temps = [
+    bloc("L", "l1", j(19, 55), j(23, 20)),
+    bloc("P1", "p1", j(20, 17), j(20, 46), { sj: [s1] }),
+    bloc("P2", "p1", j(20, 46) + ecart * MIN, j(20, 46) + (ecart + 19) * MIN)
+  ];
+  return { s1: s1, s2: s2 };
+}
+const ids = (bs) => Array.from(bs, b => b.id);
+
+test("13.eh — la même activité reprise dans la demi-heure continue la même séance", () => {
+  const a = app();
+  seance(a, 9);
+  A.deepEqual(ids(a.f.seanceDe(a.f.blocT("P2"))), ["P1", "P2"]);
+  A.deepEqual(ids(a.f.seanceDe(a.f.blocT("P1"))), ["P1", "P2"],
+    "la séance se lit depuis n'importe lequel de ses blocs");
+  const z = app();
+  seance(z, 54);
+  A.deepEqual(ids(z.f.seanceDe(z.f.blocT("P2"))), ["P2"],
+    "cinquante-quatre minutes : deux trajets et non un, comme dans l'archive");
+});
+
+test("13.eh — ce qui tourne par-dessus ne coupe pas la séance", () => {
+  const a = app();
+  seance(a, 9);
+  const L = a.f.blocT("L");
+  A.ok(L.deb < a.f.blocT("P1").fin && L.fin > a.f.blocT("P2").deb,
+    "la lecture couvre bien les deux prières et le creux entre elles");
+  A.deepEqual(ids(a.f.seanceDe(a.f.blocT("P2"))), ["P1", "P2"],
+    "deux choses menées ensemble ne se disputent pas la journée (13.by)");
+  A.deepEqual(ids(a.f.seanceDe(L)), ["L"], "et la lecture est sa propre séance");
+});
+
+test("13.eh — la reprise rouvre la fiche de la séance, pas une page blanche", () => {
+  const a = app();
+  const s = seance(a, 9);
+  a.S.blocId = "P2"; a.S.view = "sujets"; a.S.sjQ = "";
+  a.f.vSujets();
+  A.match(a.Z.html, /Nommés dans cette séance/);
+  A.match(a.Z.html, /La santé de maman/, "ce qui est déjà nommé est sous les yeux");
+  A.match(a.Z.html, /Tu reprends la séance commencée à/);
+  A.equal(a.Z.html.indexOf('data-sjadd="' + s.s1 + '"'), -1,
+    "et ne se propose plus : on ne le nomme pas deux fois dans la même prière");
+
+  const z = app();
+  seance(z, 54);
+  z.S.blocId = "P2"; z.S.view = "sujets"; z.S.sjQ = "";
+  z.f.vSujets();
+  A.equal(z.Z.html.indexOf("Nommés dans cette séance"), -1);
+  A.match(z.Z.html, /La dernière fois/, "là, c'est bien une autre fois");
+});
+
+test("13.eh — « la dernière fois » ne peut pas désigner la séance en cours", () => {
+  const a = app();
+  const s = seance(a, 9);
+  a.db.temps.push(bloc("V", "p1", jour(3, 6, 0), jour(3, 6, 30), { sj: [s.s2] }));
+  A.deepEqual(Array.from(a.f.sujetsDerniers(a.f.blocT("P2"))), [s.s2],
+    "la dernière fois, c'est le 3 novembre — pas neuf minutes plus tôt");
+});
+
+test("13.eh — un sujet porté dans une prière coupée en deux compte une fois", () => {
+  const a = app();
+  const s = seance(a, 9);
+  a.f.blocT("P2").sj = [s.s1];
+  A.equal(a.f.sujetFois(s.s1), 1, "une prière interrompue reste une prière");
+  A.deepEqual(ids(a.f.seancesDe(s.s1)), ["P1"], "son premier bloc en date la fois");
+  A.match(a.f.sujetHist(s.s1), /nommé le/, "une fois ne se dit pas « nommé 2 fois »");
+
+  const z = app();
+  const t = seance(z, 54);
+  z.f.blocT("P2").sj = [t.s1];
+  A.equal(z.f.sujetFois(t.s1), 2, "deux prières séparées en font bien deux");
+});
+
+test("13.eh — « Retirer » vise le bloc où la ligne a été écrite", () => {
+  const a = app();
+  const s = seance(a, 9);
+  a.f.blocT("P2").sj = [s.s2];
+  a.S.blocId = "P2"; a.S.view = "sujets";
+  a.geste({ sjsup: "P1|0" });
+  A.deepEqual(Array.from(a.f.blocT("P1").sj || []), [],
+    "la ligne part du bloc de 20 h 17, qui la portait");
+  A.deepEqual(Array.from(a.f.blocT("P2").sj || []), [s.s2],
+    "et le bloc où l'on se trouve n'est pas touché");
+});
+
+test("13.eh — le même sujet ne s'ajoute pas deux fois dans une séance", () => {
+  const a = app();
+  const s = seance(a, 9);
+  a.S.blocId = "P2"; a.S.view = "sujets";
+  a.geste({ sjadd: s.s1 });
+  A.deepEqual(Array.from(a.f.blocT("P2").sj || []), [], "refusé");
+  A.match(a.dernierToast(), /Déjà nommé dans cette séance/);
+  a.geste({ sjadd: s.s2 });
+  A.deepEqual(Array.from(a.f.blocT("P2").sj || []), [s.s2], "un autre sujet, lui, s'ajoute");
+});
+
+/* Le harnais a un DOM en carton : une ligne « Retirer » qui vise le mauvais
+   bloc s'affiche parfaitement et ne se voit nulle part. Ce balayage lit donc
+   la source — et il attrapera la cinquième liste, celle qui n'existe pas
+   encore, le jour où quelqu'un la recopiera sur l'ancien modèle. */
+test("balayage — aucune ligne à retirer ne tait le bloc dont elle vient", () => {
+  const src = fs.readdirSync(path.join(__dirname, "..", "src"))
+    .filter(f => f.endsWith(".js")).sort()
+    .map(f => fs.readFileSync(path.join(__dirname, "..", "src", f), "utf8")).join("\n");
+  const fns = src.match(/function liste[A-Za-z]+\(b[,)][\s\S]*?\n}/g) || [];
+  A.ok(fns.length >= 4, "les listes d'un bloc sont bien là — " + fns.length);
+  fns.forEach(f => {
+    const nom = f.slice(9, f.indexOf("("));
+    A.match(f, /data-[a-z]+sup="'\+b\.id\+'\|'/,
+      nom + " : un indice sans bloc retirerait la ligne d'un autre bloc");
+  });
+});

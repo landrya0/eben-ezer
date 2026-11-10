@@ -134,32 +134,48 @@ function exauceTxt(sid){
 /* Les deux premières colonnes du cahier — le numéro et la date de première
    prière — ne se saisissent pas : elles sont déjà dans l'archive, puisque
    chaque séance dit ce qu'elle a nommé. */
+function sujetBlocs(sid){
+  return (db.temps||[]).filter(function(b){ return (b.sj||[]).indexOf(sid)!==-1; });
+}
 function sujetDepuis(sid){
   let d=null;
-  (db.temps||[]).forEach(function(b){
-    if((b.sj||[]).indexOf(sid)===-1) return;
-    if(d===null || b.deb<d) d=b.deb;
-  });
+  sujetBlocs(sid).forEach(function(b){ if(d===null || b.deb<d) d=b.deb; });
   return d;
 }
-function sujetFois(sid){
-  let n=0;
-  (db.temps||[]).forEach(function(b){ if((b.sj||[]).indexOf(sid)!==-1) n++; });
-  return n;
-}
+function sujetFois(sid){ return seancesDe(sid).length; }
 function sujetDernier(sid){
   let d=null;
-  (db.temps||[]).forEach(function(b){
-    if((b.sj||[]).indexOf(sid)===-1) return;
-    if(d===null || b.deb>d) d=b.deb;
-  });
+  sujetBlocs(sid).forEach(function(b){ if(d===null || b.deb>d) d=b.deb; });
   return d;
 }
 /* Les séances où ce sujet a été nommé, de la plus récente à la plus
-   ancienne — la colonne NUMÉRO du cahier, mais déroulée. */
+   ancienne — la colonne NUMÉRO du cahier, mais déroulée.
+   Elle compte des prières, pas des blocs. Une prière coupée en quatre et
+   reprise trois fois est UNE fois : la compter quatre ferait dire au cahier
+   qu'on a porté ce sujet quatre jours, et un nombre faux est pire que pas
+   de nombre (13.ch, 13.eh). De chaque séance on garde le bloc le plus
+   ancien qui nomme le sujet — c'est lui qui en date la fois.
+   Un seul passage sur les blocs de l'activité, et non un seanceDe() par
+   bloc : le cahier appelle ceci une fois par ligne, et la fenêtre « Tout »
+   compte des milliers de blocs — refaire le tri à chaque fois serait
+   quadratique, comme pour les tranches de la journée. */
 function seancesDe(sid){
-  return (db.temps||[]).filter(function(b){ return (b.sj||[]).indexOf(sid)!==-1; })
-    .slice().sort(function(a,b){ return b.deb-a.deb; });
+  const bs=sujetBlocs(sid);
+  if(!bs.length) return [];
+  const cat={}; bs.forEach(function(b){ cat[b.t]=1; });
+  const out=[];
+  Object.keys(cat).forEach(function(t){
+    const mm=(db.temps||[]).filter(function(x){ return x.t===t; })
+      .slice().sort(function(x,y){ return x.deb-y.deb; });
+    let garde=null;
+    mm.forEach(function(x, i){
+      if(!(i>0 && suitDe(mm[i-1], x))) garde=null;
+      if((x.sj||[]).indexOf(sid)===-1) return;
+      if(garde) return;
+      garde=x; out.push(x);
+    });
+  });
+  return out.sort(function(a,b){ return b.deb-a.deb; });
 }
 function sujetHist(sid){
   const d=sujetDepuis(sid), f=sujetFois(sid);
@@ -189,12 +205,17 @@ function sujetsTxt(n){ return n+" sujet"+(n>1?"s":""); }
    rencontre matinale. Mais on n'en coche aucun : un sujet qu'il n'a pas
    nommé ce matin n'a pas été nommé, et un nombre faux est pire que pas de
    nombre (13.de). */
+/* Et « la dernière fois » ne peut pas désigner la séance en cours : neuf
+   minutes plus tôt, dans la même prière, ce n'est pas une autre fois. Les
+   blocs de la séance sont donc écartés d'ici — ils ont leur propre place,
+   au-dessus, comme déjà nommés (13.eh). */
 function sujetsDerniers(b){
   if(!b) return [];
-  const d=discTache(b.t);
+  const d=discTache(b.t), dans={};
+  seanceDe(b).forEach(function(x){ dans[x.id]=1; });
   let der=null;
   (db.temps||[]).forEach(function(x){
-    if(x.id===b.id || !(x.sj||[]).length || x.deb>b.deb) return;
+    if(dans[x.id] || !(x.sj||[]).length || x.deb>b.deb) return;
     if(discTache(x.t)!==d) return;
     if(!der || x.deb>der.deb) der=x;
   });
@@ -345,7 +366,11 @@ function passagesDe(a, z){
    la lecture, on sait jusqu'où on est allé, et on est déjà là — aucun écran
    à traverser. L'app demande ; elle n'inscrit rien, et Retour suffit à ne
    rien dire. Un bloc trop court a déjà été effacé : on ne demande pas ce
-   qu'on a lu en vingt secondes. */
+   qu'on a lu en vingt secondes.
+   Elle demande encore à la reprise d'une séance, et c'est voulu : la seconde
+   moitié d'une prière peut avoir nommé autre chose, et l'app ne le sait pas.
+   Ce qui change, c'est qu'elle n'arrive plus sur une page blanche — l'écran
+   rouvre la fiche de la séance (13.eh). */
 function apresArret(bs, repli){
   const b=(bs||[]).filter(function(x){
     const sp=x ? spTache(x.t) : "";
@@ -387,10 +412,36 @@ function champSel(id, label, corps){
       <div class="item-input-wrap"><span class="sel"><select id="${id}">${corps}</select></span></div>
     </div></li>`;
 }
-function listeLu(b){
-  return liste(b.lu.map(function(r,i){
-    return ligne({titre:esc(nomPassage(r)), sous:chapitresTxt(nbLu(r)),
-      apres:`<span class="rouge">Retirer</span>`, attr:'data-lusup="'+i+'"'});
+/* Chaque ligne dit de quel bloc elle vient. La fiche d'une séance montre ce
+   que plusieurs blocs ont recueilli, et « retirer » doit viser celui-là, pas
+   le bloc où l'on se trouve : une fiche qu'on ne peut pas corriger n'est pas
+   une fiche (13.ct, 13.eh). */
+/* Ce que la séance a déjà recueilli, bloc par bloc, sous un seul titre : le
+   disciple ne lit pas une fiche par morceau, il lit sa séance. L'heure n'est
+   dite que s'il y a plusieurs blocs — sinon elle n'apprend rien (13.eh). */
+/* L'écran d'un bloc dit ce que CE bloc a recueilli — c'est sa fiche, et elle
+   doit rester la sienne. Mais la séance en a peut-être recueilli dans un
+   autre bloc, et taire ce qui existe ailleurs ferait croire à un oubli :
+   une porte, donc, plutôt qu'un silence ou qu'une liste recopiée (13.eh). */
+function portesSeance(b, champ, nom){
+  return seanceDe(b).filter(function(x){ return x!==b && (x[champ]||[]).length; })
+    .map(function(x){
+      const n=x[champ].length;
+      return ligne({titre:"À "+hmin(new Date(x.deb))+", dans la même séance",
+        sous:n+" "+nom+(n>1?"s":""), attr:'data-vbloc="'+x.id+'"'});
+    }).join("");
+}
+function dejaSeance(se, reprise, champ, rendu){
+  const deja=(se||[]).filter(function(x){ return (x[champ]||[]).length; });
+  if(!deja.length) return "";
+  return titreBloc(reprise ? "Déjà noté dans cette séance" : "Déjà noté sur ce bloc", "ecart")
+    + deja.map(function(x){ return rendu(x, reprise); }).join("");
+}
+function listeLu(b, horo){
+  return liste((b.lu||[]).map(function(r,i){
+    return ligne({titre:esc(nomPassage(r)),
+      sous:(horo ? hmin(new Date(b.deb))+" · " : "")+chapitresTxt(nbLu(r)),
+      apres:`<span class="rouge">Retirer</span>`, attr:'data-lusup="'+b.id+'|'+i+'"'});
   }).join(""));
 }
 
@@ -407,12 +458,16 @@ function vLecture(){
   if(!b){ depile("temps"); return render(); }
   if(S.luPlein) return vLecturePlein(b);
   const der=derniereLu();
+  /* La fiche est celle de la séance, pas du bloc : une séance interrompue
+     reste une séance, et ce qu'elle a déjà recueilli est déjà sous les yeux
+     au lieu d'être redemandé à blanc (13.eh). */
+  const se=seanceDe(b), reprise=se.length>1, meme=!!der && se.indexOf(der.b)!==-1;
   if(S.luA===null || S.luA===undefined){ S.luA=debutPlat(); S.luZ=S.luA; }
   const a=S.luA, z=Math.max(a, S.luZ);
   Z.titre="Ce que tu as lu"; Z.retour=true;
   let h=`<div class="block amorce" style="margin-top:16px">${
     !der ? "Tu commences à <b>"+esc(nomPlat(a))+"</b>. Jusqu'où es-tu allé ?"
-    : der.b===b ? "Tu reprends à <b>"+esc(nomPlat(a))+"</b>. Jusqu'où es-tu allé ?"
+    : meme ? "Tu reprends à <b>"+esc(nomPlat(a))+"</b>. Jusqu'où es-tu allé ?"
     : "Tu t'étais arrêté à <b>"+esc(nomPassage(der.r))+"</b>. Jusqu'où es-tu allé ?"
   }</div>`;
   h+=titreBloc("Jusqu'où");
@@ -424,10 +479,7 @@ function vLecture(){
   h+=`<div class="block amorce"><b>${esc(ps.map(nomPassage).join(" · "))}</b> — ${chapitresTxt(z-a+1)}.</div>`;
   h+=liste(ligne({titre:"Ce n'est pas là que j'ai commencé",
       sous:"Choisir le livre et les deux bornes", attr:'data-act="luPlein"'}), "lien");
-  if((b.lu||[]).length){
-    h+=titreBloc("Déjà noté sur ce bloc","ecart");
-    h+=listeLu(b);
-  }
+  h+=dejaSeance(se, reprise, "lu", listeLu);
   Z.html=h;
   Z.action=bouton("Garder", 'data-act="addLuSimple"');
 }
@@ -441,11 +493,18 @@ function vLecturePlein(b){
   if(!S.lu) S.lu=apresLu(der && der.r);
   const l=S.lu;
   Z.titre="Ce que tu as lu"; Z.retour=true;
-  /* Le même fait, dit deux fois selon qu'il vient d'arriver ou d'hier :
-     « la dernière fois » sonne faux trois secondes après l'avoir noté. */
+  /* La fiche est celle de la séance, pas du bloc : une séance interrompue
+     reste une séance, et ce qu'elle a déjà recueilli est déjà sous les yeux
+     au lieu d'être redemandé à blanc (13.eh). */
+  const se=seanceDe(b), reprise=se.length>1;
+  /* Le même fait, dit trois fois selon qu'il vient d'arriver, qu'il est de
+     cette séance-ci, ou d'hier : « la dernière fois » sonne faux trois
+     secondes après l'avoir noté — et tout autant neuf minutes plus tard,
+     dans la même lecture (13.eh). */
   let h=`<div class="block amorce" style="margin-top:16px">${
     !der ? "Dis le livre et les chapitres traversés. Dès la prochaine fois, l'app reprendra là où tu t'arrêtes."
     : der.b===b ? "Tu viens de noter <b>"+esc(nomPassage(der.r))+"</b>. On continue juste après."
+    : se.indexOf(der.b)!==-1 ? "Tu as noté <b>"+esc(nomPassage(der.r))+"</b> tout à l'heure, dans cette même séance. On continue juste après."
     : "La dernière fois, tu t'es arrêté à <b>"+esc(nomPassage(der.r))+"</b>. On reprend juste après."
   }</div>`;
   h+=titreBloc("Le passage");
@@ -453,10 +512,7 @@ function vLecturePlein(b){
          + champSel("luDeb", "Du chapitre", optsChap(l.li, l.d))
          + champSel("luFin", "Jusqu'au chapitre", optsChap(l.li, l.f, l.d)));
   h+=`<div class="block amorce"><b>${esc(nomPassage([l.li, l.d, l.f]))}</b> — ${chapitresTxt(l.f-l.d+1)}.</div>`;
-  if((b.lu||[]).length){
-    h+=titreBloc("Déjà noté sur ce bloc","ecart");
-    h+=listeLu(b);
-  }
+  h+=dejaSeance(se, reprise, "lu", listeLu);
   Z.html=h;
   Z.action=bouton("Ajouter ce passage", 'data-act="addLu"');
 }
@@ -707,19 +763,20 @@ function tacheLivre(){
   const freq=cumul(minuit(29), Date.now()).par;
   return ts.slice().sort(function(a,b){ return (freq[b.id]||0)-(freq[a.id]||0); })[0].id;
 }
-function listePg(b){
-  return liste(b.pg.map(function(r,i){
-    return ligne({titre:esc(nomPassagePg(r)), sous:pagesTxt(r[2]-r[1]+1),
-      apres:`<span class="rouge">Retirer</span>`, attr:'data-pgsup="'+i+'"'});
+function listePg(b, horo){
+  return liste((b.pg||[]).map(function(r,i){
+    return ligne({titre:esc(nomPassagePg(r)),
+      sous:(horo ? hmin(new Date(b.deb))+" · " : "")+pagesTxt(r[2]-r[1]+1),
+      apres:`<span class="rouge">Retirer</span>`, attr:'data-pgsup="'+b.id+'|'+i+'"'});
   }).join(""));
 }
 
-function listeSj(b){
+function listeSj(b, horo){
   return liste((b.sj||[]).map(function(id,i){
-    const ex=exauceTxt(id);
+    const ex=exauceTxt(id), h=horo ? hmin(new Date(b.deb)) : "";
     return ligne({titre:esc(sujetTxt(id)),
-      sous:ex?`<span class="exauce">${esc(ex)}</span>`:"",
-      apres:`<span class="rouge">Retirer</span>`, attr:'data-sjsup="'+i+'"'});
+      sous:[h, ex?`<span class="exauce">${esc(ex)}</span>`:""].filter(Boolean).join(" · "),
+      apres:`<span class="rouge">Retirer</span>`, attr:'data-sjsup="'+b.id+'|'+i+'"'});
   }).join(""));
 }
 function ligneSj(id){
@@ -735,12 +792,22 @@ function vSujets(){
   const b=blocT(S.blocId);
   if(!b){ depile("temps"); return render(); }
   Z.titre="Ce que tu as nommé"; Z.retour=true;
-  const sur=(b.sj||[]), pris={};
+  /* La fiche est celle de la séance. Une prière coupée en quatre posait la
+     question quatre fois, chaque fois sur une page blanche — l'app se
+     répétait, et elle n'apprenait rien en se répétant (13.cg, 13.eh). Ce
+     qui est déjà nommé dans la séance est donc là, et ne se propose plus :
+     un sujet porté dans cette prière l'est une fois, pas quatre. */
+  const se=seanceDe(b), reprise=se.length>1;
+  const sur=[]; se.forEach(function(x){ (x.sj||[]).forEach(function(id){ sur.push(id); }); });
+  const pris={};
   sur.forEach(function(id){ pris[id]=1; });
-  let h=`<div class="block amorce" style="margin-top:16px">Un sujet par ligne, comme dans ton cahier. Ce qui revient, tu le retrouves d'un geste.</div>`;
+  let h=`<div class="block amorce" style="margin-top:16px">${
+    reprise ? "Tu reprends la séance commencée à <b>"+hmin(new Date(se[0].deb))+"</b>. Ce qui y est déjà nommé y reste — ajoute seulement ce qui s'est dit depuis."
+            : "Un sujet par ligne, comme dans ton cahier. Ce qui revient, tu le retrouves d'un geste."
+  }</div>`;
   if(sur.length){
-    h+=titreBloc("Nommés ici — "+sujetsTxt(sur.length));
-    h+=listeSj(b);
+    h+=titreBloc((reprise ? "Nommés dans cette séance — " : "Nommés ici — ")+sujetsTxt(sur.length));
+    se.forEach(function(x){ if((x.sj||[]).length) h+=listeSj(x, reprise); });
   }
   h+=titreBloc(sur.length ? "En nommer un autre" : "Les nommer", "ecart");
   h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
@@ -766,11 +833,12 @@ function vSujets(){
    le fait qui compte, pas le fichier. Le nom, quand on l'a, relie cette
    annonce au reste du mémorial : à la personne, et aux actes de Dieu sur
    elle (13.df). */
-function listeQui(b){
+function listeQui(b, horo){
   return liste((b.qui||[]).map(function(id,i){
     const n = id ? gensNom(id) : "";
     return ligne({titre: n ? esc(n) : `<span class="amorce">Quelqu'un que tu n'as pas nommé</span>`,
-      apres:`<span class="rouge">Retirer</span>`, attr:'data-qsup="'+i+'"'});
+      sous:(horo ? hmin(new Date(b.deb)) : ""),
+      apres:`<span class="rouge">Retirer</span>`, attr:'data-qsup="'+b.id+'|'+i+'"'});
   }).join(""));
 }
 function ligneQui(g){
@@ -780,12 +848,19 @@ function vAnnonce(){
   const b=blocT(S.blocId);
   if(!b){ depile("temps"); return render(); }
   Z.titre="À qui tu as annoncé"; Z.retour=true;
-  const sur=(b.qui||[]), pris={};
+  /* Même règle qu'au cahier : la sortie reprise après un creux est la même
+     sortie, et on n'y annonce pas deux fois à la même personne (13.eh). */
+  const se=seanceDe(b), reprise=se.length>1;
+  const sur=[]; se.forEach(function(x){ (x.qui||[]).forEach(function(id){ sur.push(id); }); });
+  const pris={};
   sur.forEach(function(id){ if(id) pris[id]=1; });
-  let h=`<div class="block amorce" style="margin-top:16px">Une ligne par personne. Celles que tu peux nommer, nomme-les ; les autres comptent quand même.</div>`;
+  let h=`<div class="block amorce" style="margin-top:16px">${
+    reprise ? "Tu reprends la séance commencée à <b>"+hmin(new Date(se[0].deb))+"</b>. Ceux qui y sont déjà comptés y restent."
+            : "Une ligne par personne. Celles que tu peux nommer, nomme-les ; les autres comptent quand même."
+  }</div>`;
   if(sur.length){
-    h+=titreBloc("Ici — "+gensTxt(sur.length));
-    h+=listeQui(b);
+    h+=titreBloc((reprise ? "Dans cette séance — " : "Ici — ")+gensTxt(sur.length));
+    se.forEach(function(x){ if((x.qui||[]).length) h+=listeQui(x, reprise); });
   }
   h+=titreBloc(sur.length ? "En ajouter" : "Les compter", "ecart");
   h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
@@ -868,7 +943,9 @@ function vSujet(){
   if(se.length){
     h+=titreBloc("Les fois où tu l'as nommé","ecart");
     h+=liste(se.map(function(b){
-      return ligne({titre:esc(dateJour(b.deb)), sous:esc(tacheNom(b.t))+" · "+hmin(new Date(b.deb)),
+      const n=seanceDe(b).length;
+      return ligne({titre:esc(dateJour(b.deb)),
+        sous:esc(tacheNom(b.t))+" · "+hmin(new Date(b.deb))+(n>1 ? " · en "+n+" fois" : ""),
         attr:'data-vbloc="'+b.id+'"'});
     }).join(""), "lien");
   }
@@ -886,6 +963,10 @@ function vSujet(){
 function vPages(){
   const b=blocT(S.blocId);
   if(!b){ depile("temps"); return render(); }
+  /* La fiche est celle de la séance, pas du bloc : une séance interrompue
+     reste une séance, et ce qu'elle a déjà recueilli est déjà sous les yeux
+     au lieu d'être redemandé à blanc (13.eh). */
+  const se=seanceDe(b);
   Z.titre="Ce que tu as lu"; Z.retour=true;
   if(!(db.livres||[]).length){
     Z.html=`<div class="block amorce" style="margin-top:16px">Aucun livre n'est encore déclaré. Dis-en un — son titre et son nombre de pages — et l'app tiendra ton signet dedans.</div>`
@@ -920,10 +1001,7 @@ function vPages(){
       attr:'data-act="livreNeuf"'})
     + ligne({titre:"Ce livre", sous:esc(l.nom)+(tot?" — "+tot+" pages":" — pages inconnues"),
       attr:'data-lv="'+l.id+'"'}), "lien");
-  if((b.pg||[]).length){
-    h+=titreBloc("Déjà noté sur ce bloc","ecart");
-    h+=listePg(b);
-  }
+  h+=dejaSeance(se, se.length>1, "pg", listePg);
   Z.html=h;
   Z.action=bouton("Garder", 'data-act="addPg"');
 }
@@ -1021,25 +1099,29 @@ function vBloc(){
     h+=titreBloc("Ce que tu as lu","ecart");
     if((b.lu||[]).length) h+=listeLu(b);
     h+=liste(ligne({titre:(b.lu||[]).length ? "Ajouter un passage" : "Dire les chapitres lus",
-        sous:"Le livre et les chapitres traversés", attr:'data-act="direLu"'}), "lien");
+        sous:"Le livre et les chapitres traversés", attr:'data-act="direLu"'})
+      + portesSeance(b, "lu", "passage"), "lien");
   }
   if(spTache(b.t)==="livre"){
     h+=titreBloc("Ce que tu as lu","ecart");
     if((b.pg||[]).length) h+=listePg(b);
     h+=liste(ligne({titre:(b.pg||[]).length ? "Ajouter un passage" : "Dire les pages lues",
-        sous:"Le livre et les pages traversées", attr:'data-act="direPg"'}), "lien");
+        sous:"Le livre et les pages traversées", attr:'data-act="direPg"'})
+      + portesSeance(b, "pg", "passage"), "lien");
   }
   if(spTache(b.t)==="sujets"){
     h+=titreBloc("Ce que tu as nommé","ecart");
     if((b.sj||[]).length) h+=listeSj(b);
     h+=liste(ligne({titre:(b.sj||[]).length ? "En nommer un autre" : "Dire ce que tu as nommé",
-        sous:"Les sujets, un par ligne", attr:'data-act="direSj"'}), "lien");
+        sous:"Les sujets, un par ligne", attr:'data-act="direSj"'})
+      + portesSeance(b, "sj", "sujet"), "lien");
   }
   if(spTache(b.t)==="gens"){
     h+=titreBloc("À qui tu as annoncé","ecart");
     if((b.qui||[]).length) h+=listeQui(b);
     h+=liste(ligne({titre:(b.qui||[]).length ? "En ajouter" : "Dire à qui tu as annoncé",
-        sous:"Une ligne par personne", attr:'data-act="direQui"'}), "lien");
+        sous:"Une ligne par personne", attr:'data-act="direQui"'})
+      + portesSeance(b, "qui", "personne"), "lien");
   }
   h+=titreBloc("Le début","ecart");
   h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">

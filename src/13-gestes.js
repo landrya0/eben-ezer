@@ -88,6 +88,14 @@ document.addEventListener("change", function(ev){
   r.readAsText(f);
 });
 fond.addEventListener("click", function(){ if(ENR) return; fermeMenu(); });
+/* « Retirer » visait l'indice dans le bloc courant. Depuis que la fiche est
+   celle de la séance, un écran montre les lignes de plusieurs blocs : le
+   geste porte donc le bloc avec lui, « bloc|indice ». La forme courte reste
+   lue, pour que rien d'ancien ne se casse si elle réapparaît (13.ct, 13.eh). */
+function supCible(v){
+  const p=String(v||"").split("|");
+  return p.length>1 ? {b:blocT(p[0]), i:+p[1]} : {b:blocT(S.blocId), i:+p[0]};
+}
 document.addEventListener("click", function(ev){
   const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
   if(!t) return;
@@ -157,6 +165,12 @@ function geste(g, t){
      synchronisation au lieu de se faire écraser par l'autre appareil. */
   if(g.sjadd){
     const b=blocT(S.blocId); if(!b) return;
+    /* Pas deux fois dans la même séance : une prière coupée en quatre porte
+       un sujet UNE fois, et le cahier compte des prières (13.eh). L'écran ne
+       le propose déjà plus ; on le refuse aussi ici, pour que l'autre chemin
+       — la fiche d'un bloc — ne puisse pas le contourner. */
+    if(seanceDe(b).some(function(x){ return (x.sj||[]).indexOf(g.sjadd)!==-1; }))
+      return toast("Déjà nommé dans cette séance");
     b.sj=(b.sj||[]);
     if(b.sj.indexOf(g.sjadd)<0) b.sj.push(g.sjadd);
     /* Reprendre un sujet le remet au-dessus de la pile : ce qu'on redit
@@ -165,23 +179,23 @@ function geste(g, t){
     touche(sujet(g.sjadd)); touche(b); S.sjQ=""; save(); return render();
   }
   if(g.sjsup){
-    const b=blocT(S.blocId); if(!b) return;
-    const i=+g.sjsup;
-    b.sj=(b.sj||[]).filter(function(x,k){ return k!==i; });
-    touche(b); save(); return render();
+    const c=supCible(g.sjsup); if(!c.b) return;
+    c.b.sj=(c.b.sj||[]).filter(function(x,k){ return k!==c.i; });
+    touche(c.b); save(); return render();
   }
   if(g.qadd){
     const b=blocT(S.blocId); if(!b) return;
+    if(seanceDe(b).some(function(x){ return (x.qui||[]).indexOf(g.qadd)!==-1; }))
+      return toast("Déjà compté dans cette séance");
     b.qui=(b.qui||[]);
     if(b.qui.indexOf(g.qadd)<0) b.qui.push(g.qadd);
     touche(db.gens.filter(function(x){ return x.id===g.qadd; })[0]);
     touche(b); S.gQ=""; save(); return render();
   }
   if(g.qsup){
-    const b=blocT(S.blocId); if(!b) return;
-    const i=+g.qsup;
-    b.qui=(b.qui||[]).filter(function(x,k){ return k!==i; });
-    touche(b); save(); return render();
+    const c=supCible(g.qsup); if(!c.b) return;
+    c.b.qui=(c.b.qui||[]).filter(function(x,k){ return k!==c.i; });
+    touche(c.b); save(); return render();
   }
   if(g.sujo){ empile(); S.sujId=g.sujo; S.view="sujet"; return render(); }
   /* On referme au moment où il le dit, et on l'emmène aussitôt sur la fiche :
@@ -307,18 +321,18 @@ function geste(g, t){
     S.step=0; empile(); S.view="note"; return render();
   }
   if(g.pgsup!==undefined){
-    const b=blocT(S.blocId); if(!b || !b.pg) return;
-    const r=b.pg[+g.pgsup]; if(!r) return;
-    b.pg.splice(+g.pgsup, 1);
-    if(!b.pg.length) delete b.pg;
-    touche(b); save(); toast("Retiré : "+nomPassagePg(r)); return render();
+    const c=supCible(g.pgsup); if(!c.b || !c.b.pg) return;
+    const r=c.b.pg[c.i]; if(!r) return;
+    c.b.pg.splice(c.i, 1);
+    if(!c.b.pg.length) delete c.b.pg;
+    touche(c.b); save(); toast("Retiré : "+nomPassagePg(r)); return render();
   }
   if(g.lusup!==undefined){
-    const b=blocT(S.blocId); if(!b || !b.lu) return;
-    const r=b.lu[+g.lusup]; if(!r) return;
-    b.lu.splice(+g.lusup, 1);
-    if(!b.lu.length) delete b.lu;
-    touche(b); save(); toast("Retiré : "+nomPassage(r)); return render();
+    const c=supCible(g.lusup); if(!c.b || !c.b.lu) return;
+    const r=c.b.lu[c.i]; if(!r) return;
+    c.b.lu.splice(c.i, 1);
+    if(!c.b.lu.length) delete c.b.lu;
+    touche(c.b); save(); toast("Retiré : "+nomPassage(r)); return render();
   }
   if(g.tache) return poseTache(g.tache);
   if(g.sugg){ return poseTache(tacheId(g.sugg, g.cat)); }

@@ -51,6 +51,19 @@
   #dmTexte .p{color:#b9bdc4}
   #dmTexte.cle{border-top-color:#e8c37a}
   #dmTexte.cle .t{color:#e8c37a}
+
+  #dmPorte{position:fixed;inset:0;z-index:100001;display:flex;align-items:center;
+    justify-content:center;padding:24px;background:rgba(6,7,9,.86);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#e9eaec}
+  #dmPorte .carte{max-width:320px;width:100%;background:#14161a;border:1px solid #2b2f36;
+    border-radius:18px;padding:22px 20px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  #dmPorte .k{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:#e8c37a;margin-bottom:8px}
+  #dmPorte h4{margin:0 0 8px;font-size:19px;color:#fff;font-weight:600}
+  #dmPorte p{margin:0 0 18px;color:#b9bdc4;font-size:14px}
+  #dmPorte button{width:100%;border:0;border-radius:999px;padding:13px 16px;font-size:15px;
+    font-weight:600;background:#e8c37a;color:#1a1408;cursor:pointer;-webkit-appearance:none}
+  #dmPorte button.sec{background:transparent;color:#b9bdc4;border:1px solid #2b2f36;
+    margin-top:8px;font-weight:500}
   `;
 
   let curseur, texte, cadre, x = 0, y = 0, pas = 0, total = 0;
@@ -190,5 +203,43 @@
       .sort(function(a, b){ return a.textContent.length - b.textContent.length; })[0];
   }
 
-  window.DEMO = {ouvre, ferme, dit, tape, vers, montre, cache, gare, ecrit, ligne, bloc, pause: Q};
+  /* La barrière de départ. « quand tu commence la demo il faut demander une
+     action de ma part, car si je ne suis pas devant l'écran ça tourne dans le
+     vide. » Trois fois la même cause : une démo qui se lance toute seule se
+     joue pour personne. Elle s'installe donc et elle attend — c'est lui qui
+     l'ouvre, quand il est là. Le scénario, les données de mise en place
+     comprises, ne tourne qu'au clic : rien n'est écrit dans l'archive tant
+     qu'il n'a pas commencé. */
+  function porte(o){
+    const vieux = document.getElementById("dmPorte"); if(vieux) vieux.remove();
+    if(!document.getElementById("dmStyle")){
+      const s = el("style"); s.id = "dmStyle"; s.textContent = CSS; document.head.appendChild(s);
+    }
+    const d = el("div"); d.id = "dmPorte";
+    d.innerHTML = `<div class="carte">
+        <div class="k">${o.k || "Démonstration"}</div>
+        <h4>${o.titre}</h4>
+        <p>${o.phrase || ""}</p>
+        <button id="dmGo">${o.bouton || "Commencer"}</button>
+        ${o.second ? `<button class="sec" id="dmSec">${o.second}</button>` : ""}
+      </div>`;
+    document.body.appendChild(d);
+    d.querySelector("#dmGo").addEventListener("click", async function(){
+      d.remove();
+      ouvre(o.n || 0);
+      try { await o.jouer(); }
+      catch(e){ await dit("La démo s'est arrêtée", String(e && e.message || e)); return; }
+      porte({k:"Terminé", titre:o.fin || "C'est tout.",
+             phrase:"Tu peux la revoir, ou effacer ce que la démo a écrit.",
+             bouton:"Rejouer", second:"Effacer la démo",
+             n:o.n, jouer:o.jouer, fin:o.fin, nettoie:o.nettoie});
+    });
+    const sec = d.querySelector("#dmSec");
+    if(sec) sec.addEventListener("click", function(){
+      d.remove(); ferme();
+      if(typeof o.nettoie === "function") o.nettoie();
+    });
+  }
+
+  window.DEMO = {ouvre, ferme, porte, dit, tape, vers, montre, cache, gare, ecrit, ligne, bloc, pause: Q};
 })();

@@ -121,9 +121,12 @@ Et, transversal : **rien ne part en clair** (13.bh). Le journal nomme des frère
   pour moi ; la démo est pour lui, et ce n'est pas la même chose. Poser les données qu'il faut
   avec les **vrais gestes**, puis **nettoyer** (`db = sane({}); save(); soVide();`) — et vérifier
   `SY.actif === false` avant d'écrire quoi que ce soit.
-  - **D'abord vérifier que le volet est ouvert chez lui** (`get_layout` → `preview` dans
-    `open_panes`, sinon `show_pane`). Une démo jouée dans un volet fermé n'a pas eu lieu, et je
-    l'ai fait.
+  - **La démo ne démarre jamais d'elle-même.** `DEMO.porte({titre, n, jouer, nettoie})` pose une
+    carte avec un bouton et **attend** ; le scénario — les données de mise en place comprises —
+    ne tourne qu'à son clic, et l'archive n'est touchée qu'à ce moment-là. À la fin, la même
+    carte revient avec *Rejouer* et *Effacer la démo*. *« si je ne suis pas devant l'écran ça
+    tourne dans le vide »* : vérifier que le volet est ouvert (`get_layout`) ne suffisait pas —
+    ouvert n'est pas regardé. Installer, prévenir, et le laisser ouvrir.
   - **Avec `outils/demo.js`** — injecté à la main dans le volet, chargé ni par `index.html` ni par
     `sw.js`. Piloter l'app par du code donne un écran qui change tout seul : on ne sait ni où l'on
     a touché, ni pourquoi. *« tu me démontre quoi ? je ne comprend même pas. »* L'outil ajoute les

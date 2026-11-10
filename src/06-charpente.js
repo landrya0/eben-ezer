@@ -188,6 +188,9 @@ function ligneActe(n, o){
   const pied = [ acteurTxt(n),
                  (n.man && n.kind!=="rhema") ? manCourt(n.man) : "",
                  human(n),
+                 /* Les deux dates vont ensemble : le jour promis juste après
+                    le jour tenu, sinon on lit deux faits sans rapport. */
+                 promisBref(n),
                  (n.etat && n.etat!=="fait") ? ETAT[n.etat] : "" ]
                .filter(Boolean).map(esc).join(" · ");
   return `<li><a class="item-link item-content acte" ${o.attr||""}>

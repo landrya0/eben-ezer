@@ -3286,3 +3286,80 @@ test("13.du — sans date, le passage garde la règle de 13.ds", () => {
   A.equal(a.f.node("p1").prevuLe, undefined,
     "il n'y avait aucun jour promis : en inventer un serait mentir");
 });
+
+
+/* ========================================================================
+   13.dv — le jour promis se lit aussi dans les listes
+   ======================================================================== */
+
+test("13.dv — la ligne dit les deux jours : celui promis et celui tenu", () => {
+  const a = app();
+  planifie(a, "p1", "Jeûner un jour", "2026-11-20");
+  a.S.view = "node"; a.S.nodeId = "p1";
+  a.geste({ netat: "fait" });
+
+  const ligne = a.f.ligneActe(a.f.node("p1"), {});
+  A.match(ligne, /8 novembre 2026/, "le jour où ça a eu lieu");
+  A.match(ligne, /promis le 20 nov\./,
+    "et le jour qui avait été promis, sans ouvrir la fiche");
+});
+
+test("13.dv — « promis », parce que « prévu » est déjà l'état", () => {
+  const a = app();
+  planifie(a, "p1", "Jeûner un jour", "2026-11-20");
+  a.S.view = "node"; a.S.nodeId = "p1";
+  a.geste({ netat: "encours" });
+  const ligne = a.f.ligneActe(a.f.node("p1"), {});
+  A.match(ligne, /promis le 20 nov\./);
+  A.match(ligne, /en cours/, "l'état se dit toujours");
+  A.doesNotMatch(ligne, /prévu le/,
+    "deux sens pour un mot dans la même ligne, c'est une ligne qui ment");
+});
+
+test("13.dv — tant que c'est prévu, la ligne ne dit qu'un jour", () => {
+  const a = app();
+  planifie(a, "p1", "Jeûner un jour", "2026-11-20");
+  const ligne = a.f.ligneActe(a.f.node("p1"), {});
+  A.match(ligne, /20 novembre 2026/);
+  A.doesNotMatch(ligne, /promis/,
+    "une promesse qui n'est pas encore tenue n'a rien à rappeler");
+});
+
+test("13.dv — rien à redire quand c'est le jour dit", () => {
+  const a = app();
+  planifie(a, "p1", "Appeler mon père", "2026-11-08");
+  a.S.view = "node"; a.S.nodeId = "p1";
+  a.geste({ netat: "fait" });
+  A.doesNotMatch(a.f.ligneActe(a.f.node("p1"), {}), /promis/,
+    "promis pour aujourd'hui et fait aujourd'hui : le redire est du bruit");
+});
+
+test("13.dv — l'année ne se dit que si ce n'est pas celle-ci", () => {
+  const a = app();
+  planifie(a, "p1", "Jeûner un jour", "2026-11-20");
+  planifie(a, "p2", "Rendre la visite promise", "2025-12-03");
+  a.S.view = "node";
+  a.S.nodeId = "p1"; a.geste({ netat: "fait" });
+  a.S.nodeId = "p2"; a.geste({ netat: "fait" });
+
+  A.equal(a.f.promisBref(a.f.node("p1")), "promis le 20 nov.",
+    "redire l'année courante à chaque ligne est du bruit");
+  A.equal(a.f.promisBref(a.f.node("p2")), "promis le 3 déc. 2025",
+    "une promesse d'une autre année, elle, a besoin de son année");
+});
+
+test("13.dv — une seule porte : toutes les listes le disent du même coup", () => {
+  const a = app();
+  planifie(a, "p1", "Jeûner un jour", "2026-11-20");
+  a.S.view = "node"; a.S.nodeId = "p1";
+  a.geste({ netat: "fait" });
+
+  a.S.view = "actes"; a.f.vActes();
+  A.match(a.Z.html, /promis le 20 nov\./, "dans « Mes actes »");
+
+  a.db.nodes.push({ id: "s1", act: "dieu", dest: "moi", kind: "acte",
+    txt: "Il a répondu", man: "", par: ["p1"], suj: [], date: "2026-11-08",
+    prec: "j", etat: "fait", ts: 2, maj: 2 });
+  a.S.view = "node"; a.S.nodeId = "s1"; a.f.vNode();
+  A.match(a.Z.html, /promis le 20 nov\./, "et sous « En réponse à »");
+});

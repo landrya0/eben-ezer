@@ -41,6 +41,19 @@ function jourPromis(n){
   if(!n || !n.prevuLe || n.etat==="prevu" || n.prevuLe===n.date) return "";
   return human({date:n.prevuLe, prec:"j"});
 }
+/* Une chose qu'on ne voit qu'en ouvrant la fiche, on ne la voit pas : c'est
+   en parcourant la liste qu'on se demande si ce qu'on avait promis a été
+   tenu. Le pied d'une ligne est télégraphique, d'où la forme courte — et
+   « promis » plutôt que « prévu », parce que « prévu » y est déjà l'état :
+   deux sens pour un mot dans la même ligne, c'est une ligne qui ment
+   (13.cu). L'année ne se dit que si ce n'est pas celle-ci (13.dv). */
+function promisBref(n){
+  if(!jourPromis(n)) return "";
+  const p=parse(n.prevuLe); if(!p) return "";
+  const an = p.y===new Date().getFullYear() ? "" : " "+p.y;
+  return "promis le "+new Date(p.y, p.m-1, p.d)
+    .toLocaleDateString("fr-FR",{day:"numeric",month:"short"})+an;
+}
 function human(n){
   if(n.kind==="ecriture") return n.ref || "";
   if(sansDate(n)) return "";

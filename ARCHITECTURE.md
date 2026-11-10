@@ -48,6 +48,11 @@ trois endroits qui tiennent cet ordre :
 
 `index.html` ne tient plus que la charpente HTML et les treize balises : **70 lignes**.
 
+**`outils/demo.js` n'est pas de l'application.** Il n'est chargé ni par `index.html` ni par la
+liste `APP` de `sw.js`, et il n'entre jamais dans la page livrée : il s'injecte à la main dans le
+volet navigateur pour dérouler une livraison devant le disciple — un curseur qu'on voit taper, un
+bandeau qui dit l'étape. Voir AGENTS.md §4.
+
 **Attention aux `url()` du CSS.** Elles se résolvent depuis `src/`, pas depuis la page : les
 polices sont donc en `../vendor/…`. C'est le piège classique d'une feuille extraite.
 

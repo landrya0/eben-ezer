@@ -116,6 +116,26 @@ Et, transversal : **rien ne part en clair** (13.bh). Le journal nomme des frère
   **Y ajouter un balayage plutôt qu'un test** chaque fois qu'une faute aurait pu se produire
   partout.
 - **Une idée = une version**, vérifiée dans le navigateur (375 px) avant de passer à la suivante.
+- **Et montrée.** Après chaque livraison, dérouler la nouveauté **dans le volet navigateur**, sur
+  la version en ligne, écran par écran : il la voit faire au lieu de la lire. La vérification est
+  pour moi ; la démo est pour lui, et ce n'est pas la même chose. Poser les données qu'il faut
+  avec les **vrais gestes**, puis **nettoyer** (`db = sane({}); save(); soVide();`) — et vérifier
+  `SY.actif === false` avant d'écrire quoi que ce soit.
+  - **D'abord vérifier que le volet est ouvert chez lui** (`get_layout` → `preview` dans
+    `open_panes`, sinon `show_pane`). Une démo jouée dans un volet fermé n'a pas eu lieu, et je
+    l'ai fait.
+  - **Avec `outils/demo.js`** — injecté à la main dans le volet, chargé ni par `index.html` ni par
+    `sw.js`. Piloter l'app par du code donne un écran qui change tout seul : on ne sait ni où l'on
+    a touché, ni pourquoi. *« tu me démontre quoi ? je ne comprend même pas. »* L'outil ajoute les
+    deux seules choses qui manquaient : un **curseur** qu'on voit se déplacer et taper
+    (`DEMO.tape`, `DEMO.ecrit` — le vrai `click()` part sur le vrai élément, donc le délégué et
+    les sondes travaillent), et un **bandeau de narration** qui dit à chaque étape ce qu'on
+    regarde (`DEMO.dit(titre, phrase, cle)` ; `cle` marque en or les étapes qui SONT la
+    nouveauté). `DEMO.montre(cible)` encadre sans toucher — indispensable quand la nouveauté est
+    ce que l'app a fait **toute seule**, puisqu'il n'y a justement aucun geste à voir.
+  - **Compter les étapes d'avance** (`DEMO.ouvre(n)`) : « Étape 7 / 13 » dit où l'on en est.
+    Et commencer par une étape qui montre le point de départ vide — sinon on ne sait pas ce qui
+    a changé.
 - **Toute règle fonctionnelle s'écrit dans la spec au fur et à mesure** :
   `../SPEC-EBEN-EZER.md` — **hors dépôt, jamais commitée**. Une règle `13.xx` (les plus récentes
   en premier) **et** une entrée de journal datée. La règle dit *pourquoi*, pas *comment*.

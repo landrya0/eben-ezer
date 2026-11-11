@@ -178,7 +178,11 @@ function vOeuvres(){
 
 /* ---------- Révélations ---------- */
 function vRevel(){
-  const o=[["noms","Noms"],["chemins","Chemins"],["gens","Personnes"],["chiffres","Chiffres"]];
+  /* 13.eo — les dynamiques vivent ici, à côté des chiffres et non dedans :
+     un chiffre dit un état, une dynamique dit un mouvement. Deux ordres de
+     choses, deux formes. */
+  const o=[["noms","Noms"],["chemins","Chemins"],["gens","Personnes"],
+           ["chiffres","Chiffres"],["dynamiques","Dynamiques"]];
   Z.haut=`<p class="titre-page">Révélations</p><p class="ssTitre">Ce que tout cela t'a fait connaître de Lui.</p>
     <div class="puces">${o.map(([k,l])=>`<button class="puce" data-rev="${k}" aria-pressed="${S.rev===k}">${l}</button>`).join("")}</div>`;
   let h="";
@@ -209,6 +213,8 @@ function vRevel(){
         texte:(par?("Il est passé par lui "+par+" fois.") : "Rien de Lui par lui, encore.")+" "+
               (dit?("Tu lui as rendu "+dit+" chose"+(dit>1?"s":"")+".") : "Tu ne lui as rien rendu.")});
     }).join(""));
+  } else if(S.rev==="dynamiques"){
+    h+=blocDyn();
   } else {
     /* La garde est en tête, une fois pour toutes — pas en note de bas de page
        après qu'on a déjà lu les chiffres. */

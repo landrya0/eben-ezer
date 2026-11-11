@@ -795,6 +795,166 @@ function vDevine(){
   Z.html=h;
 }
 
+/* ---------- les dynamiques ---------- */
+/* 13.eo — une dynamique est un MOUVEMENT : il lui faut deux points et de quoi
+   savoir lequel vient d'abord. Mesure du 11 novembre 2026 : quatre jours de
+   chronomètre, et 24 des 56 actes datés du même jour — celui où le disciple
+   s'est assis pour écrire son mémorial. Une courbe tracée là-dessus dirait
+   quand il a commencé à se servir de l'app, pas sa marche avec Dieu.
+   L'app nomme donc ce qu'elle suivra, dit ce qu'il lui manque pour le lire,
+   et se met à parler toute seule le jour où les données le portent. Afficher
+   des lignes à zéro serait mensonger, se taire serait pire (13.co). */
+function cleJour(ms){ const d=new Date(ms); return d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate(); }
+function joursComptes(){
+  const v={};
+  (db.temps||[]).forEach(function(b){ if(b.fin) v[cleJour(b.deb)]=1; });
+  return Object.keys(v).length;
+}
+/* Les minutes données à Dieu, heure du jour par heure du jour. Un bloc qui
+   enjambe minuit se partage : c'est le seul moyen que « 23 h » veuille dire
+   la même chose pour un bloc de dix minutes et pour un bloc de six heures. */
+function heuresDuJour(){
+  const h=[]; for(let i=0;i<24;i++) h.push(0);
+  (db.temps||[]).forEach(function(b){
+    if(!b.fin || tacheCat(b.t)!=="dieu") return;
+    let t=b.deb;
+    while(t<b.fin){
+      const d=new Date(t), suite=new Date(t);
+      suite.setHours(d.getHours()+1, 0, 0, 0);
+      const z=Math.min(b.fin, suite.getTime());
+      h[d.getHours()]+=z-t; t=z;
+    }
+  });
+  return h;
+}
+/* La plus longue suite d'heures où rien n'a jamais été compté pour Lui. On
+   ne boucle pas sur minuit : un creux qui enjambe la nuit se dirait « de
+   23 h à 7 h », et personne ne lit ça comme un seul trou. */
+function creuxDuJour(h){
+  let d=-1, f=-1, a=-1;
+  for(let i=0;i<24;i++){
+    if(!h[i]){ if(a<0) a=i; if(i-a+1 > f-d){ d=a; f=i; } }
+    else a=-1;
+  }
+  return d<0 ? null : [d, f+1];
+}
+function hhTxt(i){ return (i===24?0:i)+" h"; }
+function dynJour(){
+  const h=heuresDuJour(), n=joursComptes() || 1;
+  const vus=[];
+  for(let i=0;i<24;i++) if(h[i]) vus.push({i:i, v:h[i]});
+  if(!vus.length) return "";
+  /* Trois heures au plus, et aucune qui pèse moins du quart de la plus
+     forte : « tu es le plus à Lui vers 5 h, 21 h, 22 h » quand 21 h en porte
+     treize fois plus serait vrai au classement et faux à la lecture. */
+  const tri=vus.slice().sort(function(a,b){ return b.v-a.v; });
+  const seuil=tri[0].v/4;
+  const forts=tri.filter(function(x){ return x.v>=seuil; }).slice(0,3)
+    .sort(function(a,b){ return a.i-b.i; });
+  const cx=creuxDuJour(h);
+  return "Tu es le plus à Lui vers "+forts.map(function(x){ return hhTxt(x.i); }).join(", ")
+    + " — jusqu'à "+hm(Math.round(forts.reduce(function(m,x){ return Math.max(m,x.v); },0)/n))
+    + " par jour."
+    + (cx ? " Entre "+hhTxt(cx[0])+" et "+hhTxt(cx[1])+", rien n'a jamais été compté pour Lui." : "");
+}
+/* Sept jours contre les sept d'avant. En dessous de cinq minutes d'écart, on
+   se tait : un mouvement de trois minutes n'en est pas un, et l'annoncer
+   ferait douter des vrais. */
+const DYN_BRUIT = 300000;
+function dynSemaine(){
+  const t1=minuit(0)+86400000, a0=minuit(6), b0=minuit(13);
+  const a=parDisc(cumul(a0, t1).par), b=parDisc(cumul(b0, a0).par);
+  const ids={};
+  Object.keys(a).forEach(function(k){ ids[k]=1; });
+  Object.keys(b).forEach(function(k){ ids[k]=1; });
+  const mv=Object.keys(ids).map(function(k){ return {d:k, e:(a[k]||0)-(b[k]||0)}; })
+    .filter(function(x){ return Math.abs(x.e)>=DYN_BRUIT; })
+    .sort(function(x,y){ return Math.abs(y.e)-Math.abs(x.e); });
+  if(!mv.length) return "Rien n'a bougé de plus de cinq minutes d'une semaine à l'autre.";
+  return mv.slice(0,3).map(function(x){
+    return discNom(x.d)+" "+(x.e>0?"+":"−")+" "+hm(Math.abs(x.e));
+  }).join(" · ")+".";
+}
+/* Un échange daté : un acte, et le premier qui lui répond de l'autre côté.
+   Ce qui est encore prévu n'a pas eu lieu, et ne répond donc à rien (13.en). */
+function echanges(){
+  const mien=[], sien=[];
+  (db.nodes||[]).forEach(function(n){
+    const e=enfants(n.id).filter(function(x){ return x.etat!=="prevu"; });
+    const r=e.filter(function(x){ return n.act==="moi" ? x.act!=="moi" : x.act==="moi"; })
+             .sort(parDateAsc)[0];
+    if(!r) return;
+    const j=jours(n.date, r.date);
+    if(j===null || j<0) return;
+    (n.act==="moi" ? sien : mien).push({n:n, r:r, j:j});
+  });
+  return {mien:mien, sien:sien};
+}
+function nbEchanges(){ const e=echanges(); return e.mien.length+e.sien.length; }
+function dynEchanges(){
+  const e=echanges(), out=[];
+  const moy=function(a){ return Math.round(a.reduce(function(s,x){ return s+x.j; },0)/a.length); };
+  if(e.mien.length) out.push("Tu mets <b>"+esc(duree(moy(e.mien)))+"</b> à Lui rendre quelque chose");
+  if(e.sien.length) out.push("Il met <b>"+esc(duree(moy(e.sien)))+"</b> à répondre à ce que tu fais");
+  return out.join(" · ")+".";
+}
+function paroleDelais(){
+  return paroles().filter(accomplie).map(function(p){
+    const a=accompliesDe(p)[0], j=jours(p.date, a.date);
+    return (j===null || j<0) ? null : {p:p, j:j};
+  }).filter(Boolean);
+}
+function nbAccomplies(){ return paroleDelais().length; }
+function dynParoles(){
+  const ps=paroleDelais();
+  if(!ps.length) return "";
+  const moy=Math.round(ps.reduce(function(s,x){ return s+x.j; },0)/ps.length);
+  const max=ps.slice().sort(function(a,b){ return b.j-a.j; })[0];
+  return "Entre une parole et ce qui l'accomplit, <b>"+esc(duree(moy))
+    + "</b> en moyenne. Le plus long : <b>"+esc(duree(max.j))+"</b>.";
+}
+/* Chacune dit ce qu'elle suivra, ce qu'il lui faut, et où l'on en est. Le
+   seuil n'est pas un réglage : c'est le nombre de points en dessous duquel
+   la phrase serait du bruit présenté comme un mouvement. */
+const DYN = [
+  {id:"jour", nom:"Le rythme de tes journées",
+   quoi:"À quelle heure du jour tu es à Lui, et à quelle heure jamais.",
+   faut:14, unite:["jour compté","jours comptés"], ou:function(){ return joursComptes(); }, lit:dynJour},
+  {id:"semaine", nom:"Ce qui monte, ce qui baisse",
+   quoi:"Chaque routine, cette semaine contre la précédente.",
+   faut:21, unite:["jour compté","jours comptés"], ou:function(){ return joursComptes(); }, lit:dynSemaine},
+  {id:"vaetvient", nom:"Le va-et-vient",
+   quoi:"Le temps qu'Il met à répondre, et celui que tu mets.",
+   faut:6, unite:["échange daté","échanges datés"], ou:nbEchanges, lit:dynEchanges},
+  {id:"parole", nom:"Ses délais",
+   quoi:"Entre une parole et ce qui l'accomplit.",
+   faut:3, unite:["parole accomplie","paroles accomplies"], ou:nbAccomplies, lit:dynParoles}
+];
+function blocDyn(){
+  const lues=[], attend=[];
+  DYN.forEach(function(d){
+    const n=d.ou(), pret=n>=d.faut, txt=pret ? d.lit() : "";
+    (pret && txt ? lues : attend).push({d:d, n:n, txt:txt});
+  });
+  let h=`<div class="block amorce" style="margin-top:4px">Une dynamique, c'est un mouvement — il lui faut deux points, et de quoi savoir lequel vient d'abord. Tant qu'une d'elles n'a pas de quoi se lire, l'app dit ce qui lui manque. Elle ne dessine rien.</div>`;
+  if(lues.length){
+    h+=titreBloc("Ce qui se lit déjà");
+    h+=liste(lues.map(function(x){
+      return ligne({titre:esc(x.d.nom), sous:x.txt});
+    }).join(""));
+  }
+  if(attend.length){
+    h+=titreBloc("Ce qui attend encore", lues.length?"ecart":"");
+    h+=liste(attend.map(function(x){
+      const reste=x.d.faut-x.n;
+      return ligne({titre:esc(x.d.nom),
+        sous:esc(x.d.quoi)+" · il en manque "+reste+" "+esc(x.d.unite[reste>1?1:0]),
+        apres:esc(x.n+" / "+x.d.faut)});
+    }).join(""));
+  }
+  return h;
+}
+
 /* ---------- la bibliothèque : où j'en suis dans mes livres ---------- */
 /* Même besoin que pour l'Écriture, et une différence qui commande tout : la
    Bible est une liste close que l'app connaît par cœur ; une bibliothèque,

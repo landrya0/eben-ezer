@@ -5070,3 +5070,169 @@ test("13.en — tant qu'aucune parole n'attend, rien n'est tendu", () => {
   A.equal(a.Z.html.indexOf("Une parole qui attend encore"), -1,
     "une section vide est un mur de plus, pas une aide");
 });
+
+/* ------------------------------------------------------------------
+   13.eo — une dynamique qui n'a pas de quoi se lire se dit, elle ne
+   se dessine pas.
+   Mesure du 11 novembre 2026 : quatre jours de chronomètre, et 24 des
+   56 actes datés du même jour — celui où il s'est assis pour écrire
+   son mémorial. Une courbe tracée là-dessus dirait quand il a commencé
+   à se servir de l'app, pas sa marche avec Dieu.
+   ------------------------------------------------------------------ */
+
+/* Son archive en miniature : quatre jours comptés, pas un de plus. */
+function quatreJours(a) {
+  a.maintenant(MIDI);
+  a.db.taches = [{ id: "t1", nom: "Priere", cat: "dieu", d: "priere", maj: 1 },
+                 { id: "t2", nom: "Sommeil", cat: "moi", d: "", maj: 1 }];
+  a.db.temps = [
+    bloc("b1", "t1", jour(5, 21, 0), jour(5, 22, 0)),
+    bloc("b2", "t1", jour(6, 21, 0), jour(6, 22, 30)),
+    bloc("b3", "t1", jour(7, 5, 0), jour(7, 6, 0)),
+    bloc("b4", "t1", jour(8, 21, 0), jour(8, 22, 0)),
+    bloc("b5", "t2", jour(8, 0, 0), jour(8, 4, 0))
+  ];
+  return a;
+}
+
+test("13.eo — quatre jours ne font pas une dynamique, et l'app le dit", () => {
+  const a = app();
+  quatreJours(a);
+  A.equal(a.f.joursComptes(), 4, "quatre jours distincts, cinq blocs");
+  a.S.view = "revel"; a.S.rev = "dynamiques";
+  a.f.vRevel();
+  A.match(a.Z.html, /Elle ne dessine rien/, "la garde est en tête, pas en bas de page");
+  A.match(a.Z.html, /Ce qui attend encore/);
+  A.match(a.Z.html, /4 \/ 14/, "où l'on en est, et de combien");
+  A.match(a.Z.html, /il en manque 10 jours comptés/);
+  A.equal(a.Z.html.indexOf("Ce qui se lit déjà"), -1,
+    "rien n'est lisible : la section ne s'affiche même pas");
+});
+
+test("13.eo — « il en manque 1 parole accomplie » ne se dit pas au pluriel", () => {
+  const a = app();
+  quatreJours(a);
+  a.db.nodes = [];
+  /* Deux paroles tenues, une de moins que le seuil : c'est exactement où
+     son archive se trouve le 11 novembre. */
+  ["p1", "p2"].forEach(function (id, i) {
+    a.db.nodes.push({ id: id, act: "dieu", man: "parle", kind: "rhema", txt: "« … »",
+      par: [], date: "2025-0" + (i + 1) + "-08", prec: "j", etat: "fait", ts: i + 1, maj: 1 });
+    a.db.nodes.push({ id: "d" + id, act: "dieu", man: "pourvu", kind: "acte", txt: "Il l'a tenue",
+      par: [id], date: "2026-0" + (i + 1) + "-08", prec: "j", etat: "fait", ts: 10 + i, maj: 1 });
+  });
+  A.equal(a.f.nbAccomplies(), 2);
+  a.S.view = "revel"; a.S.rev = "dynamiques";
+  a.f.vRevel();
+  A.match(a.Z.html, /il en manque 1 parole accomplie/);
+  A.equal(a.Z.html.indexOf("il en manque 1 paroles"), -1);
+});
+
+test("13.eo — le jour où le seuil est franchi, elle parle d'elle-même", () => {
+  const a = app();
+  quatreJours(a);
+  /* On n'a rien touché d'autre que le nombre de jours. */
+  for (let d = 9; d <= 18; d++) {
+    a.db.temps.push(bloc("x" + d, "t1", jour(d, 21, 0), jour(d, 22, 0)));
+  }
+  A.equal(a.f.joursComptes(), 14);
+  a.S.view = "revel"; a.S.rev = "dynamiques";
+  a.f.vRevel();
+  A.match(a.Z.html, /Ce qui se lit déjà/);
+  A.match(a.Z.html, /Le rythme de tes journées/);
+  A.match(a.Z.html, /Tu es le plus à Lui vers 21 h —/,
+    "une seule heure nommée : les autres pèsent moins du quart");
+  A.equal(a.Z.html.indexOf("vers 5 h"), -1);
+  A.match(a.Z.html, /4 \/ 21/, "l'autre attend toujours ses trois semaines");
+});
+
+test("13.eo — l'heure du jour se lit sur ce qui est pour Lui, pas sur tout", () => {
+  const a = app();
+  quatreJours(a);
+  const h = a.f.heuresDuJour();
+  A.equal(h[21], 3 * H, "trois soirées de prière commencées à 21 h");
+  A.equal(h[22], 30 * MIN, "et la demi-heure qui déborde");
+  A.equal(h[5], 1 * H);
+  A.equal(h[0], 0, "les quatre heures de sommeil ne sont pas à Lui");
+  A.equal(h[2], 0);
+});
+
+test("13.eo — un bloc qui enjambe l'heure se partage entre les deux", () => {
+  const a = app();
+  a.maintenant(MIDI);
+  a.db.taches = [{ id: "t1", nom: "Priere", cat: "dieu", d: "priere", maj: 1 }];
+  a.db.temps = [bloc("b1", "t1", j(22, 40), j(23, 10))];
+  const h = a.f.heuresDuJour();
+  A.equal(h[22], 20 * MIN, "vingt minutes avant");
+  A.equal(h[23], 10 * MIN, "dix après");
+});
+
+test("13.eo — le creux est la plus longue suite d'heures vides, sans boucler", () => {
+  const a = app();
+  const h = new Array(24).fill(0);
+  [1, 2, 21, 22, 23].forEach(function (i) { h[i] = 1; });
+  A.deepEqual(Array.from(a.f.creuxDuJour(h)), [3, 21],
+    "de 3 h à 21 h, et non « de 23 h à 1 h » que personne ne lit comme un trou");
+  A.equal(a.f.creuxDuJour(new Array(24).fill(1)), null, "aucun creux : on n'en invente pas");
+});
+
+test("13.eo — le va-et-vient compte les deux sens, et seulement ce qui a eu lieu", () => {
+  const a = app();
+  a.maintenant(MIDI);
+  a.db.nodes = [
+    { id: "D1", act: "dieu", man: "pourvu", kind: "acte", txt: "Il a pourvu",
+      par: [], date: "2026-10-01", prec: "j", etat: "fait", ts: 1, maj: 1 },
+    { id: "M1", act: "moi", dest: "dieu", kind: "acte", txt: "Le remercier",
+      par: ["D1"], date: "2026-10-04", prec: "j", etat: "fait", ts: 2, maj: 1 },
+    { id: "M2", act: "moi", dest: "dieu", kind: "acte", txt: "Jeûner un jour",
+      par: [], date: "2026-09-01", prec: "j", etat: "fait", ts: 3, maj: 1 },
+    { id: "D2", act: "dieu", man: "pourvu", kind: "acte", txt: "Il a répondu",
+      par: ["M2"], date: "2026-09-21", prec: "j", etat: "fait", ts: 4, maj: 1 },
+    { id: "M3", act: "moi", dest: "dieu", kind: "acte", txt: "Une démarche",
+      par: [], date: "2026-09-01", prec: "j", etat: "fait", ts: 5, maj: 1 },
+    { id: "D3", act: "dieu", man: "pourvu", kind: "acte", txt: "Ce qu'Il fera",
+      par: ["M3"], date: "2026-12-01", prec: "j", etat: "prevu", ts: 6, maj: 1 }
+  ];
+  const e = a.f.echanges();
+  A.deepEqual(Array.from(e.mien).map(function (x) { return x.j; }), [3], "trois jours pour rendre");
+  A.deepEqual(Array.from(e.sien).map(function (x) { return x.j; }), [20], "vingt pour répondre");
+  A.equal(a.f.nbEchanges(), 2, "ce qui est encore prévu n'a répondu à rien");
+  A.match(a.f.dynEchanges(), /Tu mets <b>3 jours<\/b>/);
+  A.match(a.f.dynEchanges(), /Il met <b>20 jours<\/b>/);
+});
+
+test("13.eo — une semaine contre l'autre, et le bruit se tait", () => {
+  const a = app();
+  a.maintenant(MIDI);
+  a.db.taches = [{ id: "t1", nom: "Priere", cat: "dieu", d: "priere", maj: 1 },
+                 { id: "t2", nom: "Lecture", cat: "dieu", d: "parole", maj: 1 }];
+  a.db.temps = [
+    bloc("a1", "t1", jour(6, 21, 0), jour(6, 23, 0)),   /* cette semaine : 2 h */
+    bloc("a2", "t1", jour(1, 21, 0), jour(1, 22, 0)),   /* la précédente : 1 h */
+    bloc("c1", "t2", jour(6, 9, 0), jour(6, 9, 2)),     /* 2 min */
+    bloc("c2", "t2", jour(1, 9, 0), jour(1, 9, 1))      /* 1 min */
+  ];
+  const t = a.f.dynSemaine();
+  A.match(t, /La prière seul \+ 1 h/, "une heure de plus, et dans quel sens");
+  A.equal(t.indexOf("Bible"), -1, "une minute d'écart n'est pas un mouvement");
+});
+
+test("13.eo — rien à dire se dit, plutôt que de ne rien afficher", () => {
+  const a = app();
+  a.maintenant(MIDI);
+  a.db.taches = [{ id: "t1", nom: "Priere", cat: "dieu", d: "priere", maj: 1 }];
+  a.db.temps = [bloc("a1", "t1", jour(6, 21, 0), jour(6, 22, 0)),
+                bloc("a2", "t1", jour(1, 21, 0), jour(1, 22, 0))];
+  A.match(a.f.dynSemaine(), /Rien n'a bougé/);
+});
+
+test("13.eo — les seuils sont ceux de la table, pas ceux de l'écran", () => {
+  const a = app();
+  const ids = Array.from(a.c.DYN).map(function (d) { return d.id; });
+  A.deepEqual(ids, ["jour", "semaine", "vaetvient", "parole"]);
+  Array.from(a.c.DYN).forEach(function (d) {
+    A.ok(d.faut >= 3, d.id + " : un seuil en dessous de trois points ne protège de rien");
+    A.ok(typeof d.lit === "function" && typeof d.ou === "function");
+    A.equal(d.unite.length, 2, d.id + " : singulier et pluriel");
+  });
+});

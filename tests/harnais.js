@@ -234,6 +234,8 @@ const PONT = `
        dernierLivre, nomPassagePg, vLivre, recuDe, recuTxt,
        discDevine, tachesDevinees, msDevinees, vDevine,
        paroles, accomplie, accompliesDe, parolesAttente, tendParoles, choixCause,
+       joursComptes, heuresDuJour, creuxDuJour, dynJour, dynSemaine, echanges, nbEchanges,
+       dynEchanges, paroleDelais, nbAccomplies, dynParoles, blocDyn, vRevel,
        estParole, constats, vLier, jours, duree,
        vReglages,
        vTache, heuresTache, heuresTxt, nomLivre, nomPassage, nomPassagePg,
@@ -245,7 +247,7 @@ const PONT = `
        vueDe, vueGarde,
        vOrdre, vEpingles, portePointage, etapes, vNote, vNode, vAccomplis, porteFaits, vPointer, creuxVif,
        sansDate, precPour, today, render, save, VUES, quitterPrevu, jourPromis, promisBref, ligneActe, remontees, blocQuand, vEdit, human },
-  c: { DISC, PERIODES, ONG_TEMPS, SANSFIN, KEY, CAT_SOCLE,
+  c: { DISC, DYN, PERIODES, ONG_TEMPS, SANSFIN, KEY, CAT_SOCLE,
        SO_KEY, SO_MAX, ONGLETS, NOM_VUE, SEULES }
 };
 `;

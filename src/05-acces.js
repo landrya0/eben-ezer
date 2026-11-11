@@ -119,6 +119,29 @@ function reference(txt){
   return (q.length>=2 && q.length<=90) ? q : "";
 }
 function estParole(n){ return n.kind==="rhema" || n.kind==="ecriture" || (n.act==="dieu" && n.man==="parle"); }
+/* 13.en — ce qu'Il a dit et ce qu'Il a fait ne se rejoignent pas tout seuls.
+   Le mémorial d'Ében-Ézer est dressé pour une seule chose : « jusqu'ici
+   l'Éternel nous a secourus » — une parole, et ce qui l'a accomplie. Or
+   accomplir une parole n'est pas y répondre : ma prière de remerciement
+   suit la parole, elle ne la tient pas. C'est pourquoi un acte à moi ne
+   compte jamais comme accomplissement, et un acte encore prévu non plus :
+   il n'a pas eu lieu. */
+function paroles(){ return db.nodes.filter(function(n){ return n.kind==="rhema" || n.kind==="ecriture"; }); }
+function accomplie(n){
+  if(!n) return false;
+  return enfants(n.id).some(function(e){ return e.act!=="moi" && e.etat!=="prevu"; });
+}
+function accompliesDe(n){
+  if(!n) return [];
+  return enfants(n.id).filter(function(e){ return e.act!=="moi" && e.etat!=="prevu"; })
+    .sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); });
+}
+/* La plus ancienne d'abord : c'est elle qui attend depuis le plus longtemps,
+   et c'est elle qu'on a le plus de chances d'avoir oubliée. */
+function parolesAttente(){
+  return paroles().filter(function(n){ return !accomplie(n); })
+    .sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); });
+}
 function acteurTxt(n){
   if(n.act==="dieu") return n.kind==="ecriture" ? "Écriture" : (n.kind==="rhema" ? "Dieu · rhema" : "Dieu");
   if(n.act==="gens"){ const nom=gensNom(n.gid)||"quelqu'un"; return n.man ? ("Lui, par "+nom) : nom; }

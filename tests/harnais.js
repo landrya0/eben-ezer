@@ -233,6 +233,8 @@ const PONT = `
        enParties, partiesTxt, partiesVues, uniteTxt, livreFini, livresOuverts,
        dernierLivre, nomPassagePg, vLivre, recuDe, recuTxt,
        discDevine, tachesDevinees, msDevinees, vDevine,
+       paroles, accomplie, accompliesDe, parolesAttente, tendParoles, choixCause,
+       estParole, constats, vLier, jours, duree,
        vReglages,
        vTache, heuresTache, heuresTxt, nomLivre, nomPassage, nomPassagePg,
        chapitresFen, pagesFenPar, resumeLus, chapFen, pagesFen, vMonTemps, catNom, CATS, tacheCat, finDe, cap,

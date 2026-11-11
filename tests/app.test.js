@@ -4896,3 +4896,177 @@ test("13.em — l'écran des devinées se vide quand tout est dit", () => {
   A.match(a.Z.html, /Plus rien n'est deviné/);
   A.equal(a.Z.html.indexOf("data-dok"), -1);
 });
+
+/* ------------------------------------------------------------------
+   13.en — ce qu'Il a dit et ce qu'Il a fait ne se rejoignent pas tout
+   seuls.
+   Mesure du 10 novembre 2026 : 17 paroles gardées, 10 citées comme
+   précédent — et les 10 par un acte à lui. Zéro par un acte de Dieu.
+   Le mémorial enregistrait « Il a parlé → j'ai répondu », et à part
+   « j'ai fait → Il a fait ». Jamais « Il a dit → Il l'a tenu », qui
+   est pourtant la seule chose pour laquelle on dresse une pierre.
+   ------------------------------------------------------------------ */
+
+/* Une parole d'il y a deux ans, une d'il y a un an, une réponse de lui
+   à la première — et rien qui tienne encore ni l'une ni l'autre. */
+function dites(a) {
+  a.db.nodes = [
+    { id: "p1", act: "dieu", man: "parle", kind: "rhema", txt: "« Je pourvoirai pour les tiens. »",
+      par: [], date: "2024-11-08", prec: "j", etat: "fait", ts: 1, maj: 1 },
+    { id: "p2", act: "dieu", man: "parle", kind: "rhema", txt: "« Ne crains pas pour la maison. »",
+      par: [], date: "2025-11-08", prec: "j", etat: "fait", ts: 2, maj: 1 },
+    { id: "m1", act: "moi", dest: "dieu", kind: "acte", txt: "Remercier pour cette parole",
+      par: ["p1"], date: "2024-11-10", prec: "j", etat: "fait", ts: 3, maj: 1 }
+  ];
+  return a;
+}
+function nd(a, id) {
+  return Array.from(a.db.nodes).filter(function (x) { return x.id === id; })[0];
+}
+
+test("13.en — répondre à une parole n'est pas l'accomplir", () => {
+  const a = app();
+  dites(a);
+  A.equal(a.f.accomplie(nd(a, "p1")), false,
+    "« Remercier pour cette parole » suit la parole, il ne la tient pas");
+  A.deepEqual(a.f.parolesAttente().map(function (p) { return p.id; }), ["p1", "p2"],
+    "les deux attendent, la plus ancienne d'abord");
+
+  a.db.nodes.push({ id: "d1", act: "dieu", man: "pourvu", kind: "acte", txt: "La maison de Nkolbisson",
+    par: ["p1"], date: "2026-11-08", prec: "j", etat: "fait", ts: 4, maj: 1 });
+  A.equal(a.f.accomplie(nd(a, "p1")), true, "un acte de Lui, lui, la tient");
+  A.deepEqual(a.f.parolesAttente().map(function (p) { return p.id; }), ["p2"]);
+});
+
+test("13.en — ce qui n'a pas eu lieu n'accomplit rien", () => {
+  const a = app();
+  dites(a);
+  /* Un acte de quelqu'un d'autre compte — c'est souvent par là qu'Il
+     passe —, mais seulement une fois qu'il a eu lieu. */
+  a.db.nodes.push({ id: "g1", act: "gens", gid: "g9", man: "pourvu", kind: "acte",
+    txt: "Il a prêté l'argent du loyer", par: ["p2"], date: "2026-12-01", prec: "j",
+    etat: "prevu", ts: 5, maj: 1 });
+  A.equal(a.f.accomplie(nd(a, "p2")), false, "prévu n'est pas tenu");
+  nd(a, "g1").etat = "fait";
+  A.equal(a.f.accomplie(nd(a, "p2")), true, "fait, oui — et par quelqu'un d'autre");
+});
+
+test("13.en — les paroles qui attendent passent devant le clavier", () => {
+  const a = app();
+  dites(a);
+  const n = { id: "d9", act: "dieu", man: "pourvu", kind: "acte", txt: "La maison",
+              par: [], suj: [], date: "2026-11-08", prec: "j", etat: "fait", ts: 9, maj: 1 };
+  a.db.nodes.push(n);
+  a.S.nodeId = "d9"; a.S.view = "lier"; a.S.cNeuf = false;
+  a.f.vLier();
+  A.match(a.Z.html, /Une parole qui attend encore/);
+  A.match(a.Z.html, /data-par="p1"/, "elle est là, à portée de doigt");
+  A.ok(a.Z.html.indexOf('data-par="p1"') < a.Z.html.indexOf('id="cFiltre"'),
+    "avant le champ de recherche : ce qui se tape se remplit, ce qui s'écrit reste vide");
+  A.ok(a.Z.html.indexOf('data-par="p1"') < a.Z.html.indexOf('data-par="p2"'),
+    "la plus ancienne en tête");
+  A.match(a.Z.html, /attend depuis/, "et la ligne dit depuis quand");
+});
+
+test("13.en — on ne tend rien à un acte de moi", () => {
+  const a = app();
+  dites(a);
+  a.S.nodeId = "m1"; a.S.view = "lier"; a.S.cNeuf = false;
+  a.f.vLier();
+  A.equal(a.Z.html.indexOf("Une parole qui attend encore"), -1,
+    "mon acte répond à une parole, il ne l'accomplit pas : la tendre serait mentir");
+});
+
+test("13.en — une parole ne se tend pas à elle-même", () => {
+  const a = app();
+  dites(a);
+  a.S.nodeId = "p2"; a.S.view = "lier"; a.S.cNeuf = false;
+  a.f.vLier();
+  A.equal(a.Z.html.indexOf("Une parole qui attend encore"), -1,
+    "une parole qui en cite une autre est autre chose, et ça marchait déjà");
+});
+
+test("13.en — une tape suffit, et c'est le vrai geste", () => {
+  const a = app();
+  dites(a);
+  a.db.nodes.push({ id: "d9", act: "dieu", man: "pourvu", kind: "acte", txt: "La maison",
+    par: [], suj: [], date: "2026-11-08", prec: "j", etat: "fait", ts: 9, maj: 1 });
+  a.S.nodeId = "d9"; a.S.view = "lier";
+  a.geste({ par: "p1" });
+  A.deepEqual(Array.from(nd(a, "d9").par), ["p1"]);
+  A.equal(a.f.accomplie(nd(a, "p1")), true, "et la parole est tenue");
+  a.f.vLier();
+  /* Elle reste atteignable dans la recherche — ce qui est lié ne disparaît
+     jamais sous le pouce — mais elle quitte ce qu'on tend. */
+  const tendu = a.Z.html.slice(a.Z.html.indexOf("Une parole qui attend encore"),
+                               a.Z.html.indexOf('id="cFiltre"'));
+  A.equal(tendu.indexOf('data-par="p1"'), -1, "elle n'attend plus");
+  A.match(tendu, /data-par="p2"/, "l'autre, si");
+});
+
+test("13.en — la parole dit sur sa fiche ce qu'Il en a fait", () => {
+  const a = app();
+  dites(a);
+  a.S.nodeId = "p1"; a.S.view = "node";
+  a.f.vNode();
+  A.match(a.Z.html, /Ce qu'Il en a fait/);
+  A.match(a.Z.html, /Elle attend encore/);
+  A.match(a.Z.html, /<b>2 ans<\/b> depuis qu'elle a été dite/);
+
+  a.db.nodes.push({ id: "d1", act: "dieu", man: "pourvu", kind: "acte", txt: "La maison de Nkolbisson",
+    par: ["p1"], date: "2026-11-08", prec: "j", etat: "fait", ts: 4, maj: 1 });
+  a.f.vNode();
+  A.match(a.Z.html, /<b>Accomplie\.<\/b>/, "le mémorial est dressé pour ce mot-là");
+  A.match(a.Z.html, /Il a mis <b>2 ans<\/b>/);
+  A.match(a.Z.html, /data-node="d1"/, "et ce qui l'a tenue est là, sous la phrase");
+});
+
+test("13.en — c'est le premier qui tient la parole qui date l'accomplissement", () => {
+  const a = app();
+  dites(a);
+  /* Elle a été tenue deux fois. Le délai, c'est jusqu'à la première :
+     « Il a mis deux ans » reste vrai même s'Il a continué après. */
+  a.db.nodes.push({ id: "d2", act: "dieu", man: "pourvu", kind: "acte", txt: "Et encore après",
+    par: ["p1"], date: "2026-11-08", prec: "j", etat: "fait", ts: 5, maj: 1 });
+  a.db.nodes.push({ id: "d1", act: "dieu", man: "pourvu", kind: "acte", txt: "La maison",
+    par: ["p1"], date: "2025-11-08", prec: "j", etat: "fait", ts: 4, maj: 1 });
+  A.deepEqual(a.f.accompliesDe(nd(a, "p1")).map(function (x) { return x.id; }), ["d1", "d2"],
+    "dans l'ordre où Il a agi, pas celui où c'est gardé");
+  a.S.nodeId = "p1"; a.S.view = "node";
+  a.f.vNode();
+  A.match(a.Z.html, /Il a mis <b>12 mois<\/b>/, "douze mois, pas deux ans");
+});
+
+test("13.en — un acte ordinaire ne parle pas d'accomplissement", () => {
+  const a = app();
+  dites(a);
+  a.S.nodeId = "m1"; a.S.view = "node";
+  a.f.vNode();
+  A.equal(a.Z.html.indexOf("Ce qu'Il en a fait"), -1);
+});
+
+test("13.en — les constats lisent la même chose que l'écran", () => {
+  const a = app();
+  dites(a);
+  a.db.nodes.push({ id: "d1", act: "dieu", man: "pourvu", kind: "acte", txt: "La maison",
+    par: ["p1"], date: "2026-11-08", prec: "j", etat: "fait", ts: 4, maj: 1 });
+  const cs = a.f.constats();
+  const delais = cs.filter(function (c) { return c.fam === "Ses délais"; })
+                   .map(function (c) { return c.txt; }).join(" | ");
+  A.match(delais, /Entre une parole et ce qui l'accomplit/,
+    "le constat existait depuis toujours — il n'avait jamais rien à dire");
+  A.match(delais, /<b>2 ans<\/b>/);
+  A.match(delais, /<b>1<\/b> parole attend/, "et l'autre attend encore");
+});
+
+test("13.en — tant qu'aucune parole n'attend, rien n'est tendu", () => {
+  const a = app();
+  a.db.nodes = [
+    { id: "d9", act: "dieu", man: "pourvu", kind: "acte", txt: "La maison",
+      par: [], suj: [], date: "2026-11-08", prec: "j", etat: "fait", ts: 9, maj: 1 }
+  ];
+  a.S.nodeId = "d9"; a.S.view = "lier"; a.S.cNeuf = false;
+  a.f.vLier();
+  A.equal(a.Z.html.indexOf("Une parole qui attend encore"), -1,
+    "une section vide est un mur de plus, pas une aide");
+});

@@ -260,9 +260,8 @@ function constats(){
   const pl=(n,m,p)=>n>1?(p||(m+"s")):m;
 
   /* --- Ses délais --- */
-  const paroles=db.nodes.filter(n=>n.kind==="rhema"||n.kind==="ecriture");
   const paires=[];
-  paroles.forEach(p=>enfants(p.id).filter(e=>e.act!=="moi"&&e.etat!=="prevu").forEach(e=>{
+  paroles().forEach(p=>accompliesDe(p).forEach(e=>{
     const j=jours(p.date,e.date); if(j!=null&&j>=0) paires.push({p:p,e:e,j:j});
   }));
   if(paires.length){
@@ -271,7 +270,7 @@ function constats(){
     const max=paires.slice().sort((a,b)=>b.j-a.j)[0];
     if(max.j>0) dit("Ses délais", `Le plus long : <b>${duree(max.j)}</b>, après « ${court(nue(max.p.txt))} ».`, [max.p.id,max.e.id]);
   }
-  const attente=paroles.filter(n=>!enfants(n.id).some(e=>e.act!=="moi"));
+  const attente=parolesAttente();
   if(attente.length) dit("Ses délais", `<b>${attente.length}</b> ${pl(attente.length,"parole")} ${attente.length>1?"attendent":"attend"} encore.`, attente.map(n=>n.id));
 
   /* --- Ce qui marche --- */
@@ -594,6 +593,23 @@ function vNode(){
     + sj.map(function(s){ return ligne({titre:esc(sujetTxt(s)), sous:esc(sujetHist(s))}); }).join("")
     + ((par.length||sj.length) ? "" : ligne({titre:`<span class="rien">Rien, pour l'instant</span>`}))
     + ligne({titre:`<span class="coche">Dire ce qui a précédé</span>`, attr:'data-lierview="'+n.id+'"'}));
+  /* 13.en — une parole gardée doit dire, sur sa propre fiche, si elle a été
+     tenue. Sans quoi le lien qu'on vient de poser ne se voit nulle part, et
+     le mémorial reste une liste au lieu d'être une pierre dressée. */
+  if(estParole(n)){
+    const ac=accompliesDe(n);
+    h+=titreBloc("Ce qu'Il en a fait","ecart");
+    if(ac.length){
+      const j=jours(n.date, ac[0].date);
+      h+=`<div class="block amorce"><b>Accomplie.</b>${
+        (j!=null&&j>0) ? " Il a mis <b>"+esc(duree(j))+"</b>." : " Le jour même."}</div>`;
+      h+=liste(ac.map(function(e){ return ligneActe(e,{attr:'data-node="'+e.id+'"'}); }).join(""));
+    }else{
+      const j=jours(n.date, today());
+      h+=`<div class="block amorce">Elle attend encore${
+        (j!=null&&j>0) ? " — <b>"+esc(duree(j))+"</b> depuis qu'elle a été dite" : ""}. Le jour où quelque chose l'accomplit, c'est ici qu'on le dira.</div>`;
+    }
+  }
   /* « Mes retours » était faux une fois sur deux : ce qui suit peut être Sa
      réponse autant que la mienne. Le titre ne présume plus de l'acteur. */
   h+=titreBloc("Ce qui a suivi");
@@ -658,7 +674,27 @@ function choixSujets(sujSel){
           attr:'data-sujp="'+s.id+'"'+(pris?' data-sel="1"':"")});
       }).join(""))+`</div>`;
 }
-function choixCause(sel, exclus, sujSel){
+/* 13.en — l'écran de la cause ne s'ouvre que sur un champ de recherche :
+   il faut se souvenir de la parole, et retrouver le mot qui la rattrape.
+   Mesure du 10 novembre : dix-sept paroles gardées, dix citées comme
+   précédent — toutes par un acte à moi, aucune par un acte de Lui. Zéro.
+   Ce que l'app sait déjà, elle le tend donc : quand ce qu'on note n'est pas
+   de moi, les paroles qui attendent passent devant le clavier (13.ek). */
+function tendParoles(sel, exclus, n){
+  if(!n || n.act==="moi" || estParole(n)) return "";
+  const ps=parolesAttente().filter(function(p){
+    return (exclus||[]).indexOf(p.id)===-1 && p.id!==n.id; });
+  if(!ps.length) return "";
+  return `<div class="cands">`+titreBloc("Une parole qui attend encore")
+    + `<div class="block amorce">Si ceci accomplit l'une d'elles, touche-la. C'est le seul lien que le mémorial existe pour garder — et il ne se fait pas tout seul.</div>`
+    + liste(ps.map(function(p){
+        const j=jours(p.date, today());
+        return ligneActe(p, {coche:(sel||[]).indexOf(p.id)!==-1,
+          pied:(j!=null&&j>0) ? "attend depuis "+duree(j) : "",
+          attr:'data-par="'+p.id+'"'+((sel||[]).indexOf(p.id)!==-1?' data-sel="1"':"")});
+      }).join(""))+`</div>`;
+}
+function choixCause(sel, exclus, sujSel, n){
   /* Deuxième mode : on écrit la cause qui manque. La liste disparaît. */
   if(S.cNeuf){
     return `<div class="block" style="margin-top:18px">
@@ -676,7 +712,8 @@ function choixCause(sel, exclus, sujSel){
   /* Tout dérouler d'un coup, c'est un mur : on ne cherche pas dans un mur.
      L'écran reste donc vide tant qu'aucun mot n'est écrit — sauf ce qui est
      déjà lié, qui ne doit jamais disparaître sous le pouce. */
-  return champ("cFiltre","Cherche : une parole, une prière, un acte…")
+  return tendParoles(sel, exclus, n)
+    + champ("cFiltre","Cherche : une parole, une prière, un acte…")
     + liste(ligne({titre:`<span class="coche">+ Ajouter quelque chose de nouveau</span>`,
         attr:'data-act="causeNeuf"'}))
     + (cands.length
@@ -698,7 +735,7 @@ function vLier(){
       <p class="grand ${estParole(n)?"voix":""}" style="font-size:21px">${esc(n.txt)}</p>
       <p class="meta">${S.cNeuf ? "Ce qui a précédé n'était pas encore gardé. Écris-le ici."
         : "Une parole, une prière, un bienfait d'avant."}</p></div>`
-    + choixCause(n.par||[], dessous(n.id), n.suj||[]);
+    + choixCause(n.par||[], dessous(n.id), n.suj||[], n);
   Z.action = S.cNeuf ? bouton("Ajouter et lier", 'data-act="ajoute"')
                      : bouton("Terminer", 'data-back="1"');
 }
@@ -1062,7 +1099,7 @@ function vNote(){
         ? "Ce qui a précédé n'était pas encore gardé. Écris-le ici."
         : "Une parole, une prière, un bienfait d'avant. Autant de liens que nécessaire."}</div>`
       + (S.cNeuf ? "" : choixPendant(d))
-      + choixCause(d.par, [], d.suj||[]);
+      + choixCause(d.par, [], d.suj||[], d);
     if(S.cNeuf){ Z.action = bouton("Ajouter et lier", 'data-act="ajoute"'); }
     else {
       const der = S.step===etapes(d).length-1;

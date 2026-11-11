@@ -194,7 +194,10 @@ function ligneActe(n, o){
                  /* Les deux dates vont ensemble : le jour promis juste après
                     le jour tenu, sinon on lit deux faits sans rapport. */
                  promisBref(n),
-                 (n.etat && n.etat!=="fait") ? ETAT[n.etat] : "" ]
+                 (n.etat && n.etat!=="fait") ? ETAT[n.etat] : "",
+                 /* 13.en — une ligne peut avoir un mot de plus à dire sur
+                    l'acte qu'elle porte : depuis quand il attend. */
+                 o.pied || "" ]
                .filter(Boolean).map(esc).join(" · ");
   return `<li><a class="item-link item-content acte" ${o.attr||""}>
       <div class="item-inner"><span class="pt ${cls}"></span>

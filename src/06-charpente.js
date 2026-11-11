@@ -112,6 +112,7 @@ function render(){
   if(S.view!=="lecture"){ S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false; }
   if(S.view!=="pages" && S.view!=="livre"){ S.pgL=null; S.pgA=null; S.pgZ=null; }
   if(S.view!=="auteur") S.auId=null;
+  if(S.view!=="livre") S.lvSp=null;
   if(S.view!=="periode") S.perId=null;
   /* On ne rouvre jamais l'application sur une fenêtre passée : revenir à un
      onglet ramène au présent, comme on ouvre toujours sur Aujourd'hui.

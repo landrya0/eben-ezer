@@ -230,6 +230,8 @@ const PONT = `
        pdtCandidats, pdtSuppose, choixPendant, pdtDe, vSujet, vSujets, vAnnonce, vLecture,
        vPages, vBloc, dejaSeance, vToday, rappelPer, vPeriode,
        livre, livreId, pageLue, nbLu, chapitresTxt, pagesTxt,
+       enParties, partiesTxt, partiesVues, uniteTxt, livreFini, livresOuverts,
+       dernierLivre, nomPassagePg, vLivre, recuDe, recuTxt,
        vReglages,
        vTache, heuresTache, heuresTxt, nomLivre, nomPassage, nomPassagePg,
        chapitresFen, pagesFenPar, resumeLus, chapFen, pagesFen, vMonTemps, catNom, CATS, tacheCat, finDe, cap,

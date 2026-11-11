@@ -97,7 +97,7 @@ function supCible(v){
   return p.length>1 ? {b:blocT(p[0]), i:+p[1]} : {b:blocT(S.blocId), i:+p[0]};
 }
 document.addEventListener("click", function(ev){
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-dis],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjlie],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-dis],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-lvsp],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjlie],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
   if(!t) return;
   /* UN SEUL entonnoir pour tous les gestes de l'application : la sonde se
      tient ici, et nulle part ailleurs. Le `finally` est ce qui la rend
@@ -194,6 +194,9 @@ function geste(g, t){
     if(b.sj.indexOf(sid)<0) b.sj.push(sid);
     touche(sujet(sid)); touche(b); S.sjQ=""; save(); return render();
   }
+  /* 13.el — le mode d'un ouvrage. Il ne se garde qu'au bouton : toucher une
+     pastille ne doit pas écrire dans l'archive avant qu'il ait dit « Garder ». */
+  if(g.lvsp){ S.lvSp = g.lvsp==="parties" ? "parties" : "pages"; return render(); }
   if(g.sjsup){
     const c=supCible(g.sjsup); if(!c.b) return;
     c.b.sj=(c.b.sj||[]).filter(function(x,k){ return k!==c.i; });
@@ -682,7 +685,7 @@ const actions={
     if(b.sj.indexOf(id)<0) b.sj.push(id);
     touche(b); S.sjQ=""; save(); render();
   },
-  livreNeuf(){ empile(); S.lvId=null; S.view="livre"; render(); },
+  livreNeuf(){ empile(); S.lvId=null; S.lvSp=null; S.view="livre"; render(); },
   livreFin(){
     const l=livre(S.lvId); if(!l) return;
     if(l.fini) delete l.fini; else l.fini=1;
@@ -725,17 +728,24 @@ const actions={
   },
   livreGarder(){
     const nom=String(val("lvNom")||"").trim();
-    const pg=parseInt(val("lvPages"), 10);
-    if(!nom) return toast("Écris le titre du livre");
-    if(!(pg>0)) return toast("Dis combien il a de pages");
+    const l0=S.lvId ? livre(S.lvId) : null;
+    const sp = S.lvSp || (l0 ? (l0.sp==="parties" ? "parties" : "pages") : "pages");
+    const par = sp==="parties";
+    const pg = par ? 0 : parseInt(val("lvPages"), 10);
+    if(!nom) return toast(par ? "Écris son titre" : "Écris le titre du livre");
+    /* Un enseignement n'a pas de nombre de pages : le réclamer serait la
+       question qui n'a jamais reçu de réponse (13.el). */
+    if(!par && !(pg>0)) return toast("Dis combien il a de pages");
     const au=auteurId(val("lvAuteur"));
-    if(S.lvId){
-      const l=livre(S.lvId);
-      if(l){ l.nom=cap(nom); l.pages=pg; l.a=au; touche(l); save(); }
+    if(l0){
+      l0.nom=cap(nom); l0.pages=par?0:pg; l0.a=au; l0.sp=sp; touche(l0); save();
+      S.lvSp=null;
       toast("Gardé."); depile("temps"); return render();
     }
-    const id=livreId(nom, pg, au); save();
-    S.pgL=id; S.pgA=null; S.pgZ=null;
+    const id=livreId(nom, pg, au);
+    const l=livre(id); if(l){ l.sp=sp; touche(l); }
+    save();
+    S.pgL=id; S.pgA=null; S.pgZ=null; S.lvSp=null;
     toast("Ajouté : "+livreNom(id));
     depile("pages"); render();
   },
@@ -745,7 +755,7 @@ const actions={
     const a=S.pgA, z=Math.max(a, S.pgZ);
     b.pg=(b.pg||[]).concat([[S.pgL, a, z]]);
     touche(b); save();
-    toast(nomPassagePg([S.pgL,a,z])+" · "+pagesTxt(z-a+1));
+    toast(nomPassagePg([S.pgL,a,z])+" · "+uniteTxt(S.pgL, z-a+1));
     depile("temps"); render();
   },
   /* Le cas rare s'atteint depuis le cas courant, jamais l'inverse. */

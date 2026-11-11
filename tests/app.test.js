@@ -4608,3 +4608,133 @@ test("13.ek — une phrase ne se termine qu'une fois", () => {
   A.equal(a.f.pt("Vraiment ?"), "Vraiment ?", "ni après un autre signe de fin");
   A.equal(a.f.pt(""), "", "et rien ne sort d'une phrase vide");
 });
+
+/* ------------------------------------------------------------------
+   13.el — ce qui s'écoute ne se pagine pas.
+   Les quatre blocs « pages » restés vides sont tous la même activité :
+   « Écoute Enseignements TA », neuf heures quarante d'enseignement
+   écouté, à qui l'application demandait sa dernière page lue. Ce
+   n'était pas une friction, c'était une question sans réponse
+   possible.
+   ------------------------------------------------------------------ */
+
+/* Une écoute qui tourne, et rien de déclaré : l'état du 7 novembre. */
+function ecoute(a) {
+  a.maintenant(MIDI);
+  a.db.taches = [{ id: "e1", nom: "Écoute Enseignements TA", cat: "dieu", d: "litt", maj: 1 },
+                 { id: "e2", nom: "Lecture perso", cat: "moi", d: "litt", maj: 1 }];
+  a.db.temps = [bloc("E1", "e1", j(14, 16), j(17, 57))];
+  a.S.blocId = "E1"; a.S.view = "pages";
+  return a;
+}
+
+test("13.el — un ouvrage en parties ne demande pas son nombre de pages", () => {
+  const a = app();
+  ecoute(a);
+  a.S.lvId = null; a.S.lvSp = "parties"; a.S.view = "livre";
+  a.f.vLivre();
+  A.match(a.Z.html, /Comment on y avance/, "la première question est la nature de la chose");
+  A.equal(a.Z.html.indexOf('id="lvPages"'), -1,
+    "un enseignement n'a pas de nombre de pages : on ne le demande pas");
+  A.match(a.Z.html, /ce qui se <b>suit<\/b>/, "et l'écran dit pourquoi");
+
+  a.ecrit("lvNom", "Enseignements TA");
+  a.actions.livreGarder();
+  A.equal((a.db.livres || []).length, 1, "il se garde sans nombre de pages");
+  A.equal(Array.from(a.db.livres)[0].sp, "parties");
+  A.equal(a.f.enParties(Array.from(a.db.livres)[0].id), true);
+});
+
+test("13.el — un livre, lui, réclame toujours ses pages", () => {
+  const a = app();
+  ecoute(a);
+  a.S.lvId = null; a.S.lvSp = "pages"; a.S.view = "livre";
+  a.f.vLivre();
+  A.match(a.Z.html, /id="lvPages"/);
+  a.ecrit("lvNom", "Une voix pour le réveil");
+  a.actions.livreGarder();
+  A.equal((a.db.livres || []).length, 0, "sans pages, il ne se garde pas");
+  A.match(a.dernierToast(), /combien il a de pages/);
+});
+
+test("13.el — une fiche écrite avant la règle reste un livre", () => {
+  const a = app();
+  ecoute(a);
+  a.db.livres = [{ id: "L1", nom: "Une voix pour le réveil", pages: 214, a: "", maj: 1 }];
+  A.equal(a.f.enParties("L1"), false, "pas de sp : c'est un livre, comme avant");
+  a.S.pgL = "L1"; a.S.pgA = null; a.S.pgZ = null;
+  a.f.vPages();
+  A.match(a.Z.html, /Jusqu'où es-tu allé/, "la question des pages ne bouge pas");
+});
+
+test("13.el — l'écran d'une série ne pose plus « jusqu'où »", () => {
+  const a = app();
+  ecoute(a);
+  a.db.livres = [{ id: "S1", nom: "Enseignements TA", pages: 0, a: "", sp: "parties", maj: 1 }];
+  a.S.pgL = "S1"; a.S.pgA = null; a.S.pgZ = null;
+  a.f.vPages();
+  A.match(a.Z.html, /Tu commences <b>Enseignements TA<\/b>, à la <b>partie 1<\/b>/);
+  A.equal(a.Z.html.indexOf("Jusqu'où es-tu allé"), -1, "la question ne se pose pas");
+  A.match(a.Z.html, /Dernière partie suivie/, "et le champ, s'il sert, parle de parties");
+  A.match(a.Z.action, /Garder la partie 1/, "le bouton dit ce qu'une tape va garder");
+});
+
+test("13.el — une tape garde la partie, et le signet donne la suivante", () => {
+  const a = app();
+  ecoute(a);
+  a.db.livres = [{ id: "S1", nom: "Enseignements TA", pages: 0, a: "", sp: "parties", maj: 1 }];
+  a.S.pgL = "S1"; a.S.pgA = null; a.S.pgZ = null;
+  a.f.vPages();
+  a.actions.addPg();
+  A.deepEqual(Array.from(a.f.blocT("E1").pg[0]), ["S1", 1, 1], "la partie 1 est gardée");
+  A.match(a.dernierToast(), /partie 1/, "et le mot est juste : partie, pas page");
+  A.equal(a.f.nomPassagePg(["S1", 1, 1]), "Enseignements TA, partie 1");
+
+  a.db.temps.push(bloc("E2", "e1", jour(9, 1, 15), jour(9, 1, 55)));
+  a.S.blocId = "E2"; a.S.pgA = null; a.S.pgZ = null;
+  a.f.vPages();
+  A.match(a.Z.html, /à la <b>partie 2<\/b>/, "le signet se lit dans l'archive, comme pour un livre");
+});
+
+test("13.el — une série ne se termine pas toute seule", () => {
+  const a = app();
+  ecoute(a);
+  /* Le cas qui mord : une fiche d'abord déclarée en livre, puis passée en
+     parties. Son ancien nombre de pages traîne encore, et refermerait la
+     série dès la 40e partie si on lisait ce nombre. */
+  a.db.livres = [{ id: "S1", nom: "Enseignements TA", pages: 38, a: "", sp: "parties", maj: 1 }];
+  a.db.temps[0].pg = [["S1", 1, 40]];
+  A.equal(a.f.livreFini(a.f.livre("S1")), false,
+    "une série n'annonce pas son dernier numéro : rien ne la ferme d'office");
+  A.deepEqual(Array.from(a.f.livresOuverts(), l => l.id), ["S1"]);
+  a.f.livre("S1").fini = 1;
+  A.equal(a.f.livreFini(a.f.livre("S1")), true, "lui seul peut la fermer (13.cf)");
+});
+
+test("13.el — le compte rendu n'additionne pas des pages et des parties", () => {
+  const a = app();
+  ecoute(a);
+  a.db.livres = [{ id: "L1", nom: "Une voix", pages: 214, a: "", maj: 1 },
+                 { id: "S1", nom: "Enseignements TA", pages: 0, a: "", sp: "parties", maj: 1 }];
+  a.db.temps[0].pg = [["S1", 1, 3]];
+  a.db.temps.push(bloc("E3", "e2", j(9, 0), j(10, 0), { pg: [["L1", 10, 29]] }));
+  const t = a.f.mesureDisc("litt", j(0, 0), jour(30, 0, 0));
+  A.match(t, /20 pages/, "les pages d'un livre restent des pages");
+  A.match(t, /3 parties/, "et les parties suivies se disent à côté");
+  A.equal(t.indexOf("23"), -1, "leur somme ne veut rien dire et n'apparaît pas");
+});
+
+test("13.el — ce qu'on reçoit d'un auteur garde les deux unités", () => {
+  const a = app();
+  ecoute(a);
+  const au = a.f.auteurId("Théodore Andoseh");
+  a.db.livres = [{ id: "L1", nom: "Une voix", pages: 214, a: au, maj: 1 },
+                 { id: "S1", nom: "Enseignements TA", pages: 0, a: au, sp: "parties", maj: 1 }];
+  a.db.temps[0].pg = [["S1", 1, 3], ["L1", 1, 12]];
+  const r = a.f.recuDe(au);
+  A.equal(r.pages, 12);
+  A.equal(r.parts, 3);
+  const t = a.f.recuTxt(r);
+  A.match(t, /12 pages/);
+  A.match(t, /3 parties suivies/);
+});

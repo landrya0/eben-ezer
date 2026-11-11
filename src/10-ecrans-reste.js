@@ -792,20 +792,24 @@ function auteursConnus(){
 function recuDe(aid){
   const lv=(db.livres||[]).filter(function(l){ return l.a===aid; });
   const ts=(db.taches||[]).filter(function(t){ return t.au===aid; });
-  let pages=0, ms=0;
+  /* 13.el — on n'additionne pas des pages et des parties : ce sont deux
+     unités, et leur somme ne voudrait rien dire. */
+  let pages=0, parts=0, ms=0;
   const sien={};
-  lv.forEach(function(l){ sien[l.id]=1; pages+=pageLue(l.id); });
+  lv.forEach(function(l){ sien[l.id]=1;
+    if(enParties(l)) parts+=partiesVues(l.id); else pages+=pageLue(l.id); });
   (db.temps||[]).forEach(function(b){
     const t=tache(b.t);
     const parLivre=(b.pg||[]).some(function(r){ return sien[r[0]]; });
     if(parLivre || (t && t.au===aid)) ms+=Math.max(0, finDe(b)===SANSFIN ? Date.now()-b.deb : b.fin-b.deb);
   });
-  return {livres:lv, taches:ts, pages:pages, ms:ms};
+  return {livres:lv, taches:ts, pages:pages, parts:parts, ms:ms};
 }
 function recuTxt(r){
   const p=[];
-  if(r.livres.length) p.push(r.livres.length+" livre"+(r.livres.length>1?"s":""));
+  if(r.livres.length) p.push(r.livres.length+" ouvrage"+(r.livres.length>1?"s":""));
   if(r.pages) p.push(pagesTxt(r.pages));
+  if(r.parts) p.push(partiesTxt(r.parts)+" suivies");
   if(r.ms) p.push(hm(r.ms));
   return p.length ? p.join(" · ") : "Rien encore";
 }
@@ -819,6 +823,14 @@ function pucesAuteurs(champId){
 function livre(id){ return (db.livres||[]).filter(function(l){ return l.id===id; })[0]; }
 function livreNom(id){ const l=livre(id); return l ? l.nom : "—"; }
 function livrePages(id){ const l=livre(id); return (l && l.pages>0) ? l.pages : 0; }
+/* 13.el — un ouvrage dit comment on y avance, et les champs en découlent
+   (13.cn). « En pages » est le livre, et reste le défaut : toute fiche écrite
+   avant cette règle en est un. « En parties » est ce qui se suit au lieu de
+   se feuilleter — un enseignement, une série, un cours. Un enseignement n'a
+   pas de nombre de pages ; la question ne lui est donc pas posée. */
+function enParties(l){ const o=(typeof l==="string")?livre(l):l; return !!(o && o.sp==="parties"); }
+function uniteTxt(lid, n){ return enParties(lid) ? partiesTxt(n) : pagesTxt(n); }
+function partiesTxt(n){ return n+" partie"+(n>1?"s":""); }
 function livreId(nom, pages, aut){
   const v=String(nom||"").trim(); if(!v) return "";
   const l=(db.livres||[]).filter(function(x){ return x.nom.toLowerCase()===v.toLowerCase(); })[0];
@@ -831,11 +843,18 @@ function livreId(nom, pages, aut){
   }
   const id=uid("l");
   db.livres=(db.livres||[]).concat([{id:id, nom:cap(v), pages:pages>0?pages:0,
-                                     a:aut||"", maj:Date.now()}]);
+                                     a:aut||"", sp:"pages", maj:Date.now()}]);
   return id;
 }
 /* Le signet se lit dans l'archive, jamais tenu à jour à part : la page la
    plus avancée qu'on ait notée dans ce livre-là. */
+function partiesVues(lid){
+  let n=0;
+  (db.temps||[]).forEach(function(b){
+    (b.pg||[]).forEach(function(r){ if(r[0]===lid) n+=r[2]-r[1]+1; });
+  });
+  return n;
+}
 function pageLue(lid){
   let m=0;
   (db.temps||[]).forEach(function(b){
@@ -848,6 +867,9 @@ function pageLue(lid){
 function livreFini(l){
   if(!l) return false;
   if(l.fini) return true;
+  /* Une série n'annonce pas son dernier numéro : elle ne se ferme donc que
+     s'il le dit. Un livre, lui, se ferme à sa dernière page. */
+  if(enParties(l)) return false;
   return l.pages>0 && pageLue(l.id)>=l.pages;
 }
 function livresOuverts(){ return (db.livres||[]).filter(function(l){ return !livreFini(l); }); }
@@ -863,8 +885,8 @@ function dernierLivre(){
 }
 function pagesTxt(n){ return n+" page"+(n>1?"s":""); }
 function nomPassagePg(r){
-  const n=livreNom(r[0]);
-  return r[1]===r[2] ? n+", page "+r[1] : n+", pages "+r[1]+" à "+r[2];
+  const n=livreNom(r[0]), u=enParties(r[0]) ? "partie" : "page";
+  return r[1]===r[2] ? n+", "+u+" "+r[1] : n+", "+u+"s "+r[1]+" à "+r[2];
 }
 function passagesPgTxt(b){ return (b.pg||[]).map(nomPassagePg).join(" · "); }
 function pagesFen(t0, t1){
@@ -885,7 +907,7 @@ function tacheLivre(){
 function listePg(b, horo){
   return liste((b.pg||[]).map(function(r,i){
     return ligne({titre:esc(nomPassagePg(r)),
-      sous:(horo ? hmin(new Date(b.deb))+" · " : "")+pagesTxt(r[2]-r[1]+1),
+      sous:(horo ? hmin(new Date(b.deb))+" · " : "")+uniteTxt(r[0], r[2]-r[1]+1),
       apres:`<span class="rouge">Retirer</span>`, attr:'data-pgsup="'+b.id+'|'+i+'"'});
   }).join(""));
 }
@@ -1117,30 +1139,44 @@ function vPages(){
     S.pgZ = S.pgA;
   }
   const a=S.pgA, z=Math.max(a, S.pgZ);
+  /* 13.el — ce qui s'écoute ne se pagine pas. Un ouvrage en parties ne pose
+     pas « jusqu'où » : le signet donne la suivante, et une tape la garde. */
+  const par=enParties(l);
   let h=`<div class="block amorce" style="margin-top:16px">${
-    vue ? "Tu reprends <b>"+esc(l.nom)+"</b> à la page <b>"+a+"</b>. Jusqu'où es-tu allé ?"
-        : "Tu commences <b>"+esc(l.nom)+"</b>. Jusqu'où es-tu allé ?"
+    par ? (vue ? "Tu reprends <b>"+esc(l.nom)+"</b> à la <b>partie "+a+"</b>."
+               : "Tu commences <b>"+esc(l.nom)+"</b>, à la <b>partie "+a+"</b>.")
+        : (vue ? "Tu reprends <b>"+esc(l.nom)+"</b> à la page <b>"+a+"</b>. Jusqu'où es-tu allé ?"
+               : "Tu commences <b>"+esc(l.nom)+"</b>. Jusqu'où es-tu allé ?")
   }</div>`;
   const ouv=livresOuverts();
   if(ouv.length>1 || (ouv.length===1 && ouv[0].id!==l.id) || (db.livres||[]).length>1){
     h+=`<div class="puces">${(db.livres||[]).filter(function(x){ return !livreFini(x) || x.id===l.id; })
       .map(function(x){ return `<button class="puce" data-pgl="${x.id}" aria-pressed="${x.id===l.id}">${esc(x.nom)}</button>`; }).join("")}</div>`;
   }
-  h+=titreBloc("Jusqu'où");
+  /* La borne : un livre va jusqu'à sa dernière page, une série n'annonce
+     rien — on n'offre donc qu'une poignée de parties au-delà, de quoi en
+     garder plusieurs d'un coup sans faire défiler un catalogue. */
+  h+=titreBloc(par ? "Et si tu en as suivi plusieurs" : "Jusqu'où");
   let o="";
-  const bout = tot ? tot : a+500;
+  const bout = par ? a+30 : (tot ? tot : a+500);
   for(let i=a;i<=bout;i++) o+=`<option value="${i}"${i===z?" selected":""}>${i}</option>`;
-  h+=liste(champSel("pgZ", "Dernière page lue", o));
+  h+=liste(champSel("pgZ", par ? "Dernière partie suivie" : "Dernière page lue", o));
   const reste = tot ? Math.max(0, tot-z) : 0;
-  h+=`<div class="block amorce"><b>${esc(nomPassagePg([l.id,a,z]))}</b> — ${pagesTxt(z-a+1)}.${
-    !tot ? "" : (reste ? " Il te restera "+pagesTxt(reste)+" sur "+tot+"." : " Tu l'auras terminé.")}</div>`;
+  const suivies = par ? partiesVues(l.id) : 0;
+  h+=`<div class="block amorce"><b>${esc(nomPassagePg([l.id,a,z]))}</b> — ${uniteTxt(l.id, z-a+1)}.${
+    par ? (suivies ? " Tu en auras suivi "+(suivies+(z-a+1))+" en tout." : "")
+        : (!tot ? "" : (reste ? " Il te restera "+pagesTxt(reste)+" sur "+tot+"." : " Tu l'auras terminé."))}</div>`;
   h+=liste(ligne({titre:"Un autre livre", sous:"En ajouter un, ou corriger ses pages",
       attr:'data-act="livreNeuf"'})
-    + ligne({titre:"Ce livre", sous:esc(l.nom)+(tot?" — "+tot+" pages":" — pages inconnues"),
+    + ligne({titre: par ? "Cet ouvrage" : "Ce livre",
+      sous:esc(l.nom)+(par ? " — en parties" : (tot?" — "+tot+" pages":" — pages inconnues")),
       attr:'data-lv="'+l.id+'"'}), "lien");
   h+=dejaSeance(se, se.length>1, "pg", listePg);
   Z.html=h;
-  Z.action=bouton("Garder", 'data-act="addPg"');
+  /* Le bouton dit ce qu'il garde : sur une série, c'est tout ce qu'il y a à
+     faire, et il doit se voir comme tel (13.ek — une tape, pas un clavier). */
+  Z.action=bouton(par ? (a===z ? "Garder la partie "+a : "Garder les parties "+a+" à "+z)
+                      : "Garder", 'data-act="addPg"');
 }
 
 /* Un livre est une fiche minuscule — un titre, un nombre de pages — et
@@ -1148,27 +1184,44 @@ function vPages(){
    est un chiffre sans horizon. */
 function vLivre(){
   const l=S.lvId ? livre(S.lvId) : null;
-  Z.titre = l ? "Ce livre" : "Un livre"; Z.retour=true;
-  let h=`<div class="block amorce" style="margin-top:16px">Le titre, et le nombre de pages — c'est lui qui permet de dire où tu en es, et ce qu'il te reste.</div>`;
-  h+=titreBloc("Le titre");
+  /* 13.el — la première question n'est pas le titre, c'est la nature de la
+     chose : ce qui se feuillette ou ce qui se suit. Tout le reste de l'écran
+     en découle, le nombre de pages comme le mot « livre » lui-même. */
+  const sp = S.lvSp || (l ? (l.sp==="parties" ? "parties" : "pages") : "pages");
+  const par = sp==="parties";
+  Z.titre = l ? (par ? "Cet ouvrage" : "Ce livre") : (par ? "Un ouvrage" : "Un livre");
+  Z.retour=true;
+  let h=titreBloc("Comment on y avance");
+  h+=`<div class="puces">
+    <button class="puce" data-lvsp="pages" aria-pressed="${!par}">En pages</button>
+    <button class="puce" data-lvsp="parties" aria-pressed="${par}">En parties</button></div>`;
+  h+=`<div class="block amorce">${
+    par ? "Un enseignement, une série, un cours : ce qui se <b>suit</b> au lieu de se feuilleter. Il n'a pas de nombre de pages, et on ne te le demandera pas."
+        : "Un livre. Le titre, et le nombre de pages — c'est lui qui permet de dire où tu en es, et ce qu'il te reste."
+  }</div>`;
+  h+=titreBloc("Le titre","ecart");
   h+=champ("lvNom", "Le titre du livre", "text", l?esc(l.nom):"", 'autocapitalize="sentences"');
   h+=titreBloc("L'auteur","ecart");
   h+=`<div class="block amorce">Qui l'a écrit. On garde la liste, pour savoir de qui tu reçois.</div>`;
   h+=champ("lvAuteur", "Son nom", "text", (l&&l.a)?esc(auteurNom(l.a)):"", 'autocapitalize="words"');
   h+=pucesAuteurs("lvAuteur");
-  h+=titreBloc("Le nombre de pages","ecart");
-  h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
-      <input type="number" id="lvPages" inputmode="numeric" min="1" max="9999" placeholder="240" value="${(l&&l.pages)?l.pages:""}"></div></div></li>`);
+  if(!par){
+    h+=titreBloc("Le nombre de pages","ecart");
+    h+=liste(`<li class="item-content item-input"><div class="item-inner"><div class="item-input-wrap">
+        <input type="number" id="lvPages" inputmode="numeric" min="1" max="9999" placeholder="240" value="${(l&&l.pages)?l.pages:""}"></div></div></li>`);
+  }
   if(l){
     const vue=pageLue(l.id);
     h+=titreBloc("Où tu en es","ecart");
-    h+=liste(ligne({titre:"Page atteinte", apres:esc(String(vue)+(l.pages?" / "+l.pages:""))})
+    h+=liste(ligne({titre: par ? "Dernière partie suivie" : "Page atteinte",
+        apres:esc(par ? String(vue) : String(vue)+(l.pages?" / "+l.pages:""))})
       + ligne({titre: l.fini ? "Finalement, je ne l'ai pas fini" : "Je l'ai fini",
-               sous: l.fini ? "Il reviendra dans les livres en cours" : "Il quittera les livres en cours",
+               sous: l.fini ? "Il reviendra dans ce qui est en cours" : "Il quittera ce qui est en cours",
                attr:'data-act="livreFin"'}));
   }
   Z.html=h;
-  Z.action=bouton(l?"Garder":"Ajouter ce livre", 'data-act="livreGarder"');
+  Z.action=bouton(l ? "Garder" : (par ? "Ajouter cet ouvrage" : "Ajouter ce livre"),
+    'data-act="livreGarder"');
 }
 
 /* L'auteur avait une fiche sans écran : on pouvait le nommer, pas le

@@ -450,7 +450,7 @@ function vMonTemps(){
   if(v==="routines" && (pf.pg || (db.livres||[]).length)){
     h += titreBloc("Mes lectures","ecart");
     const quoiPg=resumeLus(pagesFenPar(f.t0, f.t1), nomPassagePg);
-    h += liste(ligne({titre:"Pages lues",
+    h += liste(ligne({titre:"Pages et parties",
         sous: quoiPg || "Rien de lu "+f.nom,
         apres:esc(String(pf.pg))})
       + (db.livres||[]).slice()
@@ -458,12 +458,17 @@ function vMonTemps(){
                                  || pageLue(y.id)-pageLue(x.id); })
         .map(function(l){
           const vu=pageLue(l.id), tot=l.pages||0, reste=Math.max(0, tot-vu);
+          /* 13.el — une série n'a ni dernière page ni pourcentage : la seule
+             chose vraie à en dire est combien de parties ont été suivies.
+             Un pourcentage sur un total inconnu serait un chiffre faux. */
+          const par=enParties(l);
           return ligne({titre:esc(l.nom),
             sous: (l.a?esc(auteurNom(l.a))+" · ":"")
                 + (livreFini(l) ? "Fini"
+                : par ? partiesTxt(partiesVues(l.id))+" suivies"
                 : (tot ? partPc(Math.min(vu,tot), tot)+" % — il reste "+pagesTxt(reste)
                        : "Nombre de pages inconnu")),
-            apres: esc(tot ? vu+" / "+tot : String(vu)),
+            apres: esc(par ? "partie "+vu : (tot ? vu+" / "+tot : String(vu))),
             attr:'data-lv="'+l.id+'"'});
         }).join(""));
   }
@@ -739,18 +744,23 @@ const DISC = [
    quoi deux routines se voleraient leurs nombres le jour où une autre
    activité se met à lire des pages. */
 function mesureDisc(id, t0, t1){
-  let n=0;
+  /* 13.el — neuf heures d'enseignement écouté ne se disent pas en pages.
+     Les deux unités cohabitent dans la même routine et se disent ensemble. */
+  let n=0, p=0;
   const m=mesureProposee(id);
   (db.temps||[]).forEach(function(b){
     if(b.deb<t0 || b.deb>=t1 || discTache(b.t)!==id) return;
     if(id==="parole") (b.lu||[]).forEach(function(r){ n+=nbLu(r); });
-    else if(id==="litt") (b.pg||[]).forEach(function(r){ n+=r[2]-r[1]+1; });
+    else if(id==="litt") (b.pg||[]).forEach(function(r){
+      if(enParties(r[0])) p+=r[2]-r[1]+1; else n+=r[2]-r[1]+1; });
     else if(m==="sujets") n+=(b.sj||[]).length;
     else if(m==="gens") n+=(b.qui||[]).length;
   });
+  if(id==="litt"){
+    return [n?pagesTxt(n):"", p?partiesTxt(p):""].filter(Boolean).join(" · ");
+  }
   if(!n) return "";
   if(id==="parole") return chapitresTxt(n);
-  if(id==="litt") return pagesTxt(n);
   if(m==="sujets") return sujetsTxt(n);
   if(m==="gens") return gensTxt(n);
   return "";

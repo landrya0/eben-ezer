@@ -97,7 +97,7 @@ function supCible(v){
   return p.length>1 ? {b:blocT(p[0]), i:+p[1]} : {b:blocT(S.blocId), i:+p[0]};
 }
 document.addEventListener("click", function(ev){
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-dis],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-lvsp],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjlie],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-dis],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-dok],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-lvsp],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjlie],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
   if(!t) return;
   /* UN SEUL entonnoir pour tous les gestes de l'application : la sonde se
      tient ici, et nulle part ailleurs. Le `finally` est ce qui la rend
@@ -301,6 +301,16 @@ function geste(g, t){
     return render();
   }
   if(g.tcat){ const e=document.getElementById("tQ"); if(e) S.tQ=e.value; S.tCat=g.tcat; return render(); }
+  /* 13.em — confirmer une devinette écrit exactement ce qui était déjà
+     calculé : aucun total ne bouge. Ce qui change, c'est que l'app cesse de
+     supposer — et le geste reste celui du disciple, jamais le sien (P9). */
+  if(g.dok){
+    const t=tache(g.dok); if(!t) return;
+    if("d" in t) return render();
+    t.d=discDeNom(t.nom); touche(t); save();
+    toast(t.d ? "Dit : "+discNom(t.d)+"." : "Dit : aucune routine.");
+    return render();
+  }
   if(g.creux){
     const p=g.creux.split("|");
     S.blocId=null; S.trou={deb:+p[0], fin:+p[1]};
@@ -686,6 +696,8 @@ const actions={
     touche(b); S.sjQ=""; save(); render();
   },
   livreNeuf(){ empile(); S.lvId=null; S.lvSp=null; S.view="livre"; render(); },
+  devine(){ empile(); S.view="devine"; render(); },
+  parActivite(){ vueGarde("temps", "parts"); depile("temps"); S.view="temps"; render(); },
   livreFin(){
     const l=livre(S.lvId); if(!l) return;
     if(l.fini) delete l.fini; else l.fini=1;

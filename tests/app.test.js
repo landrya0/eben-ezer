@@ -4738,3 +4738,161 @@ test("13.el — ce qu'on reçoit d'un auteur garde les deux unités", () => {
   A.match(t, /12 pages/);
   A.match(t, /3 parties suivies/);
 });
+
+/* ------------------------------------------------------------------
+   13.em — une devinette n'a pas le droit de se faire passer pour un
+   choix.
+   Mesure du 10 novembre : 47 % du temps compté (46 h 24 sur 98 h 24)
+   repose sur une routine déduite du nom de l'activité. La devinette
+   était juste six fois sur six — ce n'est donc pas une correction de
+   chiffres. C'est que rien, nulle part, ne distinguait un rangement
+   dit par le disciple d'un rangement supposé par l'application.
+   ------------------------------------------------------------------ */
+
+/* L'archive du 10 novembre en miniature : trois activités qui n'ont
+   jamais dit leur routine, dont une que le nom ne range nulle part,
+   et une qui l'a dite. */
+function devinees(a) {
+  a.maintenant(MIDI);
+  /* Déclarées dans le désordre, à dessein : c'est le poids qui doit les
+     ranger, pas l'ordre où elles sont nées. */
+  a.db.taches = [
+    { id: "d3", nom: "Priere", cat: "dieu", maj: 1 },
+    { id: "d4", nom: "Évangélisation", cat: "dieu", d: "ames", maj: 1 },
+    { id: "d1", nom: "Sommeil", cat: "reste", maj: 1 },
+    { id: "d2", nom: "Nuit de prière Paris", cat: "dieu", maj: 1 }
+  ];
+  a.db.temps = [
+    bloc("B1", "d1", j(0, 0), j(7, 0)),
+    bloc("B2", "d2", j(8, 0), j(10, 0)),
+    bloc("B3", "d3", j(10, 0), j(11, 0)),
+    bloc("B4", "d4", j(11, 0), j(11, 30))
+  ];
+  return a;
+}
+function tq(a, id) {
+  return Array.from(a.db.taches).filter(function (t) { return t.id === id; })[0];
+}
+
+test("13.em — le champ absent dit la devinette, pas sa valeur", () => {
+  const a = app();
+  devinees(a);
+  A.equal(a.f.discDevine("d3"), true, "« Priere » n'a jamais dit sa routine");
+  A.equal(a.f.discTache("d3"), "priere", "et l'app compte pourtant avec");
+  A.equal(a.f.discDevine("d4"), false, "« Évangélisation » l'a dite");
+  /* Le cas qui commande toute la règle : « aucune routine » est un choix,
+     et il s'écrit "". Le confondre avec l'absence du champ ferait repasser
+     par la devinette ce que le disciple a déjà tranché. */
+  tq(a, "d1").d = "";
+  A.equal(a.f.discDevine("d1"), false, "dire « aucune » est un choix, pas un vide");
+  A.equal(a.f.discTache("d1"), "", "et ce choix tient");
+});
+
+test("13.em — les devinées se comptent, la plus lourde d'abord", () => {
+  const a = app();
+  devinees(a);
+  const ds = a.f.tachesDevinees();
+  A.deepEqual(ds.map(function (x) { return x.t.nom; }),
+    ["Sommeil", "Nuit de prière Paris", "Priere"],
+    "l'ordre est celui du poids : on solde d'abord ce qui pèse le plus");
+  A.equal(a.f.msDevinees(), 10 * H, "sept heures, deux heures, une heure");
+  A.equal(a.f.hm(a.f.msDevinees()), "10 h");
+});
+
+test("13.em — la fiche dit ce qu'elle a deviné et attend ton mot", () => {
+  const a = app();
+  devinees(a);
+  a.S.tchId = "d3"; a.S.view = "tache";
+  a.f.vTache();
+  A.match(a.Z.html, /Ceci est <b>deviné<\/b> d'après son nom/,
+    "l'écran ne présente pas une supposition comme un rangement");
+  A.match(a.Z.html, /data-dok="d3"/, "et la tape qui la confirme est là");
+  A.match(a.Z.html, /Oui : La prière seul/, "elle dit ce qu'elle confirme");
+  A.match(a.Z.html, /Rien ne bougera dans tes chiffres/);
+});
+
+test("13.em — une activité qui a dit sa routine ne se fait pas redemander", () => {
+  const a = app();
+  devinees(a);
+  a.S.tchId = "d4"; a.S.view = "tache";
+  a.f.vTache();
+  A.equal(a.Z.html.indexOf("data-dok"), -1,
+    "ce qui est dit est dit : on ne repose pas la question");
+  A.equal(a.Z.html.indexOf("deviné"), -1);
+});
+
+test("13.em — confirmer n'écrit que ce qui était déjà compté", () => {
+  const a = app();
+  devinees(a);
+  const avant = a.f.discTache("d2");
+  const parAvant = a.f.parDisc({ d1: 7 * H, d2: 2 * H, d3: 1 * H, d4: 0.5 * H });
+  a.geste({ dok: "d2" });
+  A.equal(a.f.discTache("d2"), avant, "la routine ne bouge pas d'un pouce");
+  A.equal(a.f.discDevine("d2"), false, "mais elle n'est plus supposée");
+  A.deepEqual(a.f.parDisc({ d1: 7 * H, d2: 2 * H, d3: 1 * H, d4: 0.5 * H }), parAvant,
+    "et aucune part n'a changé : c'est tout l'intérêt de la tape");
+  A.match(a.dernierToast(), /Prière avec les autres/);
+});
+
+test("13.em — ce que le nom ne range nulle part se dit « aucune routine »", () => {
+  const a = app();
+  devinees(a);
+  a.S.tchId = "d1"; a.S.view = "tache";
+  a.f.vTache();
+  A.match(a.Z.html, /Oui : aucune routine/,
+    "dormir n'est pas une routine spirituelle, et l'app ne peut pas le décider seule");
+  a.geste({ dok: "d1" });
+  A.equal(tq(a, "d1").d, "", "le choix s'écrit, vide");
+  A.equal(a.f.discDevine("d1"), false);
+  A.match(a.dernierToast(), /aucune routine/);
+  A.equal(a.f.tachesDevinees().length, 2, "et elle quitte la liste");
+});
+
+test("13.em — une tape tardive n'efface pas un choix déjà fait", () => {
+  const a = app();
+  devinees(a);
+  /* Le nom dit « prière », le disciple a dit autre chose : si la tape
+     repassait par la devinette, elle écraserait son mot par le nôtre. */
+  tq(a, "d3").d = "ensemble";
+  a.geste({ dok: "d3" });
+  A.equal(tq(a, "d3").d, "ensemble", "son mot tient");
+});
+
+test("13.em — activité par activité, le supposé ne se dit pas comme le rangé", () => {
+  const a = app();
+  devinees(a);
+  a.f.vueGarde("temps", "parts"); a.S.view = "temps";
+  a.f.vMonTemps();
+  const lignes = a.Z.html.split("<li").filter(function (x) { return x.indexOf("data-tch=") !== -1; });
+  const der = lignes.filter(function (x) { return x.indexOf("d4") !== -1; })[0];
+  const sup = lignes.filter(function (x) { return x.indexOf("d3") !== -1; })[0];
+  A.match(sup, /deviné/, "« Priere » porte sa marque");
+  A.equal(der.indexOf("deviné"), -1, "« Évangélisation » n'en porte pas");
+});
+
+test("13.em — la porte est au pied des seize routines", () => {
+  const a = app();
+  devinees(a);
+  a.f.vueGarde("temps", "routines"); a.S.view = "temps";
+  a.f.vMonTemps();
+  A.match(a.Z.html, /data-act="devine"/,
+    "le chiffre et sa source se regardent au même endroit");
+  A.match(a.Z.html, /3 activités qui n'ont jamais dit leur routine/);
+  A.match(a.Z.html, /10 h/, "avec le temps qui repose là-dessus");
+});
+
+test("13.em — l'écran des devinées se vide quand tout est dit", () => {
+  const a = app();
+  devinees(a);
+  a.S.view = "devine";
+  a.f.vDevine();
+  A.match(a.Z.html, /<b>3 activités<\/b>/);
+  A.match(a.Z.html, /data-dok="d1"/);
+  A.match(a.Z.html, /Aucune routine/, "ce que le nom ne range nulle part se dit aussi");
+  A.ok(a.Z.html.indexOf('data-dok="d1"') < a.Z.html.indexOf('data-dok="d3"'),
+    "la plus lourde en tête");
+  ["d1", "d2", "d3"].forEach(function (id) { a.geste({ dok: id }); });
+  a.f.vDevine();
+  A.match(a.Z.html, /Plus rien n'est deviné/);
+  A.equal(a.Z.html.indexOf("data-dok"), -1);
+});

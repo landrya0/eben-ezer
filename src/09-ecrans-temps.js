@@ -444,6 +444,15 @@ function vMonTemps(){
       return ligne(o);
     }).join(""));
     h += `<div class="block amorce">Les seize routines du message de Bertoua : <b>le temps</b>, et ce que chacune compte en propre. Un tiret dit que cette routine n'a rien reçu ${esc(f.nom)}, pas qu'elle n'a pas été vécue — un temps mis à part ne pèse aucune heure et se lit en dessous, et ce qui se vit en actes, une dîme, une âme touchée, se comptera à côté.</div>`;
+    /* 13.em — ces heures-là sont dans les chiffres du dessus, et rien ne
+       disait qu'elles y entrent sur une devinette. La porte est ici, au pied
+       des seize : c'est le seul endroit où le chiffre et sa source se
+       regardent. */
+    const dv=tachesDevinees();
+    if(dv.length)
+      h += liste(ligne({titre:"Rangées d'après leur nom",
+        sous: dv.length+" activité"+(dv.length>1?"s":"")+" qui n'ont jamais dit leur routine",
+        apres: esc(hm(msDevinees())), attr:'data-act="devine"'}), "lien");
   }
 
   const pf=pagesFen(f.t0, f.t1);
@@ -492,8 +501,11 @@ function vMonTemps(){
      à côté du temps qu'elle a reçu. */
   h += liste(tids.map(function(tid){
     const dd=discTache(tid);
+    /* 13.em — la même ligne ne peut pas dire d'un même air ce que le
+       disciple a rangé et ce que l'app a supposé. */
     return ligne({titre:esc(tacheNom(tid)),
-      sous:esc(catNom(tacheCat(tid))) + (dd ? " · "+esc(discNom(dd)) : ""),
+      sous:esc(catNom(tacheCat(tid))) + (dd ? " · "+esc(discNom(dd)) : "")
+         + (discDevine(tid) ? " · deviné" : ""),
       apres:esc(hm(c.par[tid])), attr:'data-tch="'+tid+'"'});
   }).join(""));
   }

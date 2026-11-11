@@ -86,6 +86,21 @@ function discTache(id){
   if(!t) return "";
   return (t.d!==undefined) ? t.d : discDeNom(t.nom);
 }
+/* 13.em — une devinette n'a pas le droit de se faire passer pour un choix.
+   Le nom donne un premier avis, et cet avis est bon la plupart du temps ;
+   ce n'est pas une raison pour l'afficher du même air qu'une routine dite.
+   Tant que le disciple ne l'a pas dite, l'app compte avec — elle ne peut
+   pas l'affirmer. L'absence du champ, et non sa valeur, est ce qui le dit :
+   « aucune routine » est un choix possible, et il s'écrit "". */
+function discDevine(id){ const t=tache(id); return !!t && !("d" in t); }
+function tachesDevinees(){
+  return (db.taches||[]).filter(function(t){ return !("d" in t); })
+    .map(function(t){ return {t:t, ms:heuresTache(t.id).ms}; })
+    .sort(function(a,b){ return b.ms-a.ms; });
+}
+function msDevinees(){
+  return tachesDevinees().reduce(function(n,x){ return n+x.ms; }, 0);
+}
 /* Ce que chaque discipline a reçu sur la fenêtre. On part des totaux par
    activité, jamais de l'union : deux activités rattachées à la même
    discipline lui ont bien donné leurs deux temps. */
@@ -678,9 +693,17 @@ function vTache(){
       CATS().map(function(c){
         return `<option value="${c.id}"${(t.cat||"reste")===c.id?" selected":""}>${esc(c.nom)}</option>`;
       }).join("")));
-  const dc=discTache(t.id);
+  const dc=discTache(t.id), dv=discDevine(t.id);
   h+=titreBloc("La routine");
   h+=`<div class="block amorce">Les seize routines du message de Bertoua. L'activité garde son nom ; elle dit seulement de laquelle elle est la mise en œuvre — et c'est elle qui décide de ce qu'on te demandera en plus du temps.</div>`;
+  /* 13.em — l'app dit ce qu'elle a deviné et attend le mot du disciple :
+     elle ne coche pas à sa place (P9). Confirmer ne bouge aucun chiffre —
+     ça ne change que ce que l'app a le droit d'affirmer. */
+  if(dv){
+    h+=`<div class="block amorce">Ceci est <b>deviné</b> d'après son nom. L'app compte avec, mais elle ne peut pas l'affirmer tant que tu ne l'as pas dit.</div>`;
+    h+=liste(ligne({titre: dc ? "Oui : "+esc(discNom(dc)) : "Oui : aucune routine",
+      sous:"Rien ne bougera dans tes chiffres", attr:'data-dok="'+t.id+'"'}), "lien");
+  }
   h+=liste(champSel("tDisc","Routine",
       `<option value=""${dc?"":" selected"}>— aucune —</option>`
       + DISC.map(function(x){
@@ -745,6 +768,32 @@ function vTache(){
   Z.html=h;
 }
 
+/* 13.em — l'écran où l'on solde les devinettes. Il n'en corrige aucune de
+   lui-même : il les montre, la plus lourde d'abord, et chaque ligne se
+   confirme d'une tape. Ce qui se trompe s'ouvre, et les seize routines sont
+   sur la fiche. */
+function vDevine(){
+  const ds=tachesDevinees();
+  Z.titre="Rangées d'après leur nom"; Z.retour=true;
+  if(!ds.length){
+    Z.html=`<div class="block amorce" style="margin-top:16px">Plus rien n'est deviné : chacune de tes activités dit elle-même de quelle routine elle est la mise en œuvre.</div>`;
+    return;
+  }
+  const ms=msDevinees();
+  let h=`<div class="block amorce" style="margin-top:16px"><b>${esc(String(ds.length))} activité${ds.length>1?"s":""}</b> ${ds.length>1?"n'ont":"n'a"} jamais dit de quelle routine ${ds.length>1?"elles sont":"elle est"} la mise en œuvre : l'app l'a déduit de leur nom. <b>${esc(hm(ms))}</b> comptés reposent là-dessus.</div>`;
+  h+=`<div class="block amorce">Touche une ligne pour dire que la devinette est juste. Aucun de tes chiffres ne bougera — ce qui change, c'est que l'app n'aura plus à deviner.</div>`;
+  h+=titreBloc("Ce qu'elle a deviné","ecart");
+  h+=liste(ds.map(function(x){
+    const d=discTache(x.t.id);
+    return ligne({titre:esc(x.t.nom),
+      sous: d ? esc(discNom(d)) : "Aucune routine",
+      apres: x.ms ? esc(hm(x.ms)) : "",
+      attr:'data-dok="'+x.t.id+'"'});
+  }).join(""));
+  h+=liste(ligne({titre:"Si l'une se trompe", sous:"Ouvre-la : les seize routines sont sur sa fiche",
+    attr:'data-act="parActivite"'}), "lien");
+  Z.html=h;
+}
 
 /* ---------- la bibliothèque : où j'en suis dans mes livres ---------- */
 /* Même besoin que pour l'Écriture, et une différence qui commande tout : la
@@ -1833,7 +1882,7 @@ function vPeriode(){
 const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), actes:vListe(vActes), accomplis:vListe(vAccomplis), chemin:vChemin, faits:vFaits,
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData,
               pointer:vPointer, temps:vMonTemps, bloc:vBloc, quand:vQuand, frise:vFrise,
-              tache:vTache, lecture:vLecture, pages:vPages, livre:vLivre, auteur:vAuteur,
+              tache:vTache, devine:vDevine, lecture:vLecture, pages:vPages, livre:vLivre, auteur:vAuteur,
               sujets:vSujets, annonce:vAnnonce, cahier:vCahier, sujet:vSujet,
               perNeuf:vPerNeuf, periode:vPeriode, epingles:vEpingles,
               sync:vSync, reglages:vReglages, ordre:vOrdre, verif:vListe(vVerif)};

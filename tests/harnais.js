@@ -232,6 +232,7 @@ const PONT = `
        livre, livreId, pageLue, nbLu, chapitresTxt, pagesTxt,
        enParties, partiesTxt, partiesVues, uniteTxt, livreFini, livresOuverts,
        dernierLivre, nomPassagePg, vLivre, recuDe, recuTxt,
+       discDevine, tachesDevinees, msDevinees, vDevine,
        vReglages,
        vTache, heuresTache, heuresTxt, nomLivre, nomPassage, nomPassagePg,
        chapitresFen, pagesFenPar, resumeLus, chapFen, pagesFen, vMonTemps, catNom, CATS, tacheCat, finDe, cap,

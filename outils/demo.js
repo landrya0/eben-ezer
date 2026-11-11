@@ -191,7 +191,9 @@
   /* Retrouver une ligne par son texte : les écrans sont redessinés à chaque
      geste, donc aucune référence ne survit d'une étape à l'autre. */
   function ligne(mot, balise){
-    const sel = balise || "a,button,.actions-button,[data-man],[data-tcat]";
+    /* Par défaut, tout ce qui porte du texte à l'écran : une ligne de liste
+       est le cas le plus courant, et c'est elle qu'on veut encadrer. */
+    const sel = balise || "li,a,button,div.block,.actions-button,[data-man],[data-tcat]";
     return [].slice.call(document.querySelectorAll(sel))
       .filter(function(n){ return n.textContent.indexOf(mot) !== -1; })
       .sort(function(a, b){ return a.textContent.length - b.textContent.length; })[0];

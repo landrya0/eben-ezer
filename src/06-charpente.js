@@ -108,7 +108,7 @@ function render(){
   /* Le calendrier déplié n'a de sens que pendant la capture : le garder
      ferait rouvrir, à la note suivante, une question qui ne se posait
      pas (13.dx). */
-  if(S.view!=="note") S.qOuv=false;
+  if(S.view!=="note"){ S.qOuv=false; S.dOuv=false; }
   if(S.view!=="lecture"){ S.lu=null; S.luA=null; S.luZ=null; S.luPlein=false; }
   if(S.view!=="pages" && S.view!=="livre"){ S.pgL=null; S.pgA=null; S.pgZ=null; }
   if(S.view!=="auteur") S.auId=null;

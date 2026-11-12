@@ -596,6 +596,16 @@ function vNode(){
     h+=liste(ligne({titre:esc(px.nom), sous:esc(px.quand),
       attr:(px.kind==="periode" ? 'data-prd="' : 'data-vbloc="')+px.id+'"'}));
   }
+  /* 13.er — un acte à lui dit sa routine, ou dit qu'il n'en a pas dit. */
+  if(n.act==="moi"){
+    h+=titreBloc("De quelle routine", px?"ecart":"");
+    h+=liste(ligne({titre: acteDit(n) ? (n.d ? esc(discNom(n.d)) : "Aucune routine")
+                                      : "Pas encore dit",
+      sous: acteDit(n) ? "Touche pour changer"
+                       : (acteDiscPropose(n) ? "La circonstance propose "+esc(discNom(acteDiscPropose(n)))
+                                             : "L'application ne la devinera pas"),
+      attr:'data-adisc="'+n.id+'"'}), "lien");
+  }
   const sj=(n.suj||[]).filter(function(s){ return !!sujet(s); });
   h+=titreBloc("En réponse à", (n.act==="moi"||px)?"ecart":"");
   h+=liste(
@@ -1138,6 +1148,33 @@ function vNote(){
      tape (P9, 13.dx). Pas sur « ajouter ce qui a précédé », qui garde un
      autre acte que celui-ci. */
   if(d.act!=="moi" && !S.cNeuf && S.step===etapes(d).length-1) Z.html += porteJour(d);
+  /* 13.er — et pour un acte à lui, de quelle routine il relève. Repliée,
+     comme le jour : une ligne, dépliée d'une tape. Une question de plus ne
+     doit pas coûter un écran de plus. */
+  if(d.act==="moi" && !S.cNeuf && S.step===etapes(d).length-1) Z.html += porteDisc(d);
+}
+/* Quand la circonstance propose une routine, elle est écrite en clair AVANT
+   de garder : ce qui est affiché est ce qui se garde, et une tape la défait
+   (P9, 13.dx). Elle ne s'applique jamais en silence. */
+function porteDisc(d){
+  const dit = ("d" in d), prop = dit ? "" : acteDiscPropose(d);
+  const cur = dit ? (d.d||"") : prop;
+  if(!S.dOuv)
+    return titreBloc("De quelle routine ?","ecart")
+      + liste(ligne({titre: cur ? esc(discNom(cur)) : "Aucune routine",
+          sous: prop ? "D'après la circonstance — touche pour changer"
+                     : (dit ? "Touche pour changer" : "Touche si cet acte en relève une"),
+          apres: cur ? `<span class="coche">✓</span>` : "",
+          attr:'data-douv="1"'}));
+  return titreBloc("De quelle routine ?","ecart")
+    + liste(DISC.map(function(x){
+        return ligne({titre:esc(x[1]),
+          apres:(cur===x[0]) ? `<span class="coche">✓</span>` : "",
+          attr:'data-ndisc="'+x[0]+'"'});
+      }).join("")
+      + ligne({titre:"Aucune routine", sous:"Cet acte n'en relève d'aucune",
+          apres:(dit && !d.d) ? `<span class="coche">✓</span>` : "",
+          attr:'data-ndisc=""'}));
 }
 /* Replié tant que la réponse est celle que l'app suppose ; déplié dès qu'elle
    ne l'est plus, ou dès qu'il le demande. On ne le replie jamais à sa place :

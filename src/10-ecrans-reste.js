@@ -999,6 +999,12 @@ function dernierSigne(d){
   (db.periodes||[]).forEach(function(p){
     if(p.d===d) t=Math.max(t, perOuverte(p) ? Date.now() : (p.fin||p.deb));
   });
+  /* 13.er — et les actes. Donner sa dîme est un signe de la routine
+     « donner », et aucun chronomètre n'a tourné pour le dire. */
+  actesDisc(d).forEach(function(n){
+    const sp=spanActe(n);
+    if(sp) t=Math.max(t, Math.min(sp[0], Date.now()));
+  });
   return t;
 }
 /* Un rythme déclaré aujourd'hui n'est pas en retard aujourd'hui : faute de
@@ -1288,6 +1294,83 @@ function rappelProgres(){
   return titreBloc("Où tu en es","ecart")
     + `<div class="block amorce">${dynProgres()}</div>`
     + `<div style="height:18px"></div>`;
+}
+
+/* ---------- une routine qui se vit en actes (13.er) -----------------------
+   Donner, jeûner, être membre fidèle d'une église, servir : on ne lance pas
+   un chronomètre pour ces choses-là. Le lien existait, mais par la seule
+   circonstance (`pdt`) et pour les seuls actes de Dieu — or sur ses 56
+   actes, 25 sont de lui et pas un ne porte de circonstance. L'acte porte
+   donc sa routine lui-même, dans `d`, et seulement l'acte de lui : un acte
+   de Dieu n'est pas une routine qu'on pratique. */
+
+/* Comme pour une activité (13.em) : l'absence du champ et le choix explicite
+   de « aucune routine » ne sont pas la même chose. */
+function acteDit(n){ return !!n && n.act==="moi" && ("d" in n); }
+function acteDisc(n){ return (n && n.act==="moi" && n.d) ? n.d : ""; }
+/* Un acte prévu n'a rien été vécu, et un acte abandonné ne l'a pas été non
+   plus : ni l'un ni l'autre ne compte comme signe d'une routine. */
+function acteCompte(n){
+  return !!n && n.act==="moi" && n.etat!=="prevu" && n.etat!=="abandon";
+}
+function actesDisc(d, t0, t1){
+  return (db.nodes||[]).filter(function(n){
+    if(!acteCompte(n) || acteDisc(n)!==d) return false;
+    if(t0===undefined) return true;
+    const sp=spanActe(n);
+    return !!sp && sp[0]<t1 && sp[1]>t0;
+  }).sort(parDate);
+}
+/* Ce que la circonstance permet de proposer — jamais d'appliquer en silence :
+   l'assistant l'écrit en clair avant de garder, et une tape la défait. */
+function acteDiscPropose(n){
+  if(!n || n.act!=="moi" || acteDit(n)) return "";
+  const x=n.pdt ? pdtDe(n.pdt) : null;
+  return (x && x.d) ? x.d : "";
+}
+function actesSansDisc(){
+  return (db.nodes||[]).filter(function(n){
+    return n.act==="moi" && !acteDit(n); }).sort(parDate);
+}
+function vActesDisc(){
+  Z.titre="Mes actes sans routine"; Z.retour=true;
+  const ns=actesSansDisc();
+  if(!ns.length){
+    Z.html=`<div class="block amorce" style="margin-top:16px">Tous tes actes ont dit leur routine, ou qu'ils n'en avaient aucune.</div>`;
+    return;
+  }
+  const prop=ns.filter(function(n){ return acteDiscPropose(n); });
+  let h=`<div class="block amorce" style="margin-top:16px">${ns.length} acte${ns.length>1?"s":""} de toi n'${ns.length>1?"ont":"a"} pas dit de quelle routine ${ns.length>1?"ils relèvent":"il relève"}. L'application ne le devinera pas d'après tes mots : « j'ai donné » dans une phrase ne prouve pas la routine.</div>`;
+  if(prop.length)
+    h+=`<div class="block amorce">Pour ${prop.length} d'entre eux, la circonstance que tu avais posée répond déjà — une tape suffit.</div>`;
+  h+=liste(ns.map(function(n){
+    const p=acteDiscPropose(n);
+    return ligne({titre:esc(court(n.txt, 52)),
+      sous:[human(n), p ? "pendant "+esc(discNom(p)) : ""].filter(Boolean).join(" · "),
+      apres: p ? esc(discNom(p)) : "",
+      attr:'data-adisc="'+n.id+'"'});
+  }).join(""), "lien");
+  Z.html=h;
+}
+/* L'écran d'une seule : les seize, et « aucune », qui est un choix. */
+function vActeDisc(){
+  const n=node(S.adiscId);
+  if(!n || n.act!=="moi"){ depile("adisc"); return render(); }
+  const cur = acteDit(n) ? (n.d||"") : acteDiscPropose(n);
+  Z.titre="De quelle routine ?"; Z.retour=true;
+  let h=`<div class="block" style="margin-top:16px"><p class="grand">${esc(court(n.txt, 90))}</p>
+    <p class="meta">${esc(human(n)||"")}</p></div>`;
+  if(!acteDit(n) && cur)
+    h+=`<div class="block amorce">Proposé d'après la circonstance que tu avais posée. Rien n'est écrit tant que tu n'as pas touché.</div>`;
+  h+=liste(DISC.map(function(x){
+      return ligne({titre:esc(x[1]),
+        apres:(cur===x[0]) ? `<span class="coche">✓</span>` : "",
+        attr:'data-adiscn="'+n.id+':'+x[0]+'"'});
+    }).join("")
+    + ligne({titre:"Aucune routine", sous:"Cet acte n'en relève d'aucune",
+        apres:(acteDit(n) && !n.d) ? `<span class="coche">✓</span>` : "",
+        attr:'data-adiscn="'+n.id+':"'}));
+  Z.html=h;
 }
 
 /* ---------- la bibliothèque : où j'en suis dans mes livres ---------- */
@@ -2401,6 +2484,7 @@ const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), acte
               sujets:vSujets, annonce:vAnnonce, cahier:vCahier, sujet:vSujet,
               perNeuf:vPerNeuf, periode:vPeriode, epingles:vEpingles,
               rythmes:vRythmes, rythme:vRythme, portes:vPortes, porte:vPorte,
+              adisc:vActesDisc, acteDisc:vActeDisc,
               sync:vSync, reglages:vReglages, ordre:vOrdre, verif:vListe(vVerif)};
 
 /* ---------- dictée ---------- */

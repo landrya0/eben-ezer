@@ -242,6 +242,8 @@ const PONT = `
        sujetGens, sujetsDe, sujetPour, sujetBut, sujetReste, sujetCompte, sujetsTenus,
        porteDepuis, ceuxPortes, porteAttente, porteTxt, rappelPorte, vPortes, vPorte,
        dynProgres, rappelProgres, vCahier, sujetFois, sujetDernier, seancesDe, gensNom,
+       acteDit, acteDisc, acteCompte, actesDisc, acteDiscPropose, actesSansDisc,
+       vActesDisc, vActeDisc, porteDisc, etapes, spanActe, discNom,
        vReglages,
        vTache, heuresTache, heuresTxt, nomLivre, nomPassage, nomPassagePg,
        chapitresFen, pagesFenPar, resumeLus, chapFen, pagesFen, vMonTemps, catNom, CATS, tacheCat, finDe, cap,

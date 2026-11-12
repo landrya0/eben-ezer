@@ -431,12 +431,17 @@ function vMonTemps(){
       /* Le tiret dit « rien reçu ». Devant une retraite en cours, ce serait
          faux : la routine est vécue, elle ne se compte simplement pas en
          heures. On le tait donc, et le cadre parle en dessous (13.cw). */
+      /* 13.er — une routine vécue en actes n'a pas d'heures, et le tiret
+         qui dit « rien reçu » serait faux devant elle. Les deux unités se
+         disent côte à côte, et ne s'additionnent jamais. */
+      const ac=actesDisc(x[0], f.t0, f.t1).length;
       const o={titre:esc(x[1]),
-               apres: pd[x[0]] ? esc(hm(pd[x[0]])) : (pt ? "" : "—")};
+               apres: pd[x[0]] ? esc(hm(pd[x[0]])) : ((pt||ac) ? "" : "—")};
       const m=mesureDisc(x[0], f.t0, f.t1), r=rep[x[0]];
       /* Ce que le lien « pendant » permet enfin de dire : non plus seulement
          ce que j'ai donné, mais ce qu'Il y a répondu (13.cx). */
-      const sous=[pt, m, r ? (r+" fois qu'Il y a parlé ou agi") : ""].filter(Boolean).join(" · ");
+      const sous=[pt, m, ac ? (ac+" acte"+(ac>1?"s":"")+" de toi") : "",
+                  r ? (r+" fois qu'Il y a parlé ou agi") : ""].filter(Boolean).join(" · ");
       if(sous) o.sous=esc(sous);
       /* Une seule période : la ligne y mène. Plusieurs, et c'est la section
          du dessus qui les tient — on ne choisit pas à la place du disciple. */
@@ -455,6 +460,12 @@ function vMonTemps(){
         apres: esc(hm(msDevinees())), attr:'data-act="devine"'}), "lien");
     /* 13.ep — le rythme et ce que la routine a reçu ne se regardent qu'ici :
        c'est donc ici qu'on le déclare, et pas dans les réglages. */
+    /* 13.er — et la porte vers les actes qui n'ont pas dit leur routine. */
+    const sd=actesSansDisc();
+    if(sd.length)
+      h += liste(ligne({titre:"Mes actes sans routine",
+        sous: sd.length+" acte"+(sd.length>1?"s":"")+" de toi qui n'"+(sd.length>1?"ont":"a")+" pas dit d'où "+(sd.length>1?"ils viennent":"il vient"),
+        apres: String(sd.length), attr:'data-go="adisc"'}), "lien");
     const rd=rythDits().length;
     h += liste(ligne({titre:"Mes rythmes",
       sous: rd ? rd+" rythme"+(rd>1?"s":"")+" déclaré"+(rd>1?"s":"")+" — l'app te prévient quand un retard s'installe"

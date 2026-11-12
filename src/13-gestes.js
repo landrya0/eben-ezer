@@ -97,7 +97,7 @@ function supCible(v){
   return p.length>1 ? {b:blocT(p[0]), i:+p[1]} : {b:blocT(S.blocId), i:+p[0]};
 }
 document.addEventListener("click", function(ev){
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-dis],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-dok],[data-ryth],[data-rythn],[data-porte],[data-sjvu],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-lvsp],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjlie],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-dis],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-dok],[data-ryth],[data-rythn],[data-porte],[data-sjvu],[data-ndisc],[data-douv],[data-adisc],[data-adiscn],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-lvsp],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjlie],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
   if(!t) return;
   /* UN SEUL entonnoir pour tous les gestes de l'application : la sonde se
      tient ici, et nulle part ailleurs. Le `finally` est ce qui la rend
@@ -304,6 +304,29 @@ function geste(g, t){
   /* 13.em — confirmer une devinette écrit exactement ce qui était déjà
      calculé : aucun total ne bouge. Ce qui change, c'est que l'app cesse de
      supposer — et le geste reste celui du disciple, jamais le sien (P9). */
+  /* 13.er — déplier la routine dans l'assistant, puis la dire. Le vide est
+     un choix — « aucune routine » —, et c'est pourquoi on teste la présence
+     de l'attribut et non sa valeur (13.em). */
+  if(g.douv){ S.dOuv=true; return render(); }
+  if("ndisc" in g){
+    if(!S.draft) return;
+    const v=String(g.ndisc||"");
+    if(v && !DISC.filter(function(x){ return x[0]===v; }).length) return;
+    S.draft.d=v; S.dOuv=false; return render();
+  }
+  if(g.adisc){
+    const n=node(g.adisc); if(!n || n.act!=="moi") return;
+    empile(); S.adiscId=n.id; S.view="acteDisc"; return render();
+  }
+  if("adiscn" in g){
+    const p=String(g.adiscn), i=p.indexOf(":");
+    const n=node(p.slice(0, i)), v=p.slice(i+1);
+    if(!n || n.act!=="moi") return;
+    if(v && !DISC.filter(function(x){ return x[0]===v; }).length) return;
+    n.d=v; touche(n); save();
+    toast(v ? discNom(v)+"." : "Aucune routine.");
+    depile("adisc"); S.view=actesSansDisc().length ? "adisc" : "actes"; return render();
+  }
   /* 13.eq — la fiche de quelqu'un qu'on porte. */
   if(g.porte){
     if(!gensNom(g.porte)) return;
@@ -1080,6 +1103,14 @@ const actions={
     n.prec=precPour(n.etat, d.prec);
     if((d.suj||[]).length) n.suj=d.suj.slice();
     if(d.pdt && pdtDe(d.pdt)) n.pdt=d.pdt;
+    /* 13.er — la routine, pour un acte à lui seulement : un acte de Dieu
+       n'est pas une routine qu'on pratique. Ce que le dernier écran
+       affichait est ce qui se garde — proposition de la circonstance
+       comprise. */
+    if(n.act==="moi"){
+      const dd = ("d" in d) ? String(d.d||"") : acteDiscPropose(d);
+      if(("d" in d) || dd) n.d=dd;
+    }
     db.nodes.push(n); save();
     /* On repart là où l'acte est désormais rangé : le disciple le voit,
        et l'écran a ses onglets — il n'est jamais enfermé. */

@@ -5752,3 +5752,241 @@ test("13.eq — une personne effacée ailleurs ne laisse pas un sujet orphelin",
     "aucune ligne sans personne");
   A.equal(a.f.sujetTxt("s3"), "Sa conversion", "et le sujet garde ses mots");
 });
+
+/* ------------------------------------------------------------------
+   13.er — une routine qui se vit en actes ne se mesure pas en heures.
+   Donner, jeûner, l'église, servir : on ne lance pas un chronomètre
+   pour ces choses-là. Mesure du 12 novembre 2026 : sur ses 56 actes,
+   25 sont de lui et pas un seul ne porte de circonstance.
+   ------------------------------------------------------------------ */
+
+function acteMoi(id, o) {
+  return Object.assign({ id: id, act: "moi", dest: "dieu", kind: "acte", txt: "Un acte",
+    desc: "", man: "", par: [], suj: [], etat: "fait", date: today8(), prec: "j",
+    ts: 1, maj: 1 }, o || {});
+}
+function today8() { return "2026-11-08"; }
+function dateJ(d) { return "2026-11-" + String(d).padStart(2, "0"); }
+
+function actesEtRoutines(a) {
+  a.db.taches = [{ id: "t1", nom: "Prière du matin", cat: "dieu", d: "priere", maj: 1 }];
+  a.db.temps = [bloc("b1", "t1", jour(8, 6, 0), jour(8, 7, 0))];
+  a.db.nodes = [
+    acteMoi("n1", { txt: "J'ai donné la dîme", d: "donner", date: dateJ(6) }),
+    acteMoi("n2", { txt: "J'ai jeûné mardi", d: "jeune", date: dateJ(3) }),
+    acteMoi("n3", { txt: "J'ai prié avec un frère", pdt: "b1" }),
+    acteMoi("n4", { txt: "Je dois appeler Jonas", etat: "prevu", d: "servir", date: dateJ(20) }),
+    { id: "n5", act: "dieu", man: "pourvu", kind: "acte", txt: "Il a pourvu", desc: "",
+      par: [], suj: [], etat: "fait", date: dateJ(5), prec: "j", d: "donner", ts: 5, maj: 1 }
+  ];
+  return a;
+}
+
+test("13.er — un acte de Dieu n'est pas une routine qu'on pratique", () => {
+  const a = app();
+  actesEtRoutines(a);
+  A.equal(a.f.acteDisc(a.f.node("n5")), "", "même avec le champ posé à la main");
+  A.equal(a.f.acteDit(a.f.node("n5")), false);
+  A.deepEqual(Array.from(a.f.actesDisc("donner")).map(n => n.id), ["n1"],
+    "l'acte de Dieu ne vient pas gonfler la routine");
+});
+
+test("13.er — l'absence du champ et « aucune routine » sont deux choses", () => {
+  const a = app();
+  actesEtRoutines(a);
+  A.equal(a.f.acteDit(a.f.node("n3")), false, "n3 n'a rien dit");
+  a.f.node("n3").d = "";
+  A.equal(a.f.acteDit(a.f.node("n3")), true, "là, il a dit : aucune");
+  A.equal(a.f.acteDisc(a.f.node("n3")), "");
+  A.equal(a.f.actesSansDisc().length, 0, "et il ne réclame plus rien");
+});
+
+test("13.er — la circonstance propose, elle n'applique pas", () => {
+  const a = app();
+  actesEtRoutines(a);
+  A.equal(a.f.acteDiscPropose(a.f.node("n3")), "priere",
+    "l'acte a été noté pendant une prière");
+  A.equal(a.f.acteDisc(a.f.node("n3")), "", "mais rien n'est écrit tant qu'il n'a pas touché");
+  A.deepEqual(Array.from(a.f.actesSansDisc()).map(n => n.id), ["n3"]);
+  /* Une circonstance sans routine ne propose rien. */
+  a.db.taches[0].d = "";
+  A.equal(a.f.acteDiscPropose(a.f.node("n3")), "");
+});
+
+test("13.er — ce que le dernier écran affiche est ce qui se garde", () => {
+  const a = app();
+  actesEtRoutines(a);
+  a.S.view = "note";
+  a.S.draft = { act: "moi", gid: null, dest: "dieu", dgid: null, txt: "J'ai servi au culte",
+    desc: "", man: "", par: [], suj: [], pdt: "b1", etat: "fait", date: today8(),
+    prec: "j", fige: false };
+  /* L'écran replié montre la proposition, en clair. */
+  A.match(a.f.porteDisc(a.S.draft), /La prière seul/);
+  A.match(a.f.porteDisc(a.S.draft), /D'après la circonstance/);
+  a.actions.saveNote();
+  const n = a.db.nodes[a.db.nodes.length - 1];
+  A.equal(n.d, "priere", "ce qui était affiché est ce qui est gardé");
+  A.equal(a.f.acteDit(n), true);
+});
+
+test("13.er — et une tape la défait", () => {
+  const a = app();
+  actesEtRoutines(a);
+  a.S.view = "note";
+  a.S.draft = { act: "moi", gid: null, dest: "dieu", dgid: null, txt: "J'ai lu un livre",
+    desc: "", man: "", par: [], suj: [], pdt: "b1", etat: "fait", date: today8(),
+    prec: "j", fige: false };
+  a.ctx.geste({ douv: "1" });
+  A.equal(a.S.dOuv, true, "une tape déplie les seize");
+  A.match(a.f.porteDisc(a.S.draft), /data-ndisc="donner"/);
+  a.ctx.geste({ ndisc: "" });
+  A.equal(a.S.draft.d, "", "« aucune routine » est un choix");
+  A.equal(a.S.dOuv, false, "et l'écran se replie");
+  a.actions.saveNote();
+  const n = a.db.nodes[a.db.nodes.length - 1];
+  A.equal(n.d, "", "le choix l'emporte sur la proposition");
+  A.equal(a.f.acteDit(n), true, "il a dit : il ne sera plus rappelé");
+});
+
+test("13.er — une routine inconnue ne s'écrit pas", () => {
+  const a = app();
+  actesEtRoutines(a);
+  a.S.view = "note";
+  a.S.draft = { act: "moi", par: [], suj: [], txt: "x", etat: "fait", date: today8(), prec: "j" };
+  a.ctx.geste({ ndisc: "parfum" });
+  A.equal("d" in a.S.draft, false);
+  a.S.view = "acteDisc"; a.S.adiscId = "n3";
+  a.ctx.geste({ adiscn: "n3:parfum" });
+  A.equal(a.f.acteDit(a.f.node("n3")), false);
+  a.ctx.geste({ adiscn: "n5:donner" });
+  A.equal(a.f.node("n5").act, "dieu");
+  A.equal(a.f.acteDisc(a.f.node("n5")), "", "et un acte de Dieu reste hors de portée");
+});
+
+test("13.er — un acte prévu ou abandonné n'est pas un signe", () => {
+  const a = app();
+  actesEtRoutines(a);
+  A.equal(a.f.acteCompte(a.f.node("n4")), false, "ce qui est prévu n'a pas été vécu");
+  A.equal(a.f.actesDisc("servir").length, 0);
+  a.f.node("n4").etat = "abandon";
+  A.equal(a.f.actesDisc("servir").length, 0, "et ce qui est abandonné non plus");
+  a.f.node("n4").etat = "encours";
+  A.equal(a.f.actesDisc("servir").length, 1, "ce qui dure encore est vécu");
+});
+
+test("13.er — le dernier signe d'une routine gagne les actes", () => {
+  const a = app();
+  actesEtRoutines(a);
+  /* « Donner » : aucun bloc, aucun temps mis à part — rien que des actes. */
+  ryth(a, "donner", 7, 20);
+  A.equal(a.f.dernierSigne("donner") > 0, true,
+    "donner sa dîme est un signe, sans qu'aucun chronomètre ait tourné");
+  const r = a.f.retard("donner");
+  A.equal(r.j, 2, "l'acte du 6 novembre");
+  A.equal(r.tard, false, "deux jours pour un rythme de sept");
+  A.equal(r.jamais, false);
+  /* Sans le champ, la même archive le disait en retard de vingt jours. */
+  delete a.f.node("n1").d;
+  A.equal(a.f.retard("donner").j, 20);
+  A.equal(a.f.retard("donner").tard, true);
+});
+
+test("13.er — les deux unités se disent côte à côte et ne s'additionnent pas", () => {
+  const a = app();
+  actesEtRoutines(a);
+  /* La fenêtre des routines s'ouvre sur aujourd'hui : c'est l'acte du jour
+     qui s'y lit, comme les heures du jour. */
+  a.db.nodes.push(acteMoi("n6", { txt: "J'ai donné ce matin", d: "donner" }));
+  a.S.view = "temps";
+  a.f.vueGarde("temps", "routines");
+  a.f.vMonTemps();
+  const h = a.Z.html;
+  A.match(h, /1 acte de toi/, "donner n'a pas une minute, et pourtant il a reçu");
+  /* Le tiret dit « rien reçu » : il serait faux devant une routine vécue. */
+  /* La ligne, et elle seule : la suivante a bien le droit à son tiret. */
+  const d0 = h.indexOf("Donner à Dieu");
+  const ligneDonner = h.slice(d0, h.indexOf("</li>", d0));
+  A.equal(ligneDonner.indexOf("—"), -1, "pas de tiret là où il y a des actes");
+  A.match(ligneDonner, /1 acte de toi/);
+  const a0 = h.indexOf("La conquête des âmes");
+  A.match(h.slice(a0, h.indexOf("</li>", a0)), /—/,
+    "mais une routine qui n'a vraiment rien reçu le dit toujours");
+  A.match(h, /Le jeûne/);
+  /* Et la colonne des heures reste celle des heures. */
+  A.equal(h.indexOf("1 h · 1 acte"), -1);
+});
+
+test("13.er — la fenêtre compte : un acte d'avant n'entre pas dedans", () => {
+  const a = app();
+  actesEtRoutines(a);
+  const t0 = a.f.minuit(2), t1 = a.f.minuit(0) + 86400000;
+  A.deepEqual(Array.from(a.f.actesDisc("donner", t0, t1)).map(n => n.id), ["n1"]);
+  A.deepEqual(Array.from(a.f.actesDisc("jeune", t0, t1)).map(n => n.id), [],
+    "le jeûne du 3 novembre est hors des trois derniers jours");
+  A.equal(a.f.actesDisc("jeune").length, 1, "mais il existe, sur toute l'archive");
+});
+
+test("13.er — l'écran des actes sans routine propose ce qu'il peut", () => {
+  const a = app();
+  actesEtRoutines(a);
+  a.f.vActesDisc();
+  A.match(a.Z.html, /J'ai prié avec un frère/);
+  A.match(a.Z.html, /pendant La prière seul/, "la circonstance répond déjà");
+  A.match(a.Z.html, /ne le devinera pas/);
+  A.equal(a.Z.html.indexOf("J'ai donné la dîme"), -1, "celui-là a déjà dit");
+  A.equal(a.Z.html.indexOf("Il a pourvu"), -1, "et un acte de Dieu n'est pas concerné");
+  /* Une tape, et c'est réglé. */
+  a.f.render = function () {};
+  a.S.view = "adisc";
+  a.ctx.geste({ adiscn: "n3:priere" });
+  A.equal(a.f.acteDisc(a.f.node("n3")), "priere");
+  A.equal(a.f.actesSansDisc().length, 0);
+  a.f.vActesDisc();
+  A.match(a.Z.html, /Tous tes actes ont dit leur routine/);
+});
+
+test("13.er — la fiche d'un acte à lui dit sa routine, ou qu'il n'a rien dit", () => {
+  const a = app();
+  actesEtRoutines(a);
+  a.S.view = "node"; a.S.nodeId = "n3";
+  a.f.vNode();
+  A.match(a.Z.html, /Pas encore dit/);
+  A.match(a.Z.html, /La circonstance propose La prière seul/);
+  A.match(a.Z.html, /data-adisc="n3"/);
+  a.S.nodeId = "n1";
+  a.f.vNode();
+  A.match(a.Z.html, /Donner à Dieu/);
+  a.S.nodeId = "n5";
+  a.f.vNode();
+  A.equal(a.Z.html.indexOf("De quelle routine"), -1,
+    "on ne demande pas sa routine à un acte de Dieu");
+});
+
+test("13.er — ce qui est dit ne se fait plus proposer", () => {
+  const a = app();
+  actesEtRoutines(a);
+  /* Noté pendant une prière, mais il a dit « donner » : la circonstance
+     n'a plus rien à proposer, et sa fiche ne doit pas lui redemander. */
+  a.f.node("n3").d = "donner";
+  A.equal(a.f.acteDiscPropose(a.f.node("n3")), "",
+    "il a tranché — l'application ne repropose pas par-dessus");
+  A.equal(a.f.actesSansDisc().length, 0);
+  a.S.view = "node"; a.S.nodeId = "n3";
+  a.f.vNode();
+  A.equal(a.Z.html.indexOf("La circonstance propose"), -1);
+  A.match(a.Z.html, /Donner à Dieu/);
+  /* Et le choix explicite de « aucune » ferme la question tout autant. */
+  a.f.node("n3").d = "";
+  A.equal(a.f.acteDiscPropose(a.f.node("n3")), "");
+  a.f.vNode();
+  A.match(a.Z.html, /Aucune routine/);
+  A.equal(a.Z.html.indexOf("La circonstance propose"), -1);
+  /* Le choix l'emporte aussi au moment de garder. */
+  a.S.view = "note";
+  a.S.draft = { act: "moi", gid: null, dest: "dieu", dgid: null, txt: "J'ai servi",
+    desc: "", man: "", par: [], suj: [], pdt: "b1", d: "servir", etat: "fait",
+    date: today8(), prec: "j", fige: false };
+  a.actions.saveNote();
+  const n = a.db.nodes[a.db.nodes.length - 1];
+  A.equal(n.d, "servir", "et non la routine du bloc pendant lequel il notait");
+});

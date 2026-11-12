@@ -97,7 +97,7 @@ function supCible(v){
   return p.length>1 ? {b:blocT(p[0]), i:+p[1]} : {b:blocT(S.blocId), i:+p[0]};
 }
 document.addEventListener("click", function(ev){
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-dis],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-dok],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-lvsp],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjlie],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-dis],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-dok],[data-ryth],[data-rythn],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-lvsp],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjlie],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
   if(!t) return;
   /* UN SEUL entonnoir pour tous les gestes de l'application : la sonde se
      tient ici, et nulle part ailleurs. Le `finally` est ce qui la rend
@@ -304,6 +304,29 @@ function geste(g, t){
   /* 13.em — confirmer une devinette écrit exactement ce qui était déjà
      calculé : aucun total ne bouge. Ce qui change, c'est que l'app cesse de
      supposer — et le geste reste celui du disciple, jamais le sien (P9). */
+  /* 13.ep — ouvrir une routine pour y dire son rythme. */
+  if(g.ryth){
+    if(!DISC.filter(function(x){ return x[0]===g.ryth; }).length) return;
+    empile(); S.rythD=g.ryth; S.view="rythme"; return render();
+  }
+  /* Déclarer, ou retirer. Le zéro est un choix et se garde comme tel : il se
+     propage à l'autre appareil, là où une fiche absente ressusciterait. */
+  if(g.rythn){
+    const pr=String(g.rythn).split(":"), rd=pr[0], rn=+pr[1];
+    if(!DISC.filter(function(x){ return x[0]===rd; }).length) return;
+    if(rn && !RYTHMES.filter(function(x){ return x[0]===rn; }).length) return;
+    db.rythmes = db.rythmes || [];
+    let r=rythFiche(rd);
+    if(!r){ r={id:"r-"+rd, d:rd, n:0, ts:Date.now()}; db.rythmes.push(r); }
+    /* L'horloge part de la parole donnée : on la remet à l'heure quand il
+       déclare après n'avoir rien dit, jamais quand il change de rythme — sans
+       quoi desserrer son rythme effacerait un retard réel. */
+    if(!r.n && rn) r.ts=Date.now();
+    r.n=rn; touche(r); save();
+    toast(rn ? discNom(rd)+" : "+rythNom(rn).toLowerCase()
+             : "Aucun rythme pour "+discNom(rd).toLowerCase());
+    depile("rythmes"); S.view="rythmes"; return render();
+  }
   if(g.dok){
     const t=tache(g.dok); if(!t) return;
     if("d" in t) return render();

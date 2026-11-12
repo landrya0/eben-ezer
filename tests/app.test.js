@@ -5236,3 +5236,244 @@ test("13.eo — les seuils sont ceux de la table, pas ceux de l'écran", () => {
     A.equal(d.unite.length, 2, d.id + " : singulier et pluriel");
   });
 });
+
+/* ------------------------------------------------------------------
+   13.ep — un seuil de fidélité ne se devine pas : il se déclare.
+   Mesure du 12 novembre 2026 : quatre jours de chronomètre, sept
+   routines sur seize jamais comptées, et le plus long intervalle
+   visible à 2,3 jours. L'app n'a aucun moyen de savoir ce que
+   « longtemps » veut dire pour lui — le seuil vient donc de lui.
+   ------------------------------------------------------------------ */
+
+/* Une routine déclarée à tel rythme, dite il y a tant de jours. */
+function ryth(a, d, n, ditIlYA) {
+  a.db.rythmes = a.db.rythmes || [];
+  const t = jour(8 - (ditIlYA === undefined ? 0 : ditIlYA), 9, 0);
+  a.db.rythmes.push({ id: "r-" + d, d: d, n: n, ts: t, maj: t });
+  return a;
+}
+/* Une activité qui porte une routine, et un bloc pointé dessus. */
+function signe(a, d, ilYA, h) {
+  a.db.taches = a.db.taches || [];
+  const tid = "t-" + d;
+  if (!a.db.taches.filter(function (t) { return t.id === tid; }).length)
+    a.db.taches.push({ id: tid, nom: "Activité " + d, cat: "dieu", d: d, maj: 1 });
+  a.db.temps = a.db.temps || [];
+  a.db.temps.push(bloc("b" + a.db.temps.length, tid,
+    jour(8 - ilYA, h === undefined ? 10 : h, 0), jour(8 - ilYA, (h === undefined ? 10 : h) + 1, 0)));
+  return a;
+}
+
+test("13.ep — une routine dont le rythme n'est pas dit ne parle pas", () => {
+  const a = app();
+  signe(a, "priere", 40);
+  A.equal(a.f.retard("priere"), null, "aucun rythme déclaré : rien à dire");
+  A.equal(a.f.rappelFid(), "", "et l'écran d'ouverture reste muet");
+  A.equal(a.f.rythDits().length, 0);
+});
+
+test("13.ep — un rythme déclaré aujourd'hui n'est pas en retard aujourd'hui", () => {
+  const a = app();
+  ryth(a, "jeune", 30, 0);
+  const r = a.f.retard("jeune");
+  A.equal(r.jamais, true, "rien n'a jamais été compté pour le jeûne");
+  A.equal(r.j, 0, "l'horloge part de la parole donnée, pas du premier jour du monde");
+  A.equal(r.tard, false);
+  A.equal(a.f.rappelFid().indexOf("Ce qui attend ta fidélité"), -1,
+    "déclarer ne doit pas produire un reproche dans la seconde");
+});
+
+test("13.ep — « tous les jours » tolère qu'un jour passe, pas deux", () => {
+  const a = app();
+  ryth(a, "priere", 1, 10);
+  signe(a, "priere", 1);
+  A.equal(a.f.retard("priere").j, 1);
+  A.equal(a.f.retard("priere").tard, false,
+    "l'app ne réclame pas la prière du matin à midi");
+  a.db.temps = [];
+  signe(a, "priere", 2);
+  A.equal(a.f.retard("priere").tard, true, "deux jours franchis : là, elle parle");
+});
+
+test("13.ep — « rien de compté » ne se dit jamais « tu n'as pas prié »", () => {
+  const a = app();
+  ryth(a, "priere", 1, 10);
+  signe(a, "priere", 4);
+  const h = a.f.rappelFid();
+  A.match(h, /Rien de compté depuis 4 jours/);
+  /* Même niée, la phrase serait écrite sous ses yeux : elle ne doit pas
+     figurer à l'écran du tout. */
+  A.equal(h.toLowerCase().indexOf("tu n'as pas prié"), -1,
+    "l'app ne mesure que ce qui est pointé, et elle n'a le droit que de cette phrase");
+  A.equal(h.toLowerCase().indexOf("manque de fidélité"), -1);
+  A.match(h, /ce que tu as vécu sans le compter ne se voit pas d'ici/,
+    "et elle le dit en clair, une fois");
+});
+
+test("13.ep — jamais compté : le retard part de la parole donnée", () => {
+  const a = app();
+  ryth(a, "jeune", 7, 10);
+  const r = a.f.retard("jeune");
+  A.equal(r.j, 10);
+  A.equal(r.tard, true, "dix jours pour un rythme de sept");
+  A.match(a.f.fidTxt(r), /Jamais rien de compté, 10 jours après l'avoir dit/);
+});
+
+test("13.ep — une retraite en cours compte comme signe du jour", () => {
+  const a = app();
+  ryth(a, "retraite", 7, 40);
+  a.db.periodes = [{ id: "p1", d: "retraite", deb: jour(6, 6, 0), maj: 1 }];
+  A.equal(a.f.perOuverte(a.db.periodes[0]), true);
+  A.equal(a.f.retard("retraite").j, 0,
+    "on y EST : elle ne pèse aucune heure et vaut signe de maintenant (13.cw)");
+  A.equal(a.f.retard("retraite").tard, false);
+});
+
+test("13.ep — une période fermée date le signe à sa fin", () => {
+  const a = app();
+  ryth(a, "retraite", 7, 40);
+  a.db.periodes = [{ id: "p1", d: "retraite", deb: jour(1, 6, 0), fin: jour(3, 18, 0), maj: 1 }];
+  A.equal(a.f.retard("retraite").j, 5, "le 3 novembre, pas le 1er");
+  A.equal(a.f.retard("retraite").tard, false, "cinq jours pour un rythme de sept");
+});
+
+test("13.ep — un bloc en cours vaut maintenant", () => {
+  const a = app();
+  ryth(a, "parole", 1, 20);
+  a.db.taches = [{ id: "t1", nom: "Bible", cat: "dieu", d: "parole", maj: 1 }];
+  a.db.temps = [bloc("b1", "t1", jour(8, 11, 0))];
+  A.equal(a.f.retard("parole").j, 0, "un bloc sans fin est un bloc en cours (13.cf)");
+  A.equal(a.f.retard("parole").tard, false);
+});
+
+test("13.ep — le signe ne vient que de la routine concernée", () => {
+  const a = app();
+  ryth(a, "priere", 1, 20);
+  signe(a, "parole", 0);
+  A.equal(a.f.dernierSigne("priere"), 0, "lire la Bible n'est pas prier");
+  A.equal(a.f.retard("priere").tard, true);
+});
+
+test("13.ep — le plus en retard d'abord, pas le plus ancien", () => {
+  const a = app();
+  /* Deux retards dont l'ordre s'inverse selon ce qu'on classe : la prière
+     est moins ancienne mais bien plus loin de sa parole. */
+  ryth(a, "priere", 1, 40);
+  signe(a, "priere", 20);
+  ryth(a, "jeune", 30, 60);
+  signe(a, "jeune", 35);
+  const rs = a.f.retards();
+  A.equal(rs.length, 2);
+  A.equal(rs[0].d, "priere", "19 jours au-delà du rythme, contre 5");
+  A.equal(rs[0].j, 20, "et pourtant moins ancien que le jeûne");
+  A.equal(rs[1].d, "jeune");
+  A.equal(rs[1].j, 35);
+});
+
+test("13.ep — au-delà de trois, l'écran renvoie aux seize", () => {
+  const a = app();
+  ["priere", "parole", "litt", "jeune", "donner"].forEach(function (d) {
+    ryth(a, d, 1, 20);
+  });
+  A.equal(a.f.retards().length, 5);
+  const h = a.f.rappelFid();
+  A.match(h, /Et 2 autres/, "trois lignes, et la porte pour le reste");
+  A.match(h, /Voir les seize rythmes/);
+  A.match(h, /data-go="rythmes"/);
+  A.equal(h.split("Jamais rien de compté").length - 1, 3,
+    "trois, pas cinq : l'écran d'ouverture n'est pas un tableau de bord");
+});
+
+test("13.ep — quand tout est tenu, une sentinelle muette le dit en une ligne", () => {
+  const a = app();
+  ryth(a, "priere", 1, 20); signe(a, "priere", 0);
+  ryth(a, "parole", 7, 20); signe(a, "parole", 2);
+  A.equal(a.f.retards().length, 0);
+  A.equal(a.f.rythTenus(), 2);
+  const h = a.f.rappelFid();
+  A.match(h, /2 rythmes déclarés, tous tenus/);
+  A.equal(h.indexOf("Ce qui attend ta fidélité"), -1);
+});
+
+test("13.ep — « aucun rythme » est un choix, pas une absence de fiche", () => {
+  const a = app();
+  ryth(a, "priere", 1, 20);
+  a.f.render = function () {};
+  a.actions && 0;
+  /* Le geste de retrait : la fiche reste, son nombre tombe à zéro — c'est ce
+     qui se propage à l'autre appareil, là où une fiche absente
+     ressusciterait. */
+  a.ctx.geste({ rythn: "priere:0" });
+  A.equal(a.db.rythmes.length, 1, "la fiche n'est pas supprimée");
+  A.equal(a.db.rythmes[0].n, 0);
+  A.equal(a.db.rythmes[0].id, "r-priere",
+    "l'identifiant EST la routine : c'est ce qui empêche deux lignes à la fusion");
+  A.equal(a.f.rythme("priere"), null);
+  A.equal(a.f.rythDits().length, 0);
+  A.equal(a.f.rappelFid(), "");
+});
+
+test("13.ep — déclarer fabrique une fiche dont l'identifiant EST la routine", () => {
+  const a = app();
+  a.f.render = function () {};
+  A.equal(a.db.rythmes.length, 0, "rien de déclaré au départ");
+  a.ctx.geste({ rythn: "priere:1" });
+  A.equal(a.db.rythmes.length, 1);
+  /* C'est cet identifiant-là, et pas un numéro de série, qui empêche deux
+     appareils de déclarer deux fois la même routine (13.ep). */
+  A.equal(a.db.rythmes[0].id, "r-priere");
+  A.equal(a.db.rythmes[0].d, "priere");
+  A.equal(a.db.rythmes[0].n, 1);
+  A.ok(a.db.rythmes[0].ts > 0, "l'horloge part de la parole donnée");
+  A.ok(a.db.rythmes[0].maj > 0, "et la fiche est datée pour la fusion");
+  /* Le même geste sur l'autre appareil ne doit pas faire une seconde ligne. */
+  const B = a.f.sane({ rythmes: [{ id: "r-priere", d: "priere", n: 7, ts: 1, maj: 1 }] });
+  A.equal(a.f.fusionne(a.db, B).rythmes.length, 1);
+});
+
+test("13.ep — une routine inconnue ne se déclare pas", () => {
+  const a = app();
+  a.f.render = function () {};
+  a.ctx.geste({ rythn: "parfum:1" });
+  a.ctx.geste({ rythn: "priere:5" });
+  A.equal(a.db.rythmes.length, 0,
+    "ni une routine qui n'existe pas, ni un rythme hors de l'échelle");
+});
+
+test("13.ep — desserrer son rythme n'efface pas un retard réel", () => {
+  const a = app();
+  ryth(a, "jeune", 1, 30);
+  const avant = a.db.rythmes[0].ts;
+  a.f.render = function () {};
+  a.ctx.geste({ rythn: "jeune:30" });
+  A.equal(a.db.rythmes[0].n, 30);
+  A.equal(a.db.rythmes[0].ts, avant,
+    "l'horloge ne se remet à l'heure qu'au passage de rien à quelque chose");
+  A.equal(a.f.retard("jeune").j, 30, "le retard reste compté depuis la première parole");
+});
+
+test("13.ep — deux appareils ne font pas deux lignes pour la même routine", () => {
+  const a = app();
+  const A1 = a.f.sane({ rythmes: [{ id: "r-priere", d: "priere", n: 1, ts: 10, maj: 10 }] });
+  const B1 = a.f.sane({ rythmes: [{ id: "r-priere", d: "priere", n: 7, ts: 10, maj: 99 }] });
+  const f = a.f.fusionne(A1, B1);
+  A.equal(f.rythmes.length, 1, "l'identifiant EST la routine");
+  A.equal(f.rythmes[0].n, 7, "et la plus récente écriture tranche");
+});
+
+test("13.ep — l'écran des rythmes montre ce qui est dit et ce qui ne l'est pas", () => {
+  const a = app();
+  ryth(a, "priere", 7, 20);
+  signe(a, "priere", 10);
+  a.S.view = "rythmes";
+  a.f.vRythmes();
+  A.match(a.Z.html, /Une fois par semaine/);
+  A.match(a.Z.html, /Rien de compté depuis 10 jours/);
+  A.match(a.Z.html, /Aucun rythme déclaré/, "les quinze autres le disent");
+  A.match(a.Z.html, /data-ryth="jeune"/);
+  a.S.rythD = "priere";
+  a.f.vRythme();
+  A.match(a.Z.html, /data-rythn="priere:1"/);
+  A.match(a.Z.html, /data-rythn="priere:0"/);
+  A.match(a.Z.html, /Dernier signe il y a <b>10 jours<\/b>/);
+});

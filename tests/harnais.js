@@ -237,6 +237,8 @@ const PONT = `
        joursComptes, heuresDuJour, creuxDuJour, dynJour, dynSemaine, echanges, nbEchanges,
        dynEchanges, paroleDelais, nbAccomplies, dynParoles, blocDyn, vRevel,
        estParole, constats, vLier, jours, duree,
+       rythNom, rythFiche, rythme, rythDits, joursMs, dernierSigne, retard, retards,
+       rythTenus, fidTxt, rappelFid, vRythmes, vRythme,
        vReglages,
        vTache, heuresTache, heuresTxt, nomLivre, nomPassage, nomPassagePg,
        chapitresFen, pagesFenPar, resumeLus, chapFen, pagesFen, vMonTemps, catNom, CATS, tacheCat, finDe, cap,
@@ -247,7 +249,7 @@ const PONT = `
        vueDe, vueGarde,
        vOrdre, vEpingles, portePointage, etapes, vNote, vNode, vAccomplis, porteFaits, vPointer, creuxVif,
        sansDate, precPour, today, render, save, VUES, quitterPrevu, jourPromis, promisBref, ligneActe, remontees, blocQuand, vEdit, human },
-  c: { DISC, DYN, PERIODES, ONG_TEMPS, SANSFIN, KEY, CAT_SOCLE,
+  c: { DISC, DYN, RYTHMES, PERIODES, ONG_TEMPS, SANSFIN, KEY, CAT_SOCLE,
        SO_KEY, SO_MAX, ONGLETS, NOM_VUE, SEULES }
 };
 `;

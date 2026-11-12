@@ -453,6 +453,13 @@ function vMonTemps(){
       h += liste(ligne({titre:"Rangées d'après leur nom",
         sous: dv.length+" activité"+(dv.length>1?"s":"")+" qui n'ont jamais dit leur routine",
         apres: esc(hm(msDevinees())), attr:'data-act="devine"'}), "lien");
+    /* 13.ep — le rythme et ce que la routine a reçu ne se regardent qu'ici :
+       c'est donc ici qu'on le déclare, et pas dans les réglages. */
+    const rd=rythDits().length;
+    h += liste(ligne({titre:"Mes rythmes",
+      sous: rd ? rd+" rythme"+(rd>1?"s":"")+" déclaré"+(rd>1?"s":"")+" — l'app te prévient quand un retard s'installe"
+               : "Dire à quel rythme tu veux tenir une routine",
+      apres: rd ? String(rd)+" / 16" : "", attr:'data-go="rythmes"'}), "lien");
   }
 
   const pf=pagesFen(f.t0, f.t1);

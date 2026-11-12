@@ -955,6 +955,136 @@ function blocDyn(){
   return h;
 }
 
+/* ---------- mes rythmes : la fidélité, à la mesure qu'il a donnée (13.ep) ----
+   Il voulait être prévenu quand il ne prie plus, ne lit plus la Bible. Mais
+   « longtemps » n'est pas un nombre que l'application connaît : quatre jours
+   de chronomètre et un seul bloc de prière ne disent pas s'il prie chaque
+   jour ou chaque semaine. Un seuil inventé l'aurait accusé d'infidélité sur
+   rien — le pire des chiffres faux (13.ch), puisqu'il aurait eu la forme d'un
+   reproche. Le seuil vient donc de lui, routine par routine, et l'app ne fait
+   qu'une chose : le tenir à sa propre parole. */
+const RYTHMES = [
+  [1,  "Tous les jours"],
+  [2,  "Tous les deux jours"],
+  [3,  "Tous les trois jours"],
+  [7,  "Une fois par semaine"],
+  [14, "Une fois par quinzaine"],
+  [30, "Une fois par mois"],
+  [90, "Une fois par trimestre"]
+];
+function rythNom(n){
+  const r=RYTHMES.filter(function(x){ return x[0]===n; })[0];
+  return r ? r[1] : "";
+}
+/* Zéro n'est pas l'absence d'enregistrement : c'est « aucun rythme », un
+   choix qu'il a fait et qui se propage comme les autres. */
+function rythFiche(d){ return (db.rythmes||[]).filter(function(x){ return x.d===d; })[0] || null; }
+function rythme(d){ const r=rythFiche(d); return (r && r.n>0) ? r : null; }
+function rythDits(){ return (db.rythmes||[]).filter(function(r){ return r.n>0; }); }
+function joursMs(ms){
+  const d=new Date(ms); d.setHours(0,0,0,0);
+  return Math.round((minuit(0)-d.getTime())/86400000);
+}
+/* Le dernier signe d'une routine. Un bloc en cours vaut maintenant : on y est
+   (13.cf). Et un temps mis à part compte comme signe, sans peser une heure —
+   une retraite ne se chronomètre pas, elle se vit (13.cw). */
+function dernierSigne(d){
+  let t=0;
+  (db.temps||[]).forEach(function(b){
+    if(discTache(b.t)===d) t=Math.max(t, (typeof b.fin==="number") ? b.fin : Date.now());
+  });
+  (db.periodes||[]).forEach(function(p){
+    if(p.d===d) t=Math.max(t, perOuverte(p) ? Date.now() : (p.fin||p.deb));
+  });
+  return t;
+}
+/* Un rythme déclaré aujourd'hui n'est pas en retard aujourd'hui : faute de
+   signe, l'horloge part de la parole donnée. */
+function retard(d){
+  const r=rythme(d); if(!r) return null;
+  const sg=dernierSigne(d);
+  const depuis = sg || r.ts || r.maj || 0;
+  if(!depuis) return null;
+  const j=joursMs(depuis);
+  return {d:d, n:r.n, j:j, jamais:!sg, tard:(j > r.n)};
+}
+function retards(){
+  return DISC.map(function(x){ return retard(x[0]); })
+    .filter(function(x){ return x && x.tard; })
+    .sort(function(a,b){ return (b.j-b.n)-(a.j-a.n); });
+}
+function rythTenus(){
+  return DISC.map(function(x){ return retard(x[0]); })
+    .filter(function(x){ return x && !x.tard; }).length;
+}
+/* « Rien de compté » et « tu n'as pas prié » ne sont pas la même phrase, et
+   l'application n'a le droit que de la première : elle ne sait rien de ce qui
+   s'est vécu sans être pointé. */
+function fidTxt(x){
+  if(!x) return "";
+  return x.jamais
+    ? "Jamais rien de compté, " + duree(x.j) + " après l'avoir dit"
+    : "Rien de compté depuis " + duree(x.j);
+}
+function rappelFid(){
+  if(!rythDits().length) return "";
+  const rs=retards();
+  if(!rs.length){
+    /* Une sentinelle qui ne dit jamais rien ne se distingue pas d'une
+       sentinelle en panne : quand tout est tenu, elle le dit en une ligne. */
+    const n=rythTenus();
+    if(!n) return "";
+    return titreBloc("Mes rythmes","ecart")
+      + `<div class="block amorce">${n} rythme${n>1?"s":""} déclaré${n>1?"s":""}, ${n>1?"tous tenus":"tenu"}.</div>`
+      + `<div style="height:18px"></div>`;
+  }
+  const reste=rs.length-3;
+  return titreBloc("Ce qui attend ta fidélité","ecart")
+    + liste(rs.slice(0,3).map(function(x){
+        return ligne({titre:esc(discNom(x.d)), sous:esc(fidTxt(x)),
+          apres:esc(rythNom(x.n)), attr:'data-go="rythmes"'});
+      }).join(""), "lien")
+    + (reste>0
+       ? liste(ligne({titre:"Et "+reste+" autre"+(reste>1?"s":""),
+           sous:"Voir les seize rythmes", attr:'data-go="rythmes"'}), "lien")
+       : "")
+    + `<div class="block amorce">C'est ton rythme qui parle, pas un seuil de l'application. Et ce qu'elle mesure, c'est ce qui a été pointé : ce que tu as vécu sans le compter ne se voit pas d'ici.</div>`
+    + `<div style="height:18px"></div>`;
+}
+function vRythmes(){
+  Z.titre="Mes rythmes"; Z.retour=true;
+  let h=`<div class="block amorce" style="margin-top:16px">Dis à quel rythme tu veux tenir une routine. L'application ne l'invente pas : ce que tu déclares ici est la seule mesure dont elle se serve pour te prévenir, et elle n'en déduit rien d'elle-même.</div>`;
+  h+=liste(DISC.map(function(x){
+    const r=rythme(x[0]), rt=retard(x[0]);
+    return ligne({titre:esc(x[1]),
+      sous: r ? esc(fidTxt(rt)) : "Aucun rythme déclaré",
+      apres: r ? esc(rythNom(r.n)) : "—",
+      attr:'data-ryth="'+x[0]+'"'});
+  }).join(""), "lien");
+  Z.html=h;
+}
+function vRythme(){
+  const d=S.rythD;
+  if(!d || !DISC.filter(function(x){ return x[0]===d; }).length){ depile("rythmes"); return render(); }
+  const r=rythme(d), rt=retard(d), sg=dernierSigne(d);
+  Z.titre=discNom(d); Z.retour=true;
+  let h=`<div class="block amorce" style="margin-top:16px">${
+    sg ? "Dernier signe il y a <b>"+esc(duree(joursMs(sg)))+"</b>."
+       : "Rien n'a jamais été compté pour cette routine."}${
+    rt && rt.tard ? " Tu avais dit <b>"+esc(rythNom(rt.n).toLowerCase())+"</b>." : ""}</div>`;
+  h+=titreBloc("À quel rythme");
+  h+=liste(RYTHMES.map(function(x){
+      return ligne({titre:esc(x[1]),
+        apres:(r && r.n===x[0]) ? `<span class="coche">✓</span>` : "",
+        attr:'data-rythn="'+d+':'+x[0]+'"'});
+    }).join("")
+    + ligne({titre:"Aucun rythme", sous:"L'application ne dira rien sur celle-ci",
+        apres: r ? "" : `<span class="coche">✓</span>`,
+        attr:'data-rythn="'+d+':0"'}));
+  h+=`<div class="block amorce">Ce qui compte comme signe : un bloc pointé sur une activité qui porte cette routine, ou un temps mis à part — une retraite en cours se vit maintenant, même si elle ne pèse aucune heure.</div>`;
+  Z.html=h;
+}
+
 /* ---------- la bibliothèque : où j'en suis dans mes livres ---------- */
 /* Même besoin que pour l'Écriture, et une différence qui commande tout : la
    Bible est une liste close que l'app connaît par cœur ; une bibliothèque,
@@ -2045,6 +2175,7 @@ const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), acte
               tache:vTache, devine:vDevine, lecture:vLecture, pages:vPages, livre:vLivre, auteur:vAuteur,
               sujets:vSujets, annonce:vAnnonce, cahier:vCahier, sujet:vSujet,
               perNeuf:vPerNeuf, periode:vPeriode, epingles:vEpingles,
+              rythmes:vRythmes, rythme:vRythme,
               sync:vSync, reglages:vReglages, ordre:vOrdre, verif:vListe(vVerif)};
 
 /* ---------- dictée ---------- */

@@ -9,7 +9,7 @@
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v123";
+const VERSION = "v124";
 const KEY = "ebenezer.v1";
 /* Les sondes vivent dans le 12, chargé APRÈS celui-ci : le socle ne peut
    pas en dépendre, l'ordre est porteur. On appelle donc à travers un
@@ -61,7 +61,7 @@ const TACHES_SOCLE = [
    le registre au premier enregistrement — puis, par la synchro, sur l'autre
    appareil. On ne supprime pas, et rien ne se perd (2.d, 13.be, 13.dw).
    L'export les emporte : c'est par là qu'ils sortent. */
-let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], periodes:[], livres:[], auteurs:[], sujets:[], sous:[], portes:[], rythmes:[], dev:"EUR", exp:0, seq:1};
+let db = {nodes:[], gens:[], noms:[], mans:[], cats:[], taches:[], temps:[], periodes:[], livres:[], auteurs:[], sujets:[], sous:[], portes:[], rythmes:[], imps:[], dev:"EUR", exp:0, seq:1};
 let S = {view:"today", step:0, draft:null, filtre:"tout", ret:"tout", grain:"an", rev:"noms", pile:[], nodeId:null,
          cheminId:null, faits:-1, eMan:"", eEtat:"fait", ePrec:"j",
          descOuvert:false, plie:true, cNeuf:false, cTxt:"", cType:"", cQ:"",
@@ -107,6 +107,12 @@ function sane(v){
              deux lignes, et la fusion tranche à la date comme pour le
              reste. */
           rythmes:Array.isArray(o.rythmes)?o.rythmes:[],
+            /* 13.es — une fois qu'il a frappé. Une fiche par tape, et non un
+               nombre rangé dans le sujet : deux appareils qui frappent chacun
+               de leur côté doivent additionner leurs fois, pas en écraser une
+               (13.bd). C'est aussi ce qui permet de retirer la tape de trop,
+               et de dater la première prière sans l'avoir demandée. */
+            imps:Array.isArray(o.imps)?o.imps:[],
           /* La monnaie n'est pas une donnée du mémorial, c'est un réglage :
              on n'y garde que le code, et on ne devine aucun taux (13.dk). */
           dev:(typeof o.dev==="string" && /^[A-Z]{3}$/.test(o.dev))?o.dev:"EUR",
@@ -118,7 +124,7 @@ function sane(v){
           seq:(typeof o.seq==="number"&&o.seq>0)?o.seq:1};
   /* Les fiches d'avant la synchronisation n'ont pas d'heure. On leur en donne
      la plus ancienne possible : la moindre écriture réelle les dépassera. */
-  [d.nodes,d.gens,d.noms,d.mans,d.cats,d.taches,d.temps,d.periodes,d.livres,d.auteurs,d.sujets,d.sous,d.portes,d.rythmes].forEach(function(a){
+  [d.nodes,d.gens,d.noms,d.mans,d.cats,d.taches,d.temps,d.periodes,d.livres,d.auteurs,d.sujets,d.sous,d.portes,d.rythmes,d.imps].forEach(function(a){
     a.forEach(function(x){ if(x && typeof x.maj!=="number") x.maj=1; });
   });
   /* Le type de champs était un réglage à part ; il devient une conséquence de

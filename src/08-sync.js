@@ -415,6 +415,7 @@ function fusionne(A, B){
     sous:  fusionListe(A.sous,   B.sous,   morts),
     portes:fusionListe(A.portes, B.portes, morts),
     rythmes:fusionListe(A.rythmes, B.rythmes, morts),
+    imps:  fusionListe(A.imps,   B.imps,   morts),
     taches:fusionListe(A.taches, B.taches, morts),
     temps: fusionTemps(fusionListe(A.temps, B.temps, morts)),
     periodes: fusionListe(A.periodes, B.periodes, morts),

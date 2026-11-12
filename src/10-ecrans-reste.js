@@ -152,20 +152,64 @@ function exauceTxt(sid){
 function sujetBlocs(sid){
   return (db.temps||[]).filter(function(b){ return (b.sj||[]).indexOf(sid)!==-1; });
 }
+/* 13.es — l'importunité. Le mot est de lui : « quand je commence à prier pour
+   quelqu'un, ou pour un sujet, je dois avoir un compteur, bouton +, pour
+   incrémenter le nombre de fois que je fais cette demande ». L'ami qui frappe
+   à minuit obtient par son importunité et non par amitié : frapper une fois de
+   plus est un ACTE, pas une statistique, et l'application ne frappe pas à sa
+   place (P9).
+   13.eq le déduisait des séances. C'était faux de part en part : il demande en
+   voiture, la nuit, hors de toute séance pointée — et une séance qui parcourt
+   la liste n'est pas trente-huit demandes.
+   Une fois est une FICHE, et non un nombre rangé dans le sujet : deux
+   appareils qui frappent chacun de leur côté additionnent leurs fois au lieu
+   d'en écraser une (13.bd), la tape de trop se retire une à une (13.cl), et la
+   plus ancienne date la première prière — la colonne que son cahier a déjà,
+   lui qui n'a justement pas de compteur. */
+function impsDe(sid){
+  return (db.imps||[]).filter(function(x){ return x.s===sid; })
+    .sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+}
+function impFois(sid){ return impsDe(sid).length; }
+function impDernier(sid){ const l=impsDe(sid); return l.length ? (l[0].ts||0) : 0; }
+function impPremier(sid){ const l=impsDe(sid); return l.length ? (l[l.length-1].ts||0) : 0; }
+function importune(sid){
+  if(!sujet(sid)) return null;
+  db.imps=db.imps||[];
+  const x={id:uid("i"), s:sid, ts:Date.now(), maj:Date.now()};
+  db.imps.push(x);
+  return x;
+}
+/* Ce qui se lit d'un compteur en une ligne. Sans engagement il se dit seul ;
+   avec, il se dit sur le nombre que LUI a fixé — jamais l'application. */
+function impTxt(s){
+  if(!s) return "";
+  const f=impFois(s.id), n=sujetBut(s);
+  if(!n) return f ? "Demandé "+f+" fois" : "Jamais demandé";
+  return "Demandé "+f+" fois sur "+n+(f>=n ? " — tu l'as fait" : "");
+}
+/* La première prière : la plus ancienne trace, d'où qu'elle vienne. */
 function sujetDepuis(sid){
   let d=null;
   sujetBlocs(sid).forEach(function(b){ if(d===null || b.deb<d) d=b.deb; });
+  const i=impPremier(sid);
+  if(i && (d===null || i<d)) d=i;
   return d;
 }
 function sujetFois(sid){ return seancesDe(sid).length; }
+/* 13.es — frapper, c'est aussi porter : une tape est un signe au même titre
+   qu'une séance pointée. Sans cela on lui reprocherait une attente le jour
+   même où il vient de demander. */
 function sujetDernier(sid){
   let d=null;
   sujetBlocs(sid).forEach(function(b){ if(d===null || b.deb>d) d=b.deb; });
+  const i=impDernier(sid);
+  if(i && (d===null || i>d)) d=i;
   return d;
 }
 /* Les séances où ce sujet a été nommé, de la plus récente à la plus
-   ancienne — la colonne NUMÉRO du cahier, mais déroulée.
-   Elle compte des prières, pas des blocs. Une prière coupée en quatre et
+   ancienne : l'histoire du sujet, et non son compteur — celui-là se tape
+   à la main (13.es). Elle compte des prières, pas des blocs. Une prière coupée en quatre et
    reprise trois fois est UNE fois : la compter quatre ferait dire au cahier
    qu'on a porté ce sujet quatre jours, et un nombre faux est pire que pas
    de nombre (13.ch, 13.eh). De chaque séance on garde le bloc le plus
@@ -192,10 +236,18 @@ function seancesDe(sid){
   });
   return out.sort(function(a,b){ return b.deb-a.deb; });
 }
+/* 13.es — ce qu'une ligne dit d'un sujet : combien de fois il a frappé, et
+   depuis quand. Les séances ne s'appellent plus des « fois » : elles restent
+   de l'histoire, et les deux nombres ne se confondent jamais. */
 function sujetHist(sid){
-  const d=sujetDepuis(sid), f=sujetFois(sid);
+  const d=sujetDepuis(sid);
   if(!d) return "";
-  return f>1 ? "nommé "+f+" fois, depuis le "+dateJour(d) : "nommé le "+dateJour(d);
+  if(!impFois(sid)){
+    const n=sujetFois(sid);
+    return n>1 ? "nommé dans "+n+" séances, depuis le "+dateJour(d)
+               : "nommé le "+dateJour(d);
+  }
+  return impTxt(sujet(sid))+", depuis le "+dateJour(d);
 }
 /* Un sujet n'appartient pas à une séance : il revient. « Merci pour le
    travail » est écrit dix fois dans le cahier, et c'est sa répétition qui se
@@ -1136,25 +1188,20 @@ function sujetPour(gid, txt){
   db.sujets.push({id:id, txt:v, g:gid, maj:Date.now()});
   return id;
 }
-/* Le compte n'est pas un objectif que l'application fixe : c'est un
-   engagement qu'il prend. Il se lit à l'envers depuis les séances (13.di) —
-   rien à tenir à jour, rien qui puisse se désaccorder. Et il compte des
-   prières, pas des blocs : une prière reprise trois fois est une fois. */
+/* Le nombre visé n'est pas un objectif que l'application fixe : c'est un
+   engagement qu'il prend — douze fois, cent fois. Ce qu'on compte en face,
+   depuis 13.es, ce sont ses tapes et non les séances : voir impFois(). */
 function sujetBut(s){ return (s && s.n>0) ? s.n : 0; }
 function sujetReste(s){
   const n=sujetBut(s); if(!n) return null;
-  return Math.max(0, n - sujetFois(s.id));
+  return Math.max(0, n - impFois(s.id));
 }
-function sujetCompte(s){
-  const n=sujetBut(s); if(!n) return "";
-  const f=sujetFois(s.id);
-  return "Demandé "+f+" fois sur "+n+(f>=n ? " — tu l'as fait" : "");
-}
+function sujetCompte(s){ return sujetBut(s) ? impTxt(s) : ""; }
 /* Un vœu tenu est une chose qu'Il a vue, pas une alerte : il se dit une fois
    et c'est le disciple qui le retire, jamais l'application (P9). */
 function sujetsTenus(){
   return (db.sujets||[]).filter(function(s){
-    return !s.vu && sujetBut(s) && sujetFois(s.id)>=sujetBut(s); });
+    return !s.vu && sujetBut(s) && impFois(s.id)>=sujetBut(s); });
 }
 /* Le dernier signe d'une personne : la dernière séance où l'un de ses sujets
    a été nommé. Faute de séance, l'horloge part du jour où le sujet a été
@@ -1210,7 +1257,7 @@ function rappelPorte(){
     h+=titreBloc("Tu l'avais dit, tu l'as fait", at.length?"ecart":"")
       + liste(tenus.map(function(s){
           return ligne({titre:esc(sujetTxt(s.id)),
-            sous:"Demandé "+sujetFois(s.id)+" fois, comme tu l'avais dit",
+            sous:"Demandé "+impFois(s.id)+" fois, comme tu l'avais dit",
             apres:`<span class="coche">✓</span>`,
             attr:'data-sjvu="'+s.id+'"'});
         }).join(""), "lien");
@@ -1257,13 +1304,20 @@ function vPorte(){
           : "Tu ne l'as encore jamais nommé dans une prière."}</div>`;
   if(ss.length){
     h+=titreBloc("Ce que tu demandes");
+    /* 13.es — le + est ici, sur la ligne : demander pour quelqu'un et
+       compter la demande sont le même instant, et ce qu'on fait tous les
+       jours doit coûter un geste (AGENTS §2.g). La pastille est dans le
+       lien, mais closest() la trouve avant lui : taper le nombre compte une
+       fois, taper le reste de la ligne ouvre le sujet. */
     h+=liste(ss.map(function(s){
-      const c=sujetCompte(s), ex=exauceTxt(s.id);
+      const ex=exauceTxt(s.id);
       return ligne({titre:esc(sujetTxt(s.id)),
-        sous:[esc(sujetHist(s.id) || "jamais nommé"), c?esc(c):"",
+        sous:[esc(sujetHist(s.id) || "jamais demandé"),
               ex?`<span class="exauce">${esc(ex)}</span>`:""].filter(Boolean).join(" · "),
+        apres:`<span class="imp" data-imp="${s.id}">${impFois(s.id)}${PLUS}</span>`,
         attr:'data-sujo="'+s.id+'"'});
     }).join(""), "lien");
+    h+=`<div class="block amorce">Le <b>+</b> compte une fois de plus. C'est l'importunité : l'ami de minuit obtient à force de frapper, pas à force d'être ami.</div>`;
   } else {
     h+=`<p class="vide">Rien d'écrit pour l'instant.</p>`;
   }
@@ -1721,14 +1775,39 @@ function vSujet(){
       : (node(s.lie) ? "Ce sujet suit un acte de ton mémorial." : "")) : "";
   let h=`<div class="block" style="margin-top:20px">
       <p class="grand" style="font-size:21px">${esc(sujetTxt(s.id))}</p>
-      <p class="meta">${esc(sujetHist(s.id) || "jamais nommé dans une séance")}</p>
+      <p class="meta">${esc(sujetHist(s.id) || "jamais demandé")}</p>
     </div>`;
-  h+=titreBloc("Ce qu'Il a fait");
+  /* 13.es — le compteur en premier et en grand : c'est le geste du
+     quotidien, il ne se cherche pas au bas d'un écran. */
+  h+=`<div class="block impbloc">
+      <div class="impn">${impFois(s.id)}</div>
+      <div class="impl">fois demandé${sujetBut(s) ? " sur "+sujetBut(s)+" que tu t'es promis" : ""}</div>
+    </div>`;
+  h+=`<div class="block">${bouton("J'ai demandé une fois de plus", 'data-imp="'+s.id+'"')}</div>`;
+  h+=`<div class="block amorce">« C'est à cause de son importunité qu'il se lèvera et lui donnera. » Compte chaque fois que tu portes ceci devant Dieu — l'application ne frappe pas à ta place.</div>`;
+  h+=titreBloc("Ce qu'Il a fait","ecart");
   h+= ex.length
     ? liste(ex.map(function(n){ return ligneActe(n,{attr:'data-node="'+n.id+'"'}); }).join(""))
     : `<p class="vide">Rien encore. Tu le portes toujours.</p>`;
+  /* Un compteur qu'on ne peut pas reprendre n'est pas un compteur (13.cl) :
+     la tape de trop se retire ici. Et la plus ancienne est la « date
+     première prière » de son cahier, sans qu'on ait eu à la demander. */
+  const im=impsDe(s.id);
+  if(im.length){
+    h+=titreBloc("Chaque fois que tu as demandé","ecart");
+    const montre = im.length>12 ? im.slice(0,10) : im;
+    h+=liste(montre.map(function(x){
+      return ligne({titre:esc(dateJour(x.ts)), sous:esc(hmin(new Date(x.ts))),
+        apres:`<span class="rouge">retirer</span>`,
+        attr:'data-impx="'+x.id+'"'});
+    }).join("")
+    + (montre.length<im.length
+       ? ligne({titre:"Et "+(im.length-montre.length)+" autres",
+           sous:"La première, le "+esc(dateJour(impPremier(s.id)))})
+       : ""), "lien");
+  }
   if(se.length){
-    h+=titreBloc("Les fois où tu l'as nommé","ecart");
+    h+=titreBloc("Les séances où tu l'as nommé","ecart");
     h+=liste(se.map(function(b){
       const n=seanceDe(b).length;
       return ligne({titre:esc(dateJour(b.deb)),
@@ -1752,10 +1831,10 @@ function vSujet(){
       + (db.gens||[]).map(function(g){
           return `<option value="${g.id}"${sujetGens(s)===g.id?" selected":""}>${esc(g.nom)}</option>`;
         }).join("")));
-  h+=titreBloc("Combien de fois","ecart");
+  h+=titreBloc("Combien de fois tu t'es engagé","ecart");
   h+=`<div class="block amorce">${sujetBut(s)
-      ? "<b>"+esc(sujetCompte(s))+".</b> Ce n'est pas l'application qui a fixé ce nombre — c'est toi."
-      : "Si tu t'es engagé à demander ceci un certain nombre de fois, dis-le. Vide, ou zéro, pour ne pas compter."}</div>`;
+      ? "<b>"+esc(impTxt(s))+".</b> Ce n'est pas l'application qui a fixé ce nombre — c'est toi."
+      : "Si tu t'es engagé à demander ceci un certain nombre de fois, dis-le. Vide, ou zéro, pour compter sans terme."}</div>`;
   h+=champ("sjN","Combien de fois","number", sujetBut(s)||"", 'min="0" inputmode="numeric"');
   h+=`<div class="block">${bouton("Garder", 'data-act="sjPour"')}</div>`;
   Z.html=h;

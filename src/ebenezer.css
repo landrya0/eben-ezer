@@ -787,3 +787,15 @@ textarea.dicte:focus{outline:0}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
 }
+
+/* 13.es — l'importunité. La pastille porte le compte ET la tape : sur la
+   fiche d'une personne, chaque sujet se compte sans quitter l'écran. Assez
+   large pour le pouce, assez discrète pour ne pas voler la ligne. */
+.imp{display:inline-flex;align-items:center;gap:5px;padding:7px 11px;border-radius:999px;
+  background:var(--f7-theme-color);color:#fff;font-weight:700;font-size:15px;line-height:1}
+.imp svg{width:14px;height:14px;display:block}
+/* Le compteur de la fiche du sujet : le nombre est l'écran. */
+.impbloc{text-align:center;margin-top:18px;margin-bottom:10px}
+.impn{font-size:52px;font-weight:700;line-height:1;color:var(--f7-theme-color);
+  font-variant-numeric:tabular-nums}
+.impl{margin-top:4px;font-size:14px;opacity:.65}

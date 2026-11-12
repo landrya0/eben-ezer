@@ -97,7 +97,7 @@ function supCible(v){
   return p.length>1 ? {b:blocT(p[0]), i:+p[1]} : {b:blocT(S.blocId), i:+p[0]};
 }
 document.addEventListener("click", function(ev){
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-dis],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-dok],[data-ryth],[data-rythn],[data-porte],[data-sjvu],[data-ndisc],[data-douv],[data-adisc],[data-adiscn],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-lvsp],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjlie],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-dis],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-dok],[data-ryth],[data-rythn],[data-porte],[data-sjvu],[data-imp],[data-impx],[data-ndisc],[data-douv],[data-adisc],[data-adiscn],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-lvsp],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjlie],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
   if(!t) return;
   /* UN SEUL entonnoir pour tous les gestes de l'application : la sonde se
      tient ici, et nulle part ailleurs. Le `finally` est ce qui la rend
@@ -336,7 +336,38 @@ function geste(g, t){
   if(g.sjvu){
     const s=sujet(g.sjvu); if(!s) return;
     s.vu=Date.now(); touche(s); save();
-    toast("Noté. Il l'a entendu "+sujetFois(s.id)+" fois.");
+    toast("Noté. Il l'a entendu "+impFois(s.id)+" fois.");
+    return render();
+  }
+  /* 13.es — une tape, une fois. Le compteur de l'importunité ne bouge que
+     par ce geste-ci : l'application ne frappe pas à sa place, et ne déduit
+     plus rien des séances. Le sujet n'est touché que s'il change vraiment —
+     bousculer son maj à chaque tape fausserait « depuis qu'il est écrit ». */
+  if(g.imp){
+    const s=sujet(g.imp); if(!s) return;
+    if(!importune(s.id)) return;
+    const f=impFois(s.id), n=sujetBut(s);
+    /* Rien à défaire ici : une tape ne fait que monter. Ce qui peut faire
+       repasser le compte sous l'engagement, c'est retirer une fois ou
+       relever le nombre visé — et ces deux-là défont le vœu eux-mêmes. */
+    save();
+    toast(n ? (f>=n ? "Fois "+f+" sur "+n+" — tu l'as fait."
+                    : "Fois "+f+" sur "+n+".")
+            : "Demandé "+f+" fois.");
+    return render();
+  }
+  /* Et la tape de trop se retire (13.cl). Elle passe par db.morts, sinon la
+     prochaine réunion la ressuscite (13.be). */
+  if(g.impx){
+    const x=(db.imps||[]).filter(function(y){ return y.id===g.impx; })[0];
+    if(!x) return;
+    const sid=x.s;
+    db.imps=db.imps.filter(function(y){ return y.id!==x.id; });
+    tue(x.id);
+    const s=sujet(sid), n=s ? sujetBut(s) : 0;
+    if(s && s.vu && n && impFois(sid)<n){ delete s.vu; touche(s); }
+    save();
+    toast("Retiré. "+impFois(sid)+" fois.");
     return render();
   }
   /* 13.ep — ouvrir une routine pour y dire son rythme. */
@@ -725,7 +756,7 @@ const actions={
     /* Changer le nombre rouvre un vœu qu'on avait retiré : sinon dire
        « finalement, cent fois » laisserait l'accompli d'hier barrer
        l'écran pour toujours. */
-    if(s.vu && sujetBut(s) && sujetFois(s.id)<sujetBut(s)) delete s.vu;
+    if(s.vu && sujetBut(s) && impFois(s.id)<sujetBut(s)) delete s.vu;
     touche(s); save();
     toast(sujetBut(s) ? sujetCompte(s)+"." : "Gardé.");
     return render();

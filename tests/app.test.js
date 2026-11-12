@@ -1503,7 +1503,7 @@ test("13.dg — l'histoire d'un sujet se déduit des séances, elle ne se saisit
   const s = cahier(a);
   A.equal(a.f.sujetFois(s), 3);
   A.equal(a.f.sujetDepuis(s), jour(1, 6, 0), "la première prière est la plus ancienne séance");
-  A.match(a.f.sujetHist(s), /3 fois/);
+  A.match(a.f.sujetHist(s), /3 séances/);
   A.match(a.f.sujetHist(s), /1er novembre/);
 });
 
@@ -1678,7 +1678,7 @@ test("13.di — la fiche déplie la ligne du cahier", () => {
   a.geste({ sujo: s.q });
   A.equal(a.S.view, "sujet");
   a.f.vSujet();
-  A.match(a.Z.html, /nommé 3 fois, depuis le 1er novembre/);
+  A.match(a.Z.html, /nommé dans 3 séances, depuis le 1er novembre/);
   A.match(a.Z.html, /Le contrat est signé/);
   A.deepEqual(Array.from(a.f.seancesDe(s.q), b => b.id), ["b3", "b2", "b1"],
     "les séances, de la plus récente à la plus ancienne");
@@ -5600,21 +5600,25 @@ test("13.eq — le compteur compte des prières, pas des blocs", () => {
   A.equal(a.f.sujetFois("s3"), 1, "une prière reprise est une fois, pas deux");
   a.db.temps.push(bloc("b4", "t1", jour(5, 7, 0), jour(5, 7, 20), { sj: ["s3"] }));
   A.equal(a.f.sujetFois("s3"), 2);
-  A.equal(a.f.sujetCompte(a.f.sujet("s3")), "Demandé 2 fois sur 100");
-  A.equal(a.f.sujetReste(a.f.sujet("s3")), 98);
+  /* 13.es — et ces deux séances ne touchent PAS le compteur : l'importunité
+     est un acte, pas une statistique. */
+  A.equal(a.f.impFois("s3"), 0);
+  A.equal(a.f.sujetCompte(a.f.sujet("s3")), "Demandé 0 fois sur 100");
+  A.equal(a.f.sujetReste(a.f.sujet("s3")), 100);
 });
 
 test("13.eq — le compte atteint se dit, et ne se ferme pas tout seul", () => {
   const a = app();
   ceuxQuAttendent(a);
   a.f.sujet("s3").n = 2;
-  a.db.temps.push(bloc("b4", "t1", jour(5, 7, 0), jour(5, 7, 20), { sj: ["s3"] }));
-  A.equal(a.f.sujetFois("s3"), 2);
+  a.f.render = function () {};
+  a.ctx.geste({ imp: "s3" });
+  a.ctx.geste({ imp: "s3" });
+  A.equal(a.f.impFois("s3"), 2);
   A.match(a.f.sujetCompte(a.f.sujet("s3")), /Demandé 2 fois sur 2 — tu l'as fait/);
   A.deepEqual(Array.from(a.f.sujetsTenus()).map(s => s.id), ["s3"]);
   A.match(a.f.rappelPorte(), /Tu l'avais dit, tu l'as fait/);
   /* C'est lui qui le retire (P9). */
-  a.f.render = function () {};
   a.ctx.geste({ sjvu: "s3" });
   A.ok(a.f.sujet("s3").vu > 0);
   A.equal(a.f.sujetsTenus().length, 0);
@@ -5699,6 +5703,8 @@ test("13.eq — la fiche d'une personne tient ses demandes distinctes", () => {
   A.match(a.Z.html, /Dernière fois que tu l'as nommé : <b>2 jours<\/b>/);
   A.match(a.Z.html, /data-act="pgAdd"/);
   a.S.porteG = "g2";
+  a.f.render = function () {};
+  a.ctx.geste({ imp: "s3" });
   a.f.vPorte();
   A.match(a.Z.html, /Demandé 1 fois sur 100/);
   A.equal(a.Z.html.indexOf("Sa santé"), -1, "les demandes de l'un ne sont pas celles de l'autre");
@@ -5989,4 +5995,208 @@ test("13.er — ce qui est dit ne se fait plus proposer", () => {
   a.actions.saveNote();
   const n = a.db.nodes[a.db.nodes.length - 1];
   A.equal(n.d, "servir", "et non la routine du bloc pendant lequel il notait");
+});
+
+/* ========================================================================
+   13.es — l'importunité se compte à la main
+   ======================================================================== */
+
+/* Un sujet pour quelqu'un, et rien de frappé encore. */
+function aFrapper(a) {
+  ceuxQuAttendent(a);
+  a.f.render = function () {};
+  return a;
+}
+function frappe(a, sid, n) {
+  for (let i = 0; i < (n || 1); i++) a.ctx.geste({ imp: sid });
+}
+
+test("13.es — le compteur ne bouge que par la tape, jamais par une séance", () => {
+  const a = app();
+  aFrapper(a);
+  /* Deux séances nomment s3 : l'archive les voit, le compteur ne bouge pas. */
+  a.db.temps.push(bloc("b4", "t1", jour(5, 7, 0), jour(5, 7, 20), { sj: ["s3"] }));
+  A.ok(a.f.sujetFois("s3") >= 2, "les séances restent de l'histoire");
+  A.equal(a.f.impFois("s3"), 0, "frapper est un acte, il ne se déduit pas");
+  frappe(a, "s3");
+  A.equal(a.f.impFois("s3"), 1);
+  A.ok(a.f.sujetFois("s3") >= 2, "et la tape ne fabrique pas de séance en retour");
+});
+
+test("13.es — une tape est une fiche datée, et non un nombre dans le sujet", () => {
+  const a = app();
+  aFrapper(a);
+  const avant = a.f.sujet("s1").maj;
+  frappe(a, "s1", 3);
+  A.equal(a.db.imps.length, 3, "trois fiches, pas un champ à 3");
+  A.equal(a.db.imps.filter(x => x.s === "s1").length, 3);
+  a.db.imps.forEach(x => {
+    A.ok(x.id, "chaque fois a son identifiant, sinon la réunion en écrase");
+    A.ok(x.ts > 0, "et son jour");
+  });
+  A.equal(a.f.sujet("s1").n, undefined, "le sujet ne porte toujours pas de compte");
+  A.equal(a.f.sujet("s1").maj, avant,
+    "une tape ne bouscule pas le sujet : sinon « depuis qu'il est écrit » dérive");
+});
+
+test("13.es — la plus ancienne tape est la date de première prière", () => {
+  const a = app();
+  aFrapper(a);
+  /* s2 n'a jamais été nommé dans une séance : rien ne le date encore. */
+  A.equal(a.f.sujetDepuis("s2"), null);
+  frappe(a, "s2");
+  const t = a.f.impPremier("s2");
+  A.ok(t > 0);
+  A.equal(a.f.sujetDepuis("s2"), t, "la colonne que son cahier a — sans l'avoir demandée");
+  frappe(a, "s2");
+  A.equal(a.f.sujetDepuis("s2"), t, "et la deuxième ne la remplace pas");
+});
+
+test("13.es — la première et la dernière fois ne se confondent pas", () => {
+  const a = app();
+  aFrapper(a);
+  /* Deux tapes à cinq jours d'écart : deux tapes dans la même milliseconde
+     se valent, et c'est ce qui avait laissé passer la confusion. */
+  a.db.imps = [{ id: "i1", s: "s2", ts: jour(1, 9, 0), maj: 1 },
+               { id: "i2", s: "s2", ts: jour(6, 9, 0), maj: 1 }];
+  A.equal(a.f.impPremier("s2"), jour(1, 9, 0));
+  A.equal(a.f.impDernier("s2"), jour(6, 9, 0));
+  A.equal(a.f.sujetDepuis("s2"), jour(1, 9, 0), "la première prière est la plus ancienne");
+  A.equal(a.f.sujetDernier("s2"), jour(6, 9, 0),
+    "et l'attente se compte depuis la dernière — sinon l'écran accuse à tort");
+  const x = Array.from(a.f.porteAttente()).filter(y => y.g.id === "g1")[0];
+  A.equal(x.j, 2, "deux jours, et non sept");
+});
+
+test("13.es — deux appareils qui frappent additionnent leurs fois", () => {
+  const a = app();
+  const s = { id: "s1", txt: "Sa délivrance", g: "g1", maj: 1 };
+  const A1 = a.f.sane({ sujets: [s], imps: [{ id: "i1", s: "s1", ts: 100, maj: 100 }] });
+  const B1 = a.f.sane({ sujets: [s], imps: [{ id: "i2", s: "s1", ts: 200, maj: 200 }] });
+  const out = a.f.fusionne(A1, B1);
+  A.equal(out.imps.length, 2,
+    "un nombre rangé dans le sujet aurait perdu la tape du second appareil");
+});
+
+test("13.es — la tape de trop se retire, et ne ressuscite pas", () => {
+  const a = app();
+  aFrapper(a);
+  frappe(a, "s1", 2);
+  const id = a.db.imps[1].id;
+  a.ctx.geste({ impx: id });
+  A.equal(a.f.impFois("s1"), 1, "un compteur qu'on ne peut pas reprendre n'en est pas un");
+  A.ok(a.db.morts[id] > 0, "sans pierre tombale, la prochaine réunion la ramène");
+  const B1 = a.f.sane({ imps: [{ id: id, s: "s1", ts: 100, maj: 100 }] });
+  A.equal(a.f.fusionne(a.f.sane(a.db), B1).imps.length, 1);
+});
+
+test("13.es — retirer une fiche qui n'existe pas ne touche à rien", () => {
+  const a = app();
+  aFrapper(a);
+  frappe(a, "s1");
+  a.ctx.geste({ impx: "i-inconnu" });
+  A.equal(a.f.impFois("s1"), 1);
+  a.ctx.geste({ imp: "s-inconnu" });
+  A.equal(a.db.imps.length, 1, "on ne frappe pas pour un sujet qui n'existe pas");
+});
+
+test("13.es — frapper, c'est aussi porter : la personne sort de l'attente", () => {
+  const a = app();
+  aFrapper(a);
+  const avant = Array.from(a.f.porteAttente()).map(x => x.g.id);
+  A.ok(avant.indexOf("g2") !== -1, "Toussaint attend depuis sa dernière séance");
+  frappe(a, "s3");
+  const apres = Array.from(a.f.porteAttente()).map(x => x.g.id);
+  A.equal(apres.indexOf("g2"), -1,
+    "il vient de demander pour lui : lui reprocher l'attente serait faux");
+  A.ok(a.f.rappelPorte().indexOf("Toussaint") === -1);
+});
+
+test("13.es — le vœu se tient par les tapes, et se défait si on en retire une", () => {
+  const a = app();
+  aFrapper(a);
+  a.f.sujet("s3").n = 2;
+  frappe(a, "s3", 2);
+  A.deepEqual(Array.from(a.f.sujetsTenus()).map(s => s.id), ["s3"]);
+  a.ctx.geste({ sjvu: "s3" });
+  A.equal(a.f.sujetsTenus().length, 0, "c'est lui qui le retire (P9)");
+  /* Et s'il retire une tape, le vœu n'est plus tenu : il se redira. */
+  a.ctx.geste({ impx: a.db.imps[0].id });
+  A.equal(a.f.sujet("s3").vu, undefined);
+  A.deepEqual(Array.from(a.f.sujetsTenus()).map(s => s.id), [],
+    "une fois de moins que promis : le vœu n'est pas tenu, et ne se vante pas");
+  frappe(a, "s3");
+  A.deepEqual(Array.from(a.f.sujetsTenus()).map(s => s.id), ["s3"]);
+});
+
+test("13.es — le + est sur la fiche de la personne, là où il prie", () => {
+  const a = app();
+  aFrapper(a);
+  a.S.porteG = "g1";
+  a.f.vPorte();
+  A.match(a.Z.html, /data-imp="s1"/);
+  A.match(a.Z.html, /data-imp="s2"/);
+  A.match(a.Z.html, /importunité/);
+  /* La pastille est DANS le lien du sujet : c'est closest() qui tranche. */
+  const i = a.Z.html.indexOf('data-sujo="s1"'), j = a.Z.html.indexOf('data-imp="s1"');
+  A.ok(i !== -1 && j > i, "le + se trouve avant que le lien ne l'emporte");
+  frappe(a, "s1", 4);
+  a.f.vPorte();
+  A.match(a.Z.html, /data-imp="s1">4/, "le compte se lit sur la pastille");
+});
+
+test("13.es — la fiche du sujet montre le compte, le bouton, et chaque fois", () => {
+  const a = app();
+  aFrapper(a);
+  a.S.view = "sujet"; a.S.sujId = "s3";
+  a.f.vSujet();
+  A.match(a.Z.html, /<div class="impn">0<\/div>/);
+  A.match(a.Z.html, /J'ai demandé une fois de plus/);
+  A.match(a.Z.html, /data-imp="s3"/);
+  A.equal(a.Z.html.indexOf("Chaque fois que tu as demandé"), -1, "rien à retirer encore");
+  frappe(a, "s3", 2);
+  a.f.vSujet();
+  A.match(a.Z.html, /<div class="impn">2<\/div>/);
+  A.match(a.Z.html, /sur 100 que tu t'es promis/);
+  A.match(a.Z.html, /Chaque fois que tu as demandé/);
+  A.equal((a.Z.html.match(/data-impx=/g) || []).length, 2, "chacune se retire");
+});
+
+test("13.es — au-delà de douze fois, la liste se replie et dit la première", () => {
+  const a = app();
+  aFrapper(a);
+  a.S.view = "sujet"; a.S.sujId = "s3";
+  frappe(a, "s3", 12);
+  a.f.vSujet();
+  A.equal((a.Z.html.match(/data-impx=/g) || []).length, 12, "douze tiennent encore");
+  frappe(a, "s3");
+  a.f.vSujet();
+  A.equal((a.Z.html.match(/data-impx=/g) || []).length, 10);
+  A.match(a.Z.html, /Et 3 autres/);
+  A.match(a.Z.html, /La première, le/);
+});
+
+test("13.es — les séances ne s'appellent plus des « fois »", () => {
+  const a = app();
+  aFrapper(a);
+  a.S.view = "sujet"; a.S.sujId = "s3";
+  a.f.vSujet();
+  A.match(a.Z.html, /Les séances où tu l'as nommé/);
+  A.equal(a.Z.html.indexOf("Les fois où tu l'as nommé"), -1,
+    "deux nombres distincts ne portent pas le même mot");
+  A.match(a.f.sujetHist("s3"), /nommé le/, "sans tape, l'histoire est celle des séances");
+  frappe(a, "s3");
+  A.match(a.f.sujetHist("s3"), /Demandé 1 fois sur 100, depuis le/,
+    "dès la première tape, c'est l'importunité qui parle");
+});
+
+test("13.es — sans engagement, le compte se dit seul", () => {
+  const a = app();
+  aFrapper(a);
+  A.equal(a.f.impTxt(a.f.sujet("s1")), "Jamais demandé");
+  A.equal(a.f.sujetCompte(a.f.sujet("s1")), "", "pas d'engagement, pas de « sur N »");
+  frappe(a, "s1", 5);
+  A.equal(a.f.impTxt(a.f.sujet("s1")), "Demandé 5 fois");
+  A.equal(a.f.sujetReste(a.f.sujet("s1")), null);
+  A.equal(a.f.sujetReste(a.f.sujet("s3")), 100);
 });

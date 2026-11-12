@@ -97,7 +97,7 @@ function supCible(v){
   return p.length>1 ? {b:blocT(p[0]), i:+p[1]} : {b:blocT(S.blocId), i:+p[0]};
 }
 document.addEventListener("click", function(ev){
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-dis],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-dok],[data-ryth],[data-rythn],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-lvsp],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjlie],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-dis],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-dok],[data-ryth],[data-rythn],[data-porte],[data-sjvu],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-lvsp],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjlie],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
   if(!t) return;
   /* UN SEUL entonnoir pour tous les gestes de l'application : la sonde se
      tient ici, et nulle part ailleurs. Le `finally` est ce qui la rend
@@ -304,6 +304,18 @@ function geste(g, t){
   /* 13.em — confirmer une devinette écrit exactement ce qui était déjà
      calculé : aucun total ne bouge. Ce qui change, c'est que l'app cesse de
      supposer — et le geste reste celui du disciple, jamais le sien (P9). */
+  /* 13.eq — la fiche de quelqu'un qu'on porte. */
+  if(g.porte){
+    if(!gensNom(g.porte)) return;
+    empile(); S.porteG=g.porte; S.view="porte"; return render();
+  }
+  /* Un vœu tenu se retire d'un geste du disciple, jamais tout seul (P9). */
+  if(g.sjvu){
+    const s=sujet(g.sjvu); if(!s) return;
+    s.vu=Date.now(); touche(s); save();
+    toast("Noté. Il l'a entendu "+sujetFois(s.id)+" fois.");
+    return render();
+  }
   /* 13.ep — ouvrir une routine pour y dire son rythme. */
   if(g.ryth){
     if(!DISC.filter(function(x){ return x[0]===g.ryth; }).length) return;
@@ -672,6 +684,29 @@ const actions={
   /* Un sujet qu'on ne peut pas corriger n'est pas une fiche (13.ct). Mais on
      ne réunit rien à sa place : si le texte est déjà celui d'un autre sujet,
      on le dit et on s'arrête là. */
+  /* 13.eq — écrire une demande propre à quelqu'un, depuis sa fiche. */
+  pgAdd(){
+    const gid=S.porteG;
+    if(!gensNom(gid)) return;
+    const id=sujetPour(gid, val("pgSj"));
+    if(!id) return toast("Écris ce que tu demandes");
+    save(); toast("Ajouté."); return render();
+  },
+  /* Pour qui, et combien de fois : le même geste. */
+  sjPour(){
+    const s=sujet(S.sujId); if(!s) return;
+    const gi=String(val("sjG")||"");
+    if(gi && gensNom(gi)) s.g=gi; else delete s.g;
+    const n=parseInt(val("sjN"), 10);
+    if(n>0) s.n=n; else delete s.n;
+    /* Changer le nombre rouvre un vœu qu'on avait retiré : sinon dire
+       « finalement, cent fois » laisserait l'accompli d'hier barrer
+       l'écran pour toujours. */
+    if(s.vu && sujetBut(s) && sujetFois(s.id)<sujetBut(s)) delete s.vu;
+    touche(s); save();
+    toast(sujetBut(s) ? sujetCompte(s)+"." : "Gardé.");
+    return render();
+  },
   sjGarder(){
     const s=sujet(S.sujId); if(!s) return;
     const v=String(val("sjTxt")||"").trim().replace(/\s+/g," ");

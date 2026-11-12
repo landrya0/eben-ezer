@@ -917,6 +917,9 @@ function dynParoles(){
    seuil n'est pas un réglage : c'est le nombre de points en dessous duquel
    la phrase serait du bruit présenté comme un mouvement. */
 const DYN = [
+  {id:"progres", nom:"Ta semaine contre la précédente",
+   quoi:"Ce qui va à Dieu, cette semaine contre la semaine d'avant.",
+   faut:14, unite:["jour compté","jours comptés"], ou:function(){ return joursComptes(); }, lit:dynProgres},
   {id:"jour", nom:"Le rythme de tes journées",
    quoi:"À quelle heure du jour tu es à Lui, et à quelle heure jamais.",
    faut:14, unite:["jour compté","jours comptés"], ou:function(){ return joursComptes(); }, lit:dynJour},
@@ -1088,6 +1091,203 @@ function vRythme(){
         attr:'data-rythn="'+d+':0"'}));
   h+=`<div class="block amorce">Ce qui compte comme signe : un bloc pointé sur une activité qui porte cette routine, ou un temps mis à part — une retraite en cours se vit maintenant, même si elle ne pèse aucune heure.</div>`;
   Z.html=h;
+}
+
+/* ---------- ceux que je porte (13.eq) --------------------------------------
+   « j'ai la responsabilité de prier pour des gens […] des choses spécifiques
+   que je demande à Dieu pour chaque personne, ça doit être distinct. »
+   Mesure du 12 novembre 2026 : six personnes, deux sujets, et pas un seul
+   sujet rattaché à une personne. Ce n'était pas l'alerte qui manquait, c'est
+   l'endroit où écrire — une alerte sur du vide n'alerte personne. */
+
+/* Pour qui ce sujet est. Le lien de 13.ek faisait déjà d'une fiche de
+   personne le sujet tout entier — « Pour Laure ». Le champ `g`, lui, laisse
+   au sujet ses propres mots tout en le rattachant : « sa santé » et « son
+   travail » sont deux sujets distincts de la même personne. */
+function sujetGens(s){
+  if(!s) return null;
+  if(s.g && gensNom(s.g)) return s.g;
+  if(s.lie && String(s.lie).charAt(0)==="g" && gensNom(s.lie)) return s.lie;
+  return null;
+}
+function sujetsDe(gid){
+  if(!gid) return [];
+  return (db.sujets||[]).filter(function(s){ return sujetGens(s)===gid; });
+}
+/* Deux personnes peuvent attendre la même chose. « Sa santé » écrit pour
+   l'une ne doit donc pas se confondre avec « sa santé » écrite pour l'autre :
+   on retrouve un sujet par le couple (la personne, les mots), jamais par les
+   mots seuls comme ailleurs dans le cahier. */
+function sujetPour(gid, txt){
+  const v=String(txt||"").trim().replace(/\s+/g," ");
+  if(!v || !gensNom(gid)) return null;
+  db.sujets=db.sujets||[];
+  const k=v.toLowerCase();
+  const f=db.sujets.filter(function(s){
+    return sujetGens(s)===gid && String(s.txt).trim().toLowerCase()===k; })[0];
+  if(f) return f.id;
+  const id=uid("s");
+  db.sujets.push({id:id, txt:v, g:gid, maj:Date.now()});
+  return id;
+}
+/* Le compte n'est pas un objectif que l'application fixe : c'est un
+   engagement qu'il prend. Il se lit à l'envers depuis les séances (13.di) —
+   rien à tenir à jour, rien qui puisse se désaccorder. Et il compte des
+   prières, pas des blocs : une prière reprise trois fois est une fois. */
+function sujetBut(s){ return (s && s.n>0) ? s.n : 0; }
+function sujetReste(s){
+  const n=sujetBut(s); if(!n) return null;
+  return Math.max(0, n - sujetFois(s.id));
+}
+function sujetCompte(s){
+  const n=sujetBut(s); if(!n) return "";
+  const f=sujetFois(s.id);
+  return "Demandé "+f+" fois sur "+n+(f>=n ? " — tu l'as fait" : "");
+}
+/* Un vœu tenu est une chose qu'Il a vue, pas une alerte : il se dit une fois
+   et c'est le disciple qui le retire, jamais l'application (P9). */
+function sujetsTenus(){
+  return (db.sujets||[]).filter(function(s){
+    return !s.vu && sujetBut(s) && sujetFois(s.id)>=sujetBut(s); });
+}
+/* Le dernier signe d'une personne : la dernière séance où l'un de ses sujets
+   a été nommé. Faute de séance, l'horloge part du jour où le sujet a été
+   écrit — écrire ne doit pas condamner (13.ep). */
+function porteDepuis(gid){
+  let der=null, ecrit=null;
+  sujetsDe(gid).forEach(function(s){
+    const x=sujetDernier(s.id);
+    if(x && (der===null || x>der)) der=x;
+    const m=s.maj||0;
+    if(m && (ecrit===null || m<ecrit)) ecrit=m;
+  });
+  return {der:der, depuis:(der||ecrit||0)};
+}
+function ceuxPortes(){
+  return (db.gens||[]).filter(function(g){ return sujetsDe(g.id).length; });
+}
+/* Rangés par l'attente, et celui qui a été nommé aujourd'hui n'y est pas :
+   c'est un tour de garde, pas un reproche — « je ne veux pas me fixer
+   d'objectif ». Aucun seuil, donc : le nombre de jours est un fait. */
+function porteAttente(){
+  return ceuxPortes().map(function(g){
+      const p=porteDepuis(g.id);
+      return {g:g, der:p.der, j:p.depuis ? joursMs(p.depuis) : 0};
+    })
+    .filter(function(x){ return x.j>0; })
+    .sort(function(a,b){ return b.j-a.j; });
+}
+function porteTxt(x){
+  if(!x) return "";
+  return x.der ? "Porté il y a "+duree(x.j)
+               : "Jamais nommé, "+duree(x.j)+" après l'avoir écrit";
+}
+function rappelPorte(){
+  const at=porteAttente(), tenus=sujetsTenus();
+  if(!at.length && !tenus.length) return "";
+  let h="";
+  if(at.length){
+    const reste=at.length-3;
+    h+=titreBloc("Ceux que tu portes","ecart")
+      + liste(at.slice(0,3).map(function(x){
+          return ligne({titre:esc(x.g.nom), sous:esc(porteTxt(x)),
+            apres:esc(sujetsTxt(sujetsDe(x.g.id).length)),
+            attr:'data-porte="'+x.g.id+'"'});
+        }).join(""), "lien")
+      + (reste>0
+         ? liste(ligne({titre:"Et "+reste+" autre"+(reste>1?"s":""),
+             sous:"Voir tous ceux que tu portes", attr:'data-go="portes"'}), "lien")
+         : "")
+      + `<div class="block amorce">Rangés par l'attente, et celui que tu as nommé aujourd'hui n'y est pas. C'est un tour de garde, pas un reproche.</div>`;
+  }
+  if(tenus.length){
+    h+=titreBloc("Tu l'avais dit, tu l'as fait", at.length?"ecart":"")
+      + liste(tenus.map(function(s){
+          return ligne({titre:esc(sujetTxt(s.id)),
+            sous:"Demandé "+sujetFois(s.id)+" fois, comme tu l'avais dit",
+            apres:`<span class="coche">✓</span>`,
+            attr:'data-sjvu="'+s.id+'"'});
+        }).join(""), "lien");
+  }
+  return h+`<div style="height:18px"></div>`;
+}
+function vPortes(){
+  Z.titre="Ceux que je porte"; Z.retour=true;
+  const at=porteAttente();
+  const dedans={}; at.forEach(function(x){ dedans[x.g.id]=1; });
+  const aujourd=ceuxPortes().filter(function(g){ return !dedans[g.id]; });
+  const sans=(db.gens||[]).filter(function(g){ return !sujetsDe(g.id).length; });
+  let h=`<div class="block amorce" style="margin-top:16px">Pour chacun, ce que tu demandes — et depuis combien de temps tu ne l'as pas nommé. Rien à régler : l'ordre est celui de l'attente.</div>`;
+  if(at.length)
+    h+=titreBloc("Qui attend")+liste(at.map(function(x){
+      return ligne({titre:esc(x.g.nom), sous:esc(porteTxt(x)),
+        apres:esc(sujetsTxt(sujetsDe(x.g.id).length)),
+        attr:'data-porte="'+x.g.id+'"'});
+    }).join(""), "lien");
+  if(aujourd.length)
+    h+=titreBloc("Nommés aujourd'hui","ecart")+liste(aujourd.map(function(g){
+      return ligne({titre:esc(g.nom), sous:"Porté aujourd'hui",
+        apres:esc(sujetsTxt(sujetsDe(g.id).length)),
+        attr:'data-porte="'+g.id+'"'});
+    }).join(""), "lien");
+  if(sans.length)
+    h+=titreBloc("Rien d'écrit encore","ecart")+liste(sans.map(function(g){
+      return ligne({titre:esc(g.nom), sous:"Aucun sujet pour cette personne",
+        attr:'data-porte="'+g.id+'"'});
+    }).join(""), "lien");
+  if(!(db.gens||[]).length)
+    h+=`<p class="vide">Personne encore. Les gens entrent dans l'archive en notant ce qu'Il a fait par eux.</p>`;
+  Z.html=h;
+}
+function vPorte(){
+  const gid=S.porteG, nom=gensNom(gid);
+  if(!gid || !nom){ depile("portes"); return render(); }
+  Z.titre=nom; Z.retour=true;
+  const ss=sujetsDe(gid).slice().sort(function(a,b){
+    return (sujetDernier(b.id)||b.maj||0)-(sujetDernier(a.id)||a.maj||0); });
+  const p=porteDepuis(gid);
+  let h=`<div class="block amorce" style="margin-top:16px">${
+    p.der ? "Dernière fois que tu l'as nommé : <b>"+esc(duree(joursMs(p.der)))+"</b>."
+          : "Tu ne l'as encore jamais nommé dans une prière."}</div>`;
+  if(ss.length){
+    h+=titreBloc("Ce que tu demandes");
+    h+=liste(ss.map(function(s){
+      const c=sujetCompte(s), ex=exauceTxt(s.id);
+      return ligne({titre:esc(sujetTxt(s.id)),
+        sous:[esc(sujetHist(s.id) || "jamais nommé"), c?esc(c):"",
+              ex?`<span class="exauce">${esc(ex)}</span>`:""].filter(Boolean).join(" · "),
+        attr:'data-sujo="'+s.id+'"'});
+    }).join(""), "lien");
+  } else {
+    h+=`<p class="vide">Rien d'écrit pour l'instant.</p>`;
+  }
+  h+=titreBloc("Demander autre chose","ecart");
+  h+=champ("pgSj","Ce que tu demandes, dans tes mots","text","",'autocapitalize="sentences"');
+  h+=`<div class="block amorce">Chaque demande est distincte : « sa santé » et « son travail » ne se mélangent pas, et chacune garde son compte.</div>`;
+  h+=`<div class="block">${bouton("Ajouter ce sujet", 'data-act="pgAdd"')}</div>`;
+  Z.html=h;
+}
+/* La dynamique qu'il a demandée à la place d'un objectif : « je ne veux pas
+   me fixer d'objectif, mais je veux être dans une dynamique de progrès ».
+   UN seul nombre — ce qui va à Dieu — et non seize : un nombre agrégé
+   supporte le bruit que seize nombres séparés ne supportent pas. D'où
+   quatorze jours comptés ici, contre vingt-et-un pour le détail (13.eo). */
+function dynProgres(){
+  const t1=minuit(0)+86400000, a0=minuit(6), b0=minuit(13);
+  const a=cumul(a0, t1).parCat.dieu||0, b=cumul(b0, a0).parCat.dieu||0;
+  if(!a && !b) return "Rien n'est allé à Dieu ces deux semaines.";
+  const e=a-b;
+  if(Math.abs(e) < DYN_BRUIT)
+    return "Tu donnes à Dieu <b>"+hm(a)+"</b> cette semaine — autant que la précédente.";
+  return "Tu donnes à Dieu <b>"+hm(a)+"</b> cette semaine, "
+    + (e>0 ? "<b>"+hm(e)+" de plus</b>" : "<b>"+hm(-e)+" de moins</b>")
+    + " que la semaine d'avant.";
+}
+function rappelProgres(){
+  if(joursComptes() < 14) return "";
+  return titreBloc("Où tu en es","ecart")
+    + `<div class="block amorce">${dynProgres()}</div>`
+    + `<div style="height:18px"></div>`;
 }
 
 /* ---------- la bibliothèque : où j'en suis dans mes livres ---------- */
@@ -1400,6 +1600,11 @@ function vCahier(){
   }
   let h=`<div class="block amorce" style="margin-top:16px">${
       esc(sujetsTxt(tous.length))+(nEx?" · "+nEx+" exaucé"+(nEx>1?"s":""):"")}</div>`
+    + liste(ligne({titre:"Ceux que je porte",
+        sous: ceuxPortes().length
+          ? ceuxPortes().length+" personne"+(ceuxPortes().length>1?"s":"")+" pour qui tu demandes quelque chose"
+          : "Rattacher un sujet à quelqu'un, et voir qui attend",
+        attr:'data-go="portes"'}), "lien")
     + `<div class="puces">${SJF.map(function(f){
         return `<button class="puce" data-sjf="${f[0]}" aria-pressed="${S.sjF===f[0]}">${f[1]}</button>`;
       }).join("")}</div>`
@@ -1455,6 +1660,21 @@ function vSujet(){
   if(suit) h+=`<div class="block amorce">${esc(suit)} Si tu écris tes propres mots, il s'en détache.</div>`;
   h+=champ("sjTxt","Le sujet, dans tes mots","text",esc(sujetTxt(s.id)),'autocapitalize="sentences"');
   h+=`<div class="block">${bouton("Garder ce texte", 'data-act="sjGarder"')}</div>`;
+  /* 13.eq — pour qui, et combien de fois. Les deux vivent ensemble : c'est
+     le même geste, « ce que je demande à Dieu pour untel, et combien de fois
+     je me suis engagé à le demander ». */
+  h+=titreBloc("Pour qui","ecart");
+  h+=liste(champSel("sjG","La personne",
+      `<option value=""${sujetGens(s)?"":" selected"}>— personne en particulier —</option>`
+      + (db.gens||[]).map(function(g){
+          return `<option value="${g.id}"${sujetGens(s)===g.id?" selected":""}>${esc(g.nom)}</option>`;
+        }).join("")));
+  h+=titreBloc("Combien de fois","ecart");
+  h+=`<div class="block amorce">${sujetBut(s)
+      ? "<b>"+esc(sujetCompte(s))+".</b> Ce n'est pas l'application qui a fixé ce nombre — c'est toi."
+      : "Si tu t'es engagé à demander ceci un certain nombre de fois, dis-le. Vide, ou zéro, pour ne pas compter."}</div>`;
+  h+=champ("sjN","Combien de fois","number", sujetBut(s)||"", 'min="0" inputmode="numeric"');
+  h+=`<div class="block">${bouton("Garder", 'data-act="sjPour"')}</div>`;
   Z.html=h;
   Z.action = bouton(ex.length ? "Il y a répondu encore" : "Il y a répondu",
     'data-sujrep="'+s.id+'"');
@@ -2180,7 +2400,7 @@ const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), acte
               tache:vTache, devine:vDevine, lecture:vLecture, pages:vPages, livre:vLivre, auteur:vAuteur,
               sujets:vSujets, annonce:vAnnonce, cahier:vCahier, sujet:vSujet,
               perNeuf:vPerNeuf, periode:vPeriode, epingles:vEpingles,
-              rythmes:vRythmes, rythme:vRythme,
+              rythmes:vRythmes, rythme:vRythme, portes:vPortes, porte:vPorte,
               sync:vSync, reglages:vReglages, ordre:vOrdre, verif:vListe(vVerif)};
 
 /* ---------- dictée ---------- */

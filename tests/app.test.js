@@ -5229,7 +5229,14 @@ test("13.eo — rien à dire se dit, plutôt que de ne rien afficher", () => {
 test("13.eo — les seuils sont ceux de la table, pas ceux de l'écran", () => {
   const a = app();
   const ids = Array.from(a.c.DYN).map(function (d) { return d.id; });
-  A.deepEqual(ids, ["jour", "semaine", "vaetvient", "parole"]);
+  A.deepEqual(ids, ["progres", "jour", "semaine", "vaetvient", "parole"]);
+  /* 13.eq — un nombre agrégé supporte le bruit que seize nombres séparés ne
+     supportent pas : la semaine contre la précédente demande moins de jours
+     que le détail des seize routines. */
+  const seuil = {};
+  Array.from(a.c.DYN).forEach(function (d) { seuil[d.id] = d.faut; });
+  A.ok(seuil.progres < seuil.semaine,
+    "l'agrégat parle avant le détail, et jamais l'inverse");
   Array.from(a.c.DYN).forEach(function (d) {
     A.ok(d.faut >= 3, d.id + " : un seuil en dessous de trois points ne protège de rien");
     A.ok(typeof d.lit === "function" && typeof d.ou === "function");
@@ -5489,4 +5496,259 @@ test("13.ep — l'écran des rythmes montre ce qui est dit et ce qui ne l'est pa
   A.match(a.Z.html, /data-rythn="priere:1"/);
   A.match(a.Z.html, /data-rythn="priere:0"/);
   A.match(a.Z.html, /Dernier signe il y a <b>10 jours<\/b>/);
+});
+
+/* ------------------------------------------------------------------
+   13.eq — on ne porte pas « des gens » : on porte celui-ci, pour cela,
+   et depuis combien de fois.
+   Mesure du 12 novembre 2026 : six personnes, deux sujets, et pas un
+   seul sujet rattaché à une personne. Ce n'était pas l'alerte qui
+   manquait, c'est l'endroit où écrire.
+   ------------------------------------------------------------------ */
+
+function ceuxQuAttendent(a) {
+  a.db.gens = [{ id: "g1", nom: "Laure", maj: 1 },
+               { id: "g2", nom: "Toussaint", maj: 1 },
+               { id: "g3", nom: "Hermine", maj: 1 }];
+  a.db.taches = [{ id: "t1", nom: "Prière du matin", cat: "dieu", d: "priere", maj: 1 }];
+  a.db.sujets = [
+    { id: "s1", txt: "Sa santé", g: "g1", maj: jour(1, 9, 0) },
+    { id: "s2", txt: "Son travail", g: "g1", maj: jour(1, 9, 0) },
+    { id: "s3", txt: "Sa conversion", g: "g2", n: 100, maj: jour(1, 9, 0) }
+  ];
+  a.db.temps = [
+    bloc("b1", "t1", jour(6, 7, 0), jour(6, 7, 20), { sj: ["s1"] }),
+    bloc("b2", "t1", jour(3, 7, 0), jour(3, 7, 20), { sj: ["s3"] })
+  ];
+  return a;
+}
+
+test("13.eq — un sujet est pour quelqu'un ET garde ses propres mots", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  A.equal(a.f.sujetGens(a.db.sujets[0]), "g1");
+  A.equal(a.f.sujetTxt("s1"), "Sa santé", "ses mots, pas « Pour Laure »");
+  A.deepEqual(Array.from(a.f.sujetsDe("g1")).map(s => s.id), ["s1", "s2"],
+    "deux demandes distinctes pour la même personne — c'est ce qu'il demandait");
+  A.equal(a.f.sujetsDe("g3").length, 0);
+});
+
+test("13.eq — le lien de 13.ek reste lu comme une personne", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  a.db.sujets.push({ id: "s4", txt: "Pour Hermine", lie: "g3", maj: 1 });
+  A.equal(a.f.sujetGens(a.db.sujets[3]), "g3", "l'ancien lien vaut toujours rattachement");
+  A.equal(a.f.sujetTxt("s4"), "Pour Hermine");
+  A.equal(a.f.sujetsDe("g3").length, 1);
+});
+
+test("13.eq — deux personnes peuvent attendre la même chose", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  A.equal(a.f.sujetPour("g1", "Sa santé"), "s1", "le même, pour la même personne");
+  A.equal(a.f.sujetPour("g1", "  sa   SANTÉ "), "s1", "aux espaces et à la casse près");
+  const neuf = a.f.sujetPour("g2", "Sa santé");
+  A.notEqual(neuf, "s1", "« sa santé » de l'un n'est pas « sa santé » de l'autre");
+  A.equal(a.f.sujetGens(a.f.sujet(neuf)), "g2");
+  A.equal(a.f.sujetsDe("g2").length, 2);
+  A.equal(a.f.sujetPour("g1", "   "), null);
+  A.equal(a.f.sujetPour("gX", "Sa santé"), null, "une personne inconnue n'ouvre rien");
+});
+
+test("13.eq — rangés par l'attente, le plus ancien d'abord", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  const at = a.f.porteAttente();
+  A.deepEqual(Array.from(at).map(x => x.g.id), ["g2", "g1"]);
+  A.equal(at[0].j, 5, "Toussaint : cinq jours");
+  A.equal(at[1].j, 2, "Laure : deux jours — son autre sujet, jamais nommé, ne la vieillit pas");
+  A.equal(a.f.porteTxt(at[0]), "Porté il y a 5 jours");
+});
+
+test("13.eq — celui que tu as nommé aujourd'hui n'y est pas", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  a.db.temps.push(bloc("b3", "t1", j(7, 0), j(7, 20), { sj: ["s2"] }));
+  const at = a.f.porteAttente();
+  A.deepEqual(Array.from(at).map(x => x.g.id), ["g2"],
+    "un tour de garde, pas un reproche");
+  const h = a.f.rappelPorte();
+  A.match(h, /Toussaint/);
+  A.equal(h.indexOf("Laure"), -1);
+  A.match(h, /pas un reproche/);
+});
+
+test("13.eq — jamais nommé : l'horloge part du jour où le sujet a été écrit", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  a.db.sujets.push({ id: "s4", txt: "Sa paix", g: "g3", maj: jour(4, 9, 0) });
+  const x = a.f.porteAttente().filter(y => y.g.id === "g3")[0];
+  A.equal(x.der, null);
+  A.equal(x.j, 4, "écrit il y a quatre jours, jamais porté");
+  A.equal(a.f.porteTxt(x), "Jamais nommé, 4 jours après l'avoir écrit");
+  /* Écrit aujourd'hui, il ne doit rien reprocher du tout. */
+  a.db.sujets.push({ id: "s5", txt: "Sa joie", g: "g3", maj: j(9, 0) });
+  a.db.sujets = a.db.sujets.filter(s => s.id !== "s4");
+  A.equal(a.f.porteAttente().filter(y => y.g.id === "g3").length, 0);
+});
+
+test("13.eq — le compteur compte des prières, pas des blocs", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  /* La même prière, coupée puis reprise neuf minutes plus tard (13.eh). */
+  a.db.temps.push(bloc("b3", "t1", jour(3, 7, 29), jour(3, 7, 50), { sj: ["s3"] }));
+  A.equal(a.f.sujetFois("s3"), 1, "une prière reprise est une fois, pas deux");
+  a.db.temps.push(bloc("b4", "t1", jour(5, 7, 0), jour(5, 7, 20), { sj: ["s3"] }));
+  A.equal(a.f.sujetFois("s3"), 2);
+  A.equal(a.f.sujetCompte(a.f.sujet("s3")), "Demandé 2 fois sur 100");
+  A.equal(a.f.sujetReste(a.f.sujet("s3")), 98);
+});
+
+test("13.eq — le compte atteint se dit, et ne se ferme pas tout seul", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  a.f.sujet("s3").n = 2;
+  a.db.temps.push(bloc("b4", "t1", jour(5, 7, 0), jour(5, 7, 20), { sj: ["s3"] }));
+  A.equal(a.f.sujetFois("s3"), 2);
+  A.match(a.f.sujetCompte(a.f.sujet("s3")), /Demandé 2 fois sur 2 — tu l'as fait/);
+  A.deepEqual(Array.from(a.f.sujetsTenus()).map(s => s.id), ["s3"]);
+  A.match(a.f.rappelPorte(), /Tu l'avais dit, tu l'as fait/);
+  /* C'est lui qui le retire (P9). */
+  a.f.render = function () {};
+  a.ctx.geste({ sjvu: "s3" });
+  A.ok(a.f.sujet("s3").vu > 0);
+  A.equal(a.f.sujetsTenus().length, 0);
+  A.equal(a.f.rappelPorte().indexOf("tu l'as fait"), -1);
+  A.match(a.f.sujetCompte(a.f.sujet("s3")), /tu l'as fait/,
+    "retiré de l'écran d'ouverture, mais la fiche le dit toujours");
+});
+
+test("13.eq — relever le nombre rouvre un vœu retiré", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  a.f.sujet("s3").n = 1; a.f.sujet("s3").vu = 1;
+  A.equal(a.f.sujetsTenus().length, 0);
+  a.S.view = "sujet"; a.S.sujId = "s3";
+  a.ecrit("sjG", "g2"); a.ecrit("sjN", "50");
+  a.actions.sjPour();
+  A.equal(a.f.sujet("s3").n, 50);
+  A.equal(a.f.sujet("s3").vu, undefined,
+    "sinon l'accompli d'hier barrerait l'écran pour toujours");
+});
+
+test("13.eq — pour qui, et combien de fois : le même geste", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  a.S.view = "sujet"; a.S.sujId = "s1";
+  a.ecrit("sjG", "g2"); a.ecrit("sjN", "12");
+  a.actions.sjPour();
+  A.equal(a.f.sujetGens(a.f.sujet("s1")), "g2", "on peut le rendre à quelqu'un d'autre");
+  A.equal(a.f.sujetBut(a.f.sujet("s1")), 12);
+  /* L'écran est resté ouvert : c'est de là qu'il corrige. */
+  A.equal(a.S.sujId, "s1");
+  a.ecrit("sjG", ""); a.ecrit("sjN", "0");
+  a.actions.sjPour();
+  A.equal(a.f.sujetGens(a.f.sujet("s1")), null, "et le détacher");
+  A.equal(a.f.sujetBut(a.f.sujet("s1")), 0, "zéro ne compte pas");
+});
+
+test("13.eq — écrire une demande depuis la fiche de quelqu'un", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  a.S.view = "porte"; a.S.porteG = "g3";
+  a.ecrit("pgSj", "Qu'elle retrouve la paix");
+  a.actions.pgAdd();
+  A.equal(a.f.sujetsDe("g3").length, 1);
+  A.equal(a.f.sujetTxt(a.f.sujetsDe("g3")[0].id), "Qu'elle retrouve la paix");
+  /* Deux fois le même texte ne font pas deux sujets. */
+  a.ecrit("pgSj", "Qu'elle retrouve la paix");
+  a.actions.pgAdd();
+  A.equal(a.f.sujetsDe("g3").length, 1);
+});
+
+test("13.eq — l'écran d'ouverture plafonne à trois et renvoie au reste", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  ["g4", "g5", "g6"].forEach(function (id, i) {
+    a.db.gens.push({ id: id, nom: "Personne " + i, maj: 1 });
+    a.db.sujets.push({ id: "x" + id, txt: "Pour " + id, g: id, maj: jour(1, 9, 0) });
+  });
+  A.equal(a.f.porteAttente().length, 5);
+  const h = a.f.rappelPorte();
+  A.match(h, /Et 2 autres/);
+  A.match(h, /data-go="portes"/);
+  A.equal(h.split('data-porte=').length - 1, 3, "trois lignes, pas cinq");
+});
+
+test("13.eq — rien ne parle quand personne n'est porté", () => {
+  const a = app();
+  a.db.gens = [{ id: "g1", nom: "Laure", maj: 1 }];
+  A.equal(a.f.ceuxPortes().length, 0, "une personne sans sujet n'est pas portée");
+  A.equal(a.f.rappelPorte(), "");
+  a.f.vPortes();
+  A.match(a.Z.html, /Aucun sujet pour cette personne/, "mais elle est là, pour qu'il commence");
+});
+
+test("13.eq — la fiche d'une personne tient ses demandes distinctes", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  a.S.porteG = "g1";
+  a.f.vPorte();
+  A.match(a.Z.html, /Sa santé/);
+  A.match(a.Z.html, /Son travail/);
+  A.match(a.Z.html, /Dernière fois que tu l'as nommé : <b>2 jours<\/b>/);
+  A.match(a.Z.html, /data-act="pgAdd"/);
+  a.S.porteG = "g2";
+  a.f.vPorte();
+  A.match(a.Z.html, /Demandé 1 fois sur 100/);
+  A.equal(a.Z.html.indexOf("Sa santé"), -1, "les demandes de l'un ne sont pas celles de l'autre");
+});
+
+test("13.eq — la dynamique de progrès se tait sous quatorze jours comptés", () => {
+  const a = app();
+  a.db.taches = [{ id: "t1", nom: "Prière", cat: "dieu", d: "priere", maj: 1 }];
+  a.db.temps = [bloc("b1", "t1", jour(7, 9, 0), jour(7, 10, 0))];
+  A.equal(a.f.joursComptes(), 1);
+  A.equal(a.f.rappelProgres(), "", "un nombre agrégé supporte le bruit, pas l'absence");
+  /* Quatorze jours comptés, et elle parle d'elle-même. */
+  a.db.temps = [];
+  for (let d = 0; d < 14; d++)
+    a.db.temps.push(bloc("c" + d, "t1", jour(8 - d, 9, 0), jour(8 - d, 9, 30)));
+  A.equal(a.f.joursComptes(), 14);
+  A.match(a.f.rappelProgres(), /Où tu en es/);
+});
+
+test("13.eq — le progrès, c'est la semaine contre la précédente", () => {
+  const a = app();
+  a.db.taches = [{ id: "t1", nom: "Prière", cat: "dieu", d: "priere", maj: 1 },
+                 { id: "t2", nom: "Sommeil", cat: "moi", d: "", maj: 1 }];
+  /* Trois heures à Lui cette semaine, une seule la précédente. */
+  a.db.temps = [bloc("b1", "t1", jour(5, 9, 0), jour(5, 12, 0)),
+                bloc("b2", "t1", jour(-2, 9, 0), jour(-2, 10, 0)),
+                bloc("b3", "t2", jour(5, 14, 0), jour(5, 20, 0))];
+  A.match(a.f.dynProgres(), /2 h de plus/,
+    "et le sommeil de la même semaine n'y entre pas : c'est ce qui va à Dieu");
+  A.match(a.f.dynProgres(), /3 h<\/b> cette semaine/);
+  /* L'inverse. */
+  a.db.temps = [bloc("b1", "t1", jour(5, 9, 0), jour(5, 10, 0)),
+                bloc("b2", "t1", jour(-2, 9, 0), jour(-2, 12, 0))];
+  A.match(a.f.dynProgres(), /2 h de moins/);
+  /* Cinq minutes d'écart ne sont pas un mouvement (13.eo). */
+  a.db.temps = [bloc("b1", "t1", jour(5, 9, 0), jour(5, 10, 2)),
+                bloc("b2", "t1", jour(-2, 9, 0), jour(-2, 10, 0))];
+  A.match(a.f.dynProgres(), /autant que la précédente/);
+});
+
+test("13.eq — une personne effacée ailleurs ne laisse pas un sujet orphelin", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  /* L'autre appareil l'a supprimée : le sujet reste, il perd ce qu'il
+     visait — jamais l'inverse (13.cx, 13.df). */
+  a.db.gens = a.db.gens.filter(g => g.id !== "g2");
+  A.equal(a.f.sujetGens(a.f.sujet("s3")), null);
+  A.equal(a.f.sujetsDe("g2").length, 0);
+  A.equal(a.f.ceuxPortes().length, 1, "Laure seule reste portée");
+  A.equal(a.f.porteAttente().filter(x => !x.g).length, 0,
+    "aucune ligne sans personne");
+  A.equal(a.f.sujetTxt("s3"), "Sa conversion", "et le sujet garde ses mots");
 });

@@ -771,6 +771,24 @@ const actions={
     if(!id) return toast("Écris ce que tu demandes");
     save(); toast("Ajouté."); return render();
   },
+  /* 13.ev — écrire un sujet depuis le cahier, sans passer par une prière.
+     Le libellé se compare COMME IL S'AFFICHE : un sujet pris dans une liste
+     relit le sien de ce qu'il vise (13.ek), et comparer le texte rangé
+     aurait fabriqué un doublon de ce qui est déjà à l'écran. */
+  cahNeuf(){
+    const v=String(val("cahSj")||"").trim().replace(/\s+/g," ");
+    if(!v) return toast("Écris ce que tu demandes");
+    const k=v.toLowerCase();
+    const f=(db.sujets||[]).filter(function(x){
+      return String(sujetTxt(x.id)).trim().toLowerCase()===k; })[0];
+    /* On ne crée pas de doublon, et on ne fusionne rien en douce : on amène
+       sur celui qui existe en disant qu'il existait (13.ct). */
+    const id = f ? f.id : sujetId(v);
+    if(!id) return;
+    if(!f) save();
+    toast(f ? "Ce sujet était déjà écrit." : "Écrit. Pose maintenant pour qui, et sur quelle parole.");
+    empile(); S.sujId=id; S.sjQ=""; S.view="sujet"; return render();
+  },
   /* Pour qui, et combien de fois : le même geste. */
   sjPour(){
     const s=sujet(S.sujId); if(!s) return;

@@ -6651,3 +6651,116 @@ test("13.eu — ce qui arrive est bien sur l'écran d'ouverture, dans les deux c
     A.match(String(a.Z.html), /dans 3 jours/);
   }
 });
+
+/* ---------- 13.ev — le cahier s'écrit ---------- */
+
+/* Un sujet qui n'est pour personne ne s'écrivait qu'au sortir d'une prière
+   pointée : le cahier était en lecture seule. Une porte qui n'existe que
+   pendant un autre geste n'est pas une porte. */
+function auCahier(a) {
+  a.S.pile = []; a.S.view = "cahier"; a.S.sjF = "attente"; a.S.sjQ = "";
+  a.f.vCahier();
+  return String(a.Z.html || "");
+}
+
+test("13.ev — le cahier porte sa porte, plein comme vide", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  const plein = auCahier(a);
+  A.match(plein, /data-act="cahNeuf"/, "le cahier plein ne s'écrit pas");
+  A.match(plein, /id="cahSj"/);
+  /* 13.ek — l'écran s'ouvre sur ce qui existe, le clavier passe dessous. */
+  A.ok(plein.indexOf("cahNeuf") > plein.lastIndexOf("data-sujo="),
+    "le clavier est passé devant les tapes (13.ek)");
+  a.db.sujets = []; a.db.temps = [];
+  const vide = auCahier(a);
+  A.match(vide, /data-act="cahNeuf"/,
+    "c'est sur le cahier vide que la porte manque le plus : sans elle, le premier sujet est impossible");
+  A.match(vide, /id="cahSj"/);
+  A.match(vide, /viennent en priant/, "et le chemin le moins cher se dit toujours en premier");
+});
+
+test("13.ev — écrire crée le sujet et ouvre sa fiche", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  const avant = a.db.sujets.length;
+  a.S.view = "cahier";
+  a.ecrit("cahSj", "  Que la Parole soit donnée   pour la retraite ");
+  a.actions.cahNeuf();
+  A.equal(a.db.sujets.length, avant + 1);
+  const s = a.db.sujets[a.db.sujets.length - 1];
+  A.equal(s.txt, "Que la Parole soit donnée pour la retraite", "les espaces en trop ne font pas un autre sujet");
+  A.equal(s.g, undefined, "un sujet peut n'être pour personne — c'est tout le cas");
+  A.equal(a.S.view, "sujet", "le texte seul ne sert à rien : la fiche s'ouvre");
+  A.equal(a.S.sujId, s.id);
+  A.match(String(a.stocke("ebenezer.v1")), /pour la retraite/,
+    "un sujet gardé en mémoire seule disparaît au rechargement");
+  /* Et c'est bien l'écran où la suite se pose. */
+  a.f.vSujet();
+  A.match(String(a.Z.html), /id="sjG"/, "pour qui");
+  A.match(String(a.Z.html), /data-prom="/, "sur quelle parole");
+  A.match(String(a.Z.html), /id="sjN"/, "combien de fois");
+  A.match(String(a.Z.html), /id="sjE"/, "jusqu'à quand");
+});
+
+test("13.ev — un texte déjà écrit ouvre le sujet qui le porte", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  const avant = a.db.sujets.length;
+  a.S.view = "cahier";
+  a.ecrit("cahSj", "sa SANTÉ");
+  a.actions.cahNeuf();
+  A.equal(a.db.sujets.length, avant, "on ne crée pas un doublon");
+  A.equal(a.S.sujId, "s1", "on amène sur celui qui existe (13.ct)");
+  A.equal(a.S.view, "sujet");
+});
+
+test("13.ev — le libellé se compare comme il s'affiche", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  /* 13.ek — un sujet pris dans une liste relit son libellé de ce qu'il vise :
+     son texte rangé n'est qu'un repli, et peut ne rien valoir. */
+  a.db.sujets.push({ id: "s7", txt: "vieux repli", lie: "g3", maj: 1 });
+  A.equal(a.f.sujetTxt("s7"), "Pour Hermine");
+  const avant = a.db.sujets.length;
+  a.S.view = "cahier";
+  a.ecrit("cahSj", "Pour Hermine");
+  a.actions.cahNeuf();
+  A.equal(a.db.sujets.length, avant, "comparer le texte rangé aurait doublé ce qui est déjà à l'écran");
+  A.equal(a.S.sujId, "s7");
+  /* Et ce rapprochement-là est le seul filet : le texte rangé ne vaut rien
+     ici, donc une casse ou un espace de travers créerait un vrai doublon. */
+  a.S.pile = []; a.S.view = "cahier";
+  a.ecrit("cahSj", "  pour   HERMINE  ");
+  a.actions.cahNeuf();
+  A.equal(a.db.sujets.length, avant, "« pour   HERMINE » et « Pour Hermine » sont le même sujet");
+  A.equal(a.S.sujId, "s7");
+});
+
+test("13.ev — rien ne s'écrit de vide", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  const avant = a.db.sujets.length;
+  a.S.view = "cahier";
+  a.ecrit("cahSj", "   ");
+  a.actions.cahNeuf();
+  A.equal(a.db.sujets.length, avant);
+  A.equal(a.S.view, "cahier", "on reste où l'on est");
+  A.match(a.dernierToast(), /Écris ce que tu demandes/,
+    "un bouton qui ne fait rien et ne dit rien laisse croire à une panne");
+});
+
+test("13.ev — le champ du haut cherche, celui du bas écrit", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  const h = auCahier(a);
+  A.match(h, /id="sjQ"/, "la recherche est toujours là");
+  A.ok(h.indexOf('id="sjQ"') < h.indexOf('id="cahSj"'), "et toujours en tête");
+  A.equal(h.indexOf("sjNeuf"), -1,
+    "le champ de recherche ne crée rien : deux ordres de choses, deux formes (13.cu)");
+  /* Et taper dans la recherche ne fabrique aucun sujet. */
+  const avant = a.db.sujets.length;
+  a.S.sjQ = "un sujet qui n'existe pas";
+  a.f.vCahier();
+  A.equal(a.db.sujets.length, avant);
+});

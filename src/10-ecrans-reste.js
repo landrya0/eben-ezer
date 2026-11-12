@@ -1937,6 +1937,20 @@ function vAnnonce(){
    ce qui n'a pas encore reçu de réponse. Ce qui est exaucé a déjà sa place
    dans Ses œuvres. */
 const SJF = [["attente","En attente"],["exauces","Exaucés"],["tout","Tout"]];
+/* 13.ev — la porte d'écriture du cahier. Elle est ÉCRITE UNE FOIS et posée
+   aux deux endroits : le cahier plein et le cahier vide. Conditionner une
+   section et oublier le cas vide est une faute déjà commise ici — et c'est
+   sur le cahier vide que cette porte manque le plus, puisque sans elle le
+   tout premier sujet reste impossible à écrire hors d'une prière.
+   Elle vient APRÈS la liste (13.ek) : l'écran s'ouvre sur ce qui existe, le
+   clavier passe dessous. Et elle ne se confond pas avec le champ du haut :
+   celui-là cherche, celui-ci écrit (13.cu). */
+function blocEcrire(){
+  return titreBloc("Écrire un sujet","ecart")
+    + `<div class="block amorce">Une demande n'attend pas la prochaine prière pour être écrite — une prédication, un voyage, l'œuvre. Sa fiche s'ouvre juste après : tu y poseras pour qui, sur quelle parole, combien de fois et jusqu'à quand.</div>`
+    + champ("cahSj","Ce que tu demandes, dans tes mots","text","",'autocomplete="off" autocapitalize="sentences"')
+    + `<div class="block">${bouton("Écrire ce sujet", 'data-act="cahNeuf"')}</div>`;
+}
 function vCahier(){
   const tous=(db.sujets||[]).slice();
   const exauce=function(s){ return exaucesDe(s.id).length>0; };
@@ -1951,7 +1965,8 @@ function vCahier(){
     });
   Z.titre="Mes sujets"; Z.retour=true;
   if(!tous.length){
-    Z.html=`<div class="block amorce" style="margin-top:16px">Les sujets viennent en priant : à l'arrêt d'une prière, l'app te demande ce que tu as nommé, et chaque ligne se range ici.</div>`;
+    Z.html=`<div class="block amorce" style="margin-top:16px">Les sujets viennent en priant : à l'arrêt d'une prière, l'app te demande ce que tu as nommé, et chaque ligne se range ici. Mais tu peux aussi en écrire un maintenant.</div>`
+      + blocEcrire();
     return;
   }
   let h=`<div class="block amorce" style="margin-top:16px">${
@@ -1980,6 +1995,7 @@ function vCahier(){
     }).join(""), "lien");
     h+=`<p class="vide" id="sjRien" hidden>Rien ne correspond.</p>`;
   }
+  h+=blocEcrire();
   Z.html=h;
 }
 

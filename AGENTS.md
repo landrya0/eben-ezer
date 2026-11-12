@@ -108,14 +108,17 @@ Et, transversal : **rien ne part en clair** (13.bh). Le journal nomme des frère
   du sélecteur du délégué : **invisibles pour toute la batterie**. Ces fautes-là ne se rattrapent
   pas écran par écran — elles se rattrapent par des **balayages** qui passent TOUS les écrans au
   même crible et découvrent la liste des écrans eux-mêmes, de sorte qu'un écran neuf y entre sans
-  qu'on y pense. Il y en a **huit**, en fin de batterie : aucun écran ne jette ni n'est vide,
+  qu'on y pense. Il y en a **neuf**, en fin de batterie : aucun écran ne jette ni n'est vide,
   tout `data-…` affiché est écouté, aucun écran hors onglets ne perd sa porte de sortie, aucun
   geste n'arrête un compteur sans le dire, la réunion de deux appareils n'en ferme aucun, tout ce
   que le rail affiche est écouté (le rail n'est pas un écran : aucun des cinq premiers ne le
   voyait), aucune ligne à retirer ne tait le bloc dont elle vient, et **tout `rappelX()` est appelé
   par un écran** — un rappel juste qu'on oublie de poser donne une fonctionnalité entière
   invisible, avec tous ses tests au vert, puisqu'ils appellent la fonction que l'écran n'appelle
-  pas (13.eu : deux mutations avaient survécu, et c'était exactement ce trou).
+  pas (13.eu : deux mutations avaient survécu, et c'était exactement ce trou), et enfin —
+  le seul qui surveille les balayages eux-mêmes — **aucune aide de test n'en masque une autre**.
+  **Et l'archive du balayage doit porter un exemplaire de chaque sorte** : sans une parole reçue
+  dedans, tout ce que l'app ne montre que sur une parole passait à travers les huit cribles.
   **Y ajouter un balayage plutôt qu'un test** chaque fois qu'une faute aurait pu se produire
   partout.
 - **Une idée = une version**, vérifiée dans le navigateur (375 px) avant de passer à la suivante.
@@ -190,6 +193,11 @@ Et, transversal : **rien ne part en clair** (13.bh). Le journal nomme des frère
   routines se vide, et la démo s'arrête à l'étape suivante faute de porte. Même piège pour « dans
   deux jours » là où le scénario dit *samedi*. Tout ce qu'une démo pose se calcule **depuis
   l'instant** — elle doit tourner à n'importe quelle heure, et le lendemain aussi.
+- **Deux aides de test du même nom.** `function pose(...)` écrit une seconde fois en bas du
+  fichier : la dernière déclaration gagne, et les huit balayages se sont mis à poser n'importe
+  quoi sur chaque écran — 432 tests au vert sur un crible éteint. C'est la faute la plus
+  dangereuse du lot, parce qu'elle désarme précisément ce qui devait l'attraper. Le neuvième
+  balayage la surveille désormais.
 - **Choisir une définition sur son élégance sans la passer sur l'archive.** « La séance continue
   tant que rien d'autre n'est compté » ne demandait aucun seuil et semblait plus juste : elle ne
   se serait jamais formée dans le seul cas qui l'avait demandée, puisqu'une lecture de trois

@@ -1321,16 +1321,51 @@ function promesse(id){
   PROMESSES.forEach(function(c){ c.items.forEach(function(x){ if(x.id===id) f=x; }); });
   return f;
 }
+/* 13.ew — la troisième forme de `pr` : une parole du mémorial. Le préfixe
+   la distingue sans ambiguïté d'un besoin du catalogue et de ses propres
+   mots, et UN SEUL attribut porte toujours les trois (AGENTS §2.f). */
+const PR_N = "n:";
+function promNode(v){
+  if(String(v||"").slice(0,2)!==PR_N) return null;
+  const n=node(String(v).slice(2));
+  return (n && estParole(n)) ? n : null;
+}
+/* Les paroles qu'il peut poser : un rhema, une Écriture, ou un acte de Dieu
+   dont la manière est « parlé ». Un acte qui a POURVU n'est pas ce qu'Il
+   avait dit — c'est ce qu'Il a fait, et cela a déjà sa colonne (13.ew). */
+function parolesPosables(){
+  return (db.nodes||[]).filter(estParole).sort(parDate);
+}
+/* Et dans l'autre sens : ce qu'il demande sur cette parole-là. Sans ce
+   chemin, une parole posée serait invisible depuis le mémorial (§2.a). */
+function sujetsSurParole(id){
+  return (db.sujets||[]).filter(function(s){ return String(s.pr||"")===PR_N+id; });
+}
 function sujetProm(s){
   const v=s && s.pr ? String(s.pr) : "";
   if(!v) return null;
+  /* Une parole effacée ne laisse pas d'étiquette derrière elle : un
+     identifiant orphelin affiché tel quel aurait l'air d'une parole. */
+  if(v.slice(0,2)===PR_N){ const n=promNode(v); return n ? {dite:n} : null; }
   return promesse(v) || {libre:v};
 }
-function promTitre(p){ return p ? (p.libre || p.t) : ""; }
+function promTitre(p){
+  if(!p) return "";
+  if(p.dite) return court(String(p.dite.txt||""), 60);
+  return p.libre || p.t;
+}
 /* Ce qui se lit sur une ligne de liste : la référence seule, pas le verset.
    Il la relit en priant, il ne relit pas tout le psaume. */
 function promRefs(p){
   if(!p) return "";
+  /* Une Écriture porte sa référence dans `human()` ; un rhema porte son
+     jour, et il faut dire que c'en est un — « 7 novembre 2026 » seul, sur
+     une ligne du cahier, ne se distinguerait pas d'une échéance. */
+  if(p.dite){
+    const q=human(p.dite);
+    return p.dite.kind==="ecriture" ? (q || "Sa parole")
+         : (q ? "Sa parole du "+q : "Sa parole");
+  }
   return p.libre ? p.libre : p.v.map(function(x){ return x[0]; }).join(" · ");
 }
 function sujetRefs(s){ return promRefs(sujetProm(s)); }
@@ -2033,7 +2068,20 @@ function vSujet(){
      ordre-là, et pas dans un autre. */
   const pr=sujetProm(s);
   h+=titreBloc("Ce qu'Il avait dit","ecart");
-  if(pr){
+  if(pr && pr.dite){
+    /* 13.ew — une parole reçue se donne à lire en entier, dans sa voix à
+       Lui, et la porte vers le mémorial reste ouverte : c'est le même fait
+       des deux côtés. */
+    h+=`<div class="block prom">
+        <p class="promt">Une parole qu'Il t'a dite</p>
+        <p class="promv serif voix">${cite(pr.dite)}</p>
+        <p class="promv"><span class="promr">${esc(acteurTxt(pr.dite))}</span> ${esc(human(pr.dite)||"")}</p>
+      </div>`;
+    h+=liste(ligne({titre:"Ouvrir cette parole", sous:"Dans ton mémorial",
+        attr:'data-node="'+pr.dite.id+'"'})
+      + ligne({titre:"Changer la promesse", sous:"Ou la retirer",
+        attr:'data-prom="'+s.id+'"'}), "lien");
+  } else if(pr){
     h+=`<div class="block prom">
         <p class="promt">${esc(promTitre(pr))}</p>
         ${(pr.v||[]).map(function(x){
@@ -2043,7 +2091,7 @@ function vSujet(){
     h+=liste(ligne({titre:"Changer la promesse", sous:"Ou la retirer",
         attr:'data-prom="'+s.id+'"'}), "lien");
   } else {
-    h+=`<div class="block amorce">Ton cahier a une colonne pour cela : <i>référence biblique</i> — la parole sur laquelle tu demandes. Elle n'est pas devinée à ta place.</div>`;
+    h+=`<div class="block amorce">Ton cahier a une colonne pour cela : <i>référence biblique</i> — la parole sur laquelle tu demandes. Un besoin de ta page, tes propres mots, ou <b>une parole qu'Il t'a dite</b>. Elle n'est pas devinée à ta place.</div>`;
     h+=`<div class="block">${bouton("Choisir une promesse", 'data-prom="'+s.id+'"')}</div>`;
   }
   h+=titreBloc("Ce qu'Il a fait","ecart");
@@ -2136,6 +2184,22 @@ function vPromesse(){
   h+=`<div class="block amorce">« Toute parole de Dieu est éprouvée. Il est un bouclier pour ceux qui cherchent en Lui un refuge. » <i>Proverbes 30:5</i> — ta page, rangée par besoin.</div>`;
   h+=champ("prQ","Chercher un besoin, un livre, un mot","text",esc(S.prQ||""),
       'autocomplete="off" autocapitalize="sentences"');
+  /* 13.ew — les siennes d'abord : peu nombreuses, datées, à lui. La page
+     rangée par besoin vient après, et la recherche couvre les deux. */
+  const dites=parolesPosables();
+  if(dites.length){
+    h+=`<div class="prgrp">`+titreBloc("Ce qu'Il t'a dit","ecart")
+      + liste(dites.map(function(n){
+          const t=String(n.txt||""), q=human(n)||"";
+          return ligne({titre:esc(court(t,70)), serif:true,
+            sous:esc([acteurTxt(n), q].filter(Boolean).join(" · ")),
+            texte:(t.length>70) ? cite(n) : "",
+            apres:(pr && pr.dite && pr.dite.id===n.id) ? `<span class="coch">✓</span>` : "",
+            attr:'data-prdi="'+n.id+'" data-prn="'+esc((t+" "+q).toLowerCase())+'"'});
+        }).join(""), "lien")
+      + `<div class="block amorce">Ce qu'Il t'a dit à toi fonde une demande autant qu'un verset : c'est l'ordre même de la phrase — ce que tu demandes, ce qu'Il avait dit, ce qu'Il a fait.</div>`
+      + `</div>`;
+  }
   PROMESSES.forEach(function(c){
     h+=`<div class="prgrp">`+titreBloc(esc(c.cat),"ecart")
       + liste(c.items.map(function(x){

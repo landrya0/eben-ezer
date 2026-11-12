@@ -3395,14 +3395,19 @@ function archiveOrdinaire(a) {
                 bloc("b3", "a1", j(11, 30), j(11, 50))];
   a.db.livres = [{ id: "l1", nom: "Un livre", pages: 100, maj: 1 }];
   a.db.auteurs = [{ id: "au1", nom: "Théodore Andoseh", maj: 1 }];
-  a.db.sujets = [{ id: "s1", txt: "La santé de ma mère", maj: 1 }];
+  a.db.sujets = [{ id: "s1", txt: "La santé de ma mère", pr: "n:n5", maj: 1 }];
   a.db.periodes = [{ id: "pr1", d: "jeune", deb: j(6, 0), fin: j(7, 0), maj: 1 }];
   a.db.portes = [{ id: "po1", v: "sondes", ep: 1, maj: 1 }];
   a.db.nodes = [
     { id: "n1", act: "dieu", kind: "acte", txt: "Il a guéri", man: "guerit", par: [], suj: [], date: "2026-11-05", prec: "j", etat: "fait", ts: 1, maj: 1 },
     { id: "n2", act: "moi", dest: "dieu", kind: "acte", txt: "J'ai jeûné", man: "", par: ["n1"], suj: ["s1"], date: "2026-11-06", prec: "j", etat: "fait", ts: 2, maj: 1 },
     { id: "n3", act: "moi", dest: "dieu", kind: "acte", txt: "Visiter", man: "", par: [], suj: [], date: "2026-11-20", prec: "j", etat: "prevu", ts: 3, maj: 1 },
-    { id: "n4", act: "gens", gid: null, kind: "acte", txt: "Il a prêté", man: "pourvu", par: [], suj: [], date: "2026-11-01", prec: "j", etat: "fait", ts: 4, maj: 1 }
+    { id: "n4", act: "gens", gid: null, kind: "acte", txt: "Il a prêté", man: "pourvu", par: [], suj: [], date: "2026-11-01", prec: "j", etat: "fait", ts: 4, maj: 1 },
+    /* Une parole reçue, et un sujet qui s'appuie dessus. Sans elles, tout ce
+       que l'app ne montre QUE sur une parole — ce qu'Il en a fait (13.en),
+       ce qu'on demande là-dessus et la liste où l'on choisit (13.ew) —
+       échappait aux balayages : une branche entière, invisible. */
+    { id: "n5", act: "dieu", kind: "rhema", txt: "Je serai avec toi", man: "parle", ref: "", par: [], suj: [], date: "2026-11-04", prec: "j", etat: "fait", ts: 5, maj: 1 }
   ];
   a.f.save();
   return a;
@@ -3471,6 +3476,25 @@ test("balayage — tout ce qui s'affiche est écouté", () => {
     }
   }
   A.deepEqual(morts, [], "un bouton qu'on ne peut pas toucher n'est pas un bouton");
+});
+
+test("balayage — aucune aide de test n'en masque une autre", () => {
+  /* Neuvième balayage, et le seul qui surveille les balayages eux-mêmes.
+     `function pose(...)` écrit une seconde fois en bas du fichier : la
+     dernière déclaration gagne, et les huit balayages se sont mis à poser
+     n'importe quoi sur chaque écran — 432 tests au vert sur un crible
+     désarmé. La faute est invisible par construction, puisque c'est
+     l'outil de détection qu'elle éteint. */
+  const src = fs.readFileSync(__filename, "utf8");
+  const noms = [...src.matchAll(/^function ([A-Za-z0-9_$]+)\s*\(/gm)].map(m => m[1]);
+  const vus = {}, doubles = [];
+  noms.forEach(n => { if (vus[n]) doubles.push(n); vus[n] = 1; });
+  /* Et la preuve que le crible mord : on lui donne un doublon pour voir. */
+  const faux = noms.concat(noms[0]), vf = {}, df = [];
+  faux.forEach(n => { if (vf[n]) df.push(n); vf[n] = 1; });
+  A.deepEqual(df, [noms[0]], "un balayage qui ne peut pas tomber ne défend rien");
+  A.ok(noms.length > 20, "les aides ont changé de forme : ce balayage ne sait plus les lire");
+  A.deepEqual(doubles, [], "deux aides du même nom : la dernière gagne, et elle gagne en silence");
 });
 
 test("balayage — tout rappel de l'écran d'ouverture est posé quelque part", () => {
@@ -6763,4 +6787,197 @@ test("13.ev — le champ du haut cherche, celui du bas écrit", () => {
   a.S.sjQ = "un sujet qui n'existe pas";
   a.f.vCahier();
   A.equal(a.db.sujets.length, avant);
+});
+
+/* ---------------------------------------------------------------------------
+   13.ew — « Ce qu'Il avait dit » comprend ce qu'Il t'a dit à toi.
+   Sur son archive : dix-sept paroles reçues, aucune rattachée à un sujet.
+   La colonne « référence biblique » n'avait que l'Écriture imprimée.
+--------------------------------------------------------------------------- */
+function aParler(a) {
+  aPromettre(a);
+  a.db.nodes = [
+    { id: "n1", act: "dieu", kind: "rhema", man: "parle", ref: "",
+      txt: "Je te donnerai le pays que tu traverses", desc: "", par: [], suj: [],
+      etat: "fait", date: "2026-11-07", prec: "j", ts: 1, maj: 1 },
+    { id: "n2", act: "dieu", kind: "ecriture", ref: "Ésaïe 54:17", man: "",
+      txt: "Toute arme forgée contre toi sera sans effet", desc: "", par: [], suj: [],
+      etat: "fait", date: "2026-11-06", prec: "j", ts: 1, maj: 1 },
+    { id: "n3", act: "dieu", kind: "acte", man: "pourvu", ref: "",
+      txt: "Il a ouvert la porte du logement", desc: "", par: [], suj: [],
+      etat: "fait", date: "2026-11-05", prec: "j", ts: 1, maj: 1 },
+    { id: "n4", act: "moi", kind: "acte", man: "", ref: "",
+      txt: "J'ai jeûné trois jours", desc: "", par: [], suj: [],
+      etat: "fait", date: "2026-11-04", prec: "j", ts: 1, maj: 1 }
+  ];
+  return a;
+}
+function poseParole(a, sid, nid) {
+  a.S.view = "promesse"; a.S.sujId = sid;
+  a.ctx.geste({ prdi: nid });
+  return a.f.sujet(sid);
+}
+
+test("13.ew — une parole du mémorial se pose comme un besoin de la page", () => {
+  const a = app();
+  aParler(a);
+  const s = poseParole(a, "s1", "n1");
+  A.equal(s.pr, a.c.PR_N + "n1", "un seul attribut porte les trois formes");
+  const p = a.f.sujetProm(s);
+  A.equal(p.dite.id, "n1");
+  A.equal(p.libre, undefined, "ce n'est pas du texte libre");
+  A.equal(p.v, undefined, "et ce n'est pas un besoin du catalogue");
+  A.equal(a.f.promTitre(p), "Je te donnerai le pays que tu traverses");
+  A.equal(a.f.sujetRefs(s), "Sa parole du 7 novembre 2026",
+    "la ligne du cahier dit que c'en est une : une date seule se lirait comme une échéance");
+  A.match(a.dernierToast(), /Sa parole du 7 novembre/,
+    "le toast dit ce qui a été gardé, pas un identifiant");
+  A.match(String(a.stocke("ebenezer.v1")), /n:n1/,
+    "et c'est écrit dans l'archive, pas seulement en mémoire");
+});
+
+test("13.ew — une Écriture gardée porte sa référence, pas son jour", () => {
+  const a = app();
+  aParler(a);
+  const s = poseParole(a, "s1", "n2");
+  A.equal(a.f.sujetRefs(s), "Ésaïe 54:17",
+    "c'est la référence qu'il relit en priant, pas la date où il l'a notée");
+});
+
+test("13.ew — ce qu'Il a FAIT ne se pose pas comme ce qu'Il avait DIT", () => {
+  const a = app();
+  aParler(a);
+  const s = poseParole(a, "s1", "n3");
+  A.equal(s.pr, undefined,
+    "un acte qui a pourvu a déjà sa colonne : la confusion effacerait la distance à mesurer");
+  poseParole(a, "s1", "n4");
+  A.equal(a.f.sujet("s1").pr, undefined, "et un acte de lui n'est pas une parole de Dieu");
+  A.equal(a.f.promNode(a.c.PR_N + "n3"), null);
+  A.equal(a.f.promNode(a.c.PR_N + "n4"), null);
+  A.deepEqual(Array.from(a.f.parolesPosables()).map(n => n.id), ["n1", "n2"],
+    "l'écran ne propose que ce qui est une parole");
+});
+
+test("13.ew — une parole effacée ne laisse pas d'étiquette", () => {
+  const a = app();
+  aParler(a);
+  const s = poseParole(a, "s1", "n1");
+  a.db.nodes = a.db.nodes.filter(n => n.id !== "n1");
+  A.equal(a.f.sujetProm(a.f.sujet("s1")), null,
+    "un identifiant orphelin affiché tel quel aurait l'air d'une parole");
+  A.equal(a.f.sujetRefs(a.f.sujet("s1")), "");
+  a.S.view = "cahier"; a.S.sjQ = ""; a.S.sjF = "tout";
+  a.f.vCahier();
+  A.equal(a.Z.html.indexOf(a.c.PR_N + "n1"), -1, "et rien de l'identifiant ne fuit à l'écran");
+});
+
+test("13.ew — une parole posée survit à la réunion de deux appareils", () => {
+  const a = app();
+  aParler(a);
+  /* L'autre appareil, resté sur la fiche d'il y a huit jours. */
+  const vieux = +jour(1, 9, 0);
+  a.f.sujet("s1").maj = vieux;
+  const A1 = JSON.parse(JSON.stringify(a.db));
+  poseParole(a, "s1", "n1");
+  A.ok(a.f.sujet("s1").maj > vieux,
+    "sans touche(), la fiche restée en arrière l'emporterait et l'effacerait");
+  const B1 = JSON.parse(JSON.stringify(a.db));
+  const out = a.f.fusionne(A1, B1);
+  A.equal(out.sujets.filter(x => x.id === "s1")[0].pr, a.c.PR_N + "n1",
+    "après la réunion, la parole posée est toujours là (13.bd)");
+});
+
+test("13.ew — le lien se lit des deux côtés", () => {
+  const a = app();
+  aParler(a);
+  poseParole(a, "s1", "n1");
+  A.deepEqual(Array.from(a.f.sujetsSurParole("n1")).map(s => s.id), ["s1"]);
+  A.equal(a.f.sujetsSurParole("n2").length, 0);
+  a.S.view = "node"; a.S.nodeId = "n1";
+  a.f.vNode();
+  A.match(a.Z.html, /Ce que tu demandes là-dessus/,
+    "sans ce chemin, la promesse posée serait invisible depuis le mémorial");
+  A.match(a.Z.html, /data-sujo="s1"/, "et la ligne mène au sujet");
+  A.ok(a.Z.html.indexOf("Ce que tu demandes là-dessus") < a.Z.html.indexOf("Ce qu'Il en a fait"),
+    "l'écran se lit dans l'ordre de la phrase : ce que je demande, puis ce qu'Il en a fait");
+});
+
+test("13.ew — ses paroles sont en tête de l'écran, et la coche dit laquelle est posée", () => {
+  const a = app();
+  aParler(a);
+  poseParole(a, "s1", "n1");
+  a.S.view = "promesse"; a.S.sujId = "s1"; a.S.prQ = "";
+  a.f.vPromesse();
+  const h = a.Z.html;
+  A.match(h, /Ce qu'Il t'a dit/);
+  A.ok(h.indexOf("Ce qu'Il t'a dit") < h.indexOf(a.c.PROMESSES[0].cat),
+    "les siennes passent devant la page rangée par besoin");
+  A.match(h, /data-prdi="n1"/);
+  A.match(h, /data-prdi="n2"/);
+  A.equal(h.indexOf('data-prdi="n3"'), -1, "ce qu'Il a fait n'y est pas");
+  const bout = h.slice(h.indexOf('data-prdi="n1"'), h.indexOf('data-prdi="n2"'));
+  A.match(bout, /✓/, "la parole posée est cochée");
+  const prn = [...h.matchAll(/data-prn="([^"]*)"/g)].map(m => m[1]);
+  A.ok(prn.some(x => x.indexOf("le pays que tu traverses") !== -1),
+    "la recherche couvre ses paroles comme elle couvre les versets");
+});
+
+test("13.ew — une archive sans parole n'ouvre pas une section vide", () => {
+  const a = app();
+  aPromettre(a);
+  a.db.nodes = [];
+  a.S.view = "promesse"; a.S.sujId = "s1"; a.S.prQ = "";
+  a.f.vPromesse();
+  A.equal(a.Z.html.indexOf("Ce qu'Il t'a dit"), -1);
+  A.equal(a.Z.html.indexOf("data-prdi"), -1);
+  A.match(a.Z.html, /Proverbes 30:5/, "et la page rangée par besoin est toujours là");
+});
+
+test("13.ew — les trois formes se chassent l'une l'autre, jamais deux à la fois", () => {
+  const a = app();
+  aParler(a);
+  poseParole(a, "s1", "n1");
+  a.S.view = "promesse"; a.S.sujId = "s1";
+  a.ctx.geste({ prch: "guerison" });
+  A.equal(a.f.sujet("s1").pr, "guerison", "un besoin de la page efface la parole");
+  poseParole(a, "s1", "n1");
+  a.S.view = "promesse"; a.S.sujId = "s1";
+  a.ecrit("prT", "Ésaïe 41:10");
+  a.actions.prPose();
+  A.equal(a.f.sujet("s1").pr, "Ésaïe 41:10", "et ses mots aussi");
+  A.equal(a.f.sujetProm(a.f.sujet("s1")).dite, undefined);
+});
+
+test("13.ew — ce qui est posé se retire", () => {
+  const a = app();
+  aParler(a);
+  poseParole(a, "s1", "n1");
+  a.S.view = "sujet"; a.S.sujId = "s1";
+  a.ctx.geste({ prx: "s1" });
+  A.equal(a.f.sujet("s1").pr, undefined);
+  A.equal(a.f.sujetProm(a.f.sujet("s1")), null);
+});
+
+test("13.ew — la fiche du sujet donne la parole en entier et la porte vers le mémorial", () => {
+  const a = app();
+  aParler(a);
+  poseParole(a, "s1", "n1");
+  a.S.view = "sujet"; a.S.sujId = "s1";
+  a.f.vSujet();
+  const h = a.Z.html;
+  A.match(h, /Je te donnerai le pays que tu traverses/, "elle se lit en entier, pas tronquée");
+  A.match(h, /data-node="n1"/, "et la porte vers le mémorial reste ouverte");
+  A.match(h, /data-prom="s1"/, "elle se change");
+  A.ok(h.indexOf("Ce qu'Il avait dit") < h.indexOf("Ce qu'Il a fait"),
+    "l'ordre de la phrase d'Ében-Ézer ne bouge pas");
+});
+
+test("13.ew — rien n'est deviné à sa place", () => {
+  const a = app();
+  aParler(a);
+  A.equal(a.f.sujetProm(a.f.sujet("s1")), null,
+    "une archive pleine de paroles n'en pose aucune : c'est lui qui sait sur quoi il s'appuie");
+  a.S.view = "promesse"; a.S.sujId = "s1";
+  a.ctx.geste({ prdi: "nX" });
+  A.equal(a.f.sujet("s1").pr, undefined, "et un identifiant inconnu n'écrit rien");
 });

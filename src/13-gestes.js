@@ -97,7 +97,7 @@ function supCible(v){
   return p.length>1 ? {b:blocT(p[0]), i:+p[1]} : {b:blocT(S.blocId), i:+p[0]};
 }
 document.addEventListener("click", function(ev){
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-dis],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-dok],[data-ryth],[data-rythn],[data-porte],[data-sjvu],[data-imp],[data-impx],[data-prom],[data-prch],[data-prx],[data-ndisc],[data-douv],[data-adisc],[data-adiscn],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-lvsp],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjlie],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-dis],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-dok],[data-ryth],[data-rythn],[data-porte],[data-sjvu],[data-imp],[data-impx],[data-prom],[data-prch],[data-prdi],[data-prx],[data-ndisc],[data-douv],[data-adisc],[data-adiscn],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-lvsp],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjlie],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
   if(!t) return;
   /* UN SEUL entonnoir pour tous les gestes de l'application : la sonde se
      tient ici, et nulle part ailleurs. Le `finally` est ce qui la rend
@@ -373,6 +373,17 @@ function geste(g, t){
     if(!s || !x) return;
     if(s.pr!==x.id){ s.pr=x.id; touche(s); save(); }
     toast(promRefs(x)+".");
+    depile("sujet"); return render();
+  }
+  /* 13.ew — poser une parole du mémorial. `touche(s)` est ce qui la fait
+     survivre à la réunion de deux appareils : sans lui, la fiche restée en
+     arrière sur l'autre téléphone l'emporterait et l'effacerait. */
+  if(g.prdi){
+    const s=sujet(S.sujId), n=node(g.prdi);
+    if(!s || !n || !estParole(n)) return;
+    const v=PR_N+n.id;
+    if(s.pr!==v){ s.pr=v; touche(s); save(); }
+    toast(promRefs({dite:n})+".");
     depile("sujet"); return render();
   }
   if(g.prx){

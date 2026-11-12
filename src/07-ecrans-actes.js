@@ -618,6 +618,20 @@ function vNode(){
      tenue. Sans quoi le lien qu'on vient de poser ne se voit nulle part, et
      le mémorial reste une liste au lieu d'être une pierre dressée. */
   if(estParole(n)){
+    /* 13.ew — le lien se lit des deux côtés : ce qu'il demande SUR cette
+       parole-là. Sans ce chemin, une promesse posée serait invisible depuis
+       le mémorial, et l'écran se lirait à l'envers de la phrase : ce que je
+       demande vient avant ce qu'Il en a fait. */
+    const sp=sujetsSurParole(n.id);
+    if(sp.length){
+      h+=titreBloc("Ce que tu demandes là-dessus","ecart");
+      h+=liste(sp.map(function(x){
+        return ligne({titre:esc(sujetTxt(x.id)),
+          sous:esc(sujetHist(x.id) || "jamais demandé"),
+          apres:esc(impFois(x.id) ? impFois(x.id)+" fois" : ""),
+          attr:'data-sujo="'+x.id+'"'});
+      }).join(""), "lien");
+    }
     const ac=accompliesDe(n);
     h+=titreBloc("Ce qu'Il en a fait","ecart");
     if(ac.length){

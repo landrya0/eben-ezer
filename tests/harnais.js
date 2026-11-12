@@ -241,6 +241,7 @@ const PONT = `
        rythTenus, fidTxt, rappelFid, vRythmes, vRythme,
        impsDe, impFois, impDernier, impPremier, importune, impTxt,
   promesse, sujetProm, promTitre, promRefs, sujetRefs, vPromesse,
+  promNode, parolesPosables, sujetsSurParole, estParole, paroles,
   echMs, echJours, echTxt, echCourt, echProche, echeances, rappelEch,
     sujetGens, sujetsDe, sujetPour, sujetBut, sujetReste, sujetCompte, sujetsTenus,
        porteDepuis, ceuxPortes, porteAttente, porteTxt, rappelPorte, vPortes, vPorte,
@@ -258,7 +259,7 @@ const PONT = `
        vOrdre, vEpingles, portePointage, etapes, vNote, vNode, vAccomplis, porteFaits, vPointer, creuxVif,
        sansDate, precPour, today, render, save, VUES, quitterPrevu, jourPromis, promisBref, ligneActe, remontees, blocQuand, vEdit, human },
   c: { DISC, DYN, RYTHMES, PERIODES, ONG_TEMPS, SANSFIN, KEY, CAT_SOCLE,
-       SO_KEY, SO_MAX, ONGLETS, NOM_VUE, SEULES, PROMESSES }
+       SO_KEY, SO_MAX, ONGLETS, NOM_VUE, SEULES, PROMESSES, PR_N }
 };
 `;
 

@@ -185,6 +185,11 @@ Et, transversal : **rien ne part en clair** (13.bh). Le journal nomme des frère
 - Conditionner les sections d'une vue mais oublier la phrase d'en-tête, qui fuit dans les autres.
 - Replier une barre et retirer du même coup **la seule porte** vers un réglage (le cas « Tout »).
 - Annoncer une version en ligne sans l'avoir vue servie.
+- **Poser les données d'une démo à heure fixe.** « Le bloc de ce matin, 6 h 30 » n'est pas
+  encore arrivé quand il ouvre la carte à **minuit six** : la journée ne compte rien, l'écran des
+  routines se vide, et la démo s'arrête à l'étape suivante faute de porte. Même piège pour « dans
+  deux jours » là où le scénario dit *samedi*. Tout ce qu'une démo pose se calcule **depuis
+  l'instant** — elle doit tourner à n'importe quelle heure, et le lendemain aussi.
 - **Choisir une définition sur son élégance sans la passer sur l'archive.** « La séance continue
   tant que rien d'autre n'est compté » ne demandait aucun seuil et semblait plus juste : elle ne
   se serait jamais formée dans le seul cas qui l'avait demandée, puisqu'une lecture de trois

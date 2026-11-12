@@ -778,12 +778,17 @@ const actions={
     if(gi && gensNom(gi)) s.g=gi; else delete s.g;
     const n=parseInt(val("sjN"), 10);
     if(n>0) s.n=n; else delete s.n;
+    /* 13.eu — le jour que le monde a fixé. Vider le champ le retire : une
+       échéance qu'on ne peut pas défaire n'est pas une échéance (13.cl). */
+    const e=String(val("sjE")||"").trim();
+    if(/^\d{4}-\d{2}-\d{2}$/.test(e)) s.ech=e; else delete s.ech;
     /* Changer le nombre rouvre un vœu qu'on avait retiré : sinon dire
        « finalement, cent fois » laisserait l'accompli d'hier barrer
        l'écran pour toujours. */
     if(s.vu && sujetBut(s) && impFois(s.id)<sujetBut(s)) delete s.vu;
     touche(s); save();
-    toast(sujetBut(s) ? sujetCompte(s)+"." : "Gardé.");
+    toast([sujetBut(s) ? sujetCompte(s) : "", s.ech ? echTxt(s) : ""]
+          .filter(Boolean).join(" · ") || "Gardé.");
     return render();
   },
   /* Ses mots détachent de la liste : un sujet s'appuie sur UNE parole, pas

@@ -592,6 +592,15 @@ function optsChap(li, sel, min){
   for(let c=(min||1); c<=nbChap(li); c++) o+=`<option value="${c}"${c===sel?" selected":""}>${c}</option>`;
   return o;
 }
+/* Une étiquette au-dessus du champ, comme pour les listes déroulantes : une
+   date vide ne dit pas ce qu'elle attend, un « placeholder » ne s'affiche
+   jamais sur un input[type=date]. */
+function champLab(id, label, ctrl){
+  return `<li class="item-content item-input"><div class="item-inner">
+      <div class="item-title item-label">${label}</div>
+      <div class="item-input-wrap">${ctrl}</div>
+    </div></li>`;
+}
 function champSel(id, label, corps){
   return `<li class="item-content item-input"><div class="item-inner">
       <div class="item-title item-label">${label}</div>
@@ -1325,6 +1334,54 @@ function promRefs(p){
   return p.libre ? p.libre : p.v.map(function(x){ return x[0]; }).join(" · ");
 }
 function sujetRefs(s){ return promRefs(sujetProm(s)); }
+/* 13.eu — l'échéance d'une demande. La plupart n'en ont pas : la conversion
+   d'un frère se demande jusqu'à ce qu'elle vienne. Mais certaines sont
+   attachées à un jour que le monde a fixé — une prédication, un examen, un
+   voyage — et pour celles-là l'ami de minuit sait à quelle heure le jour se
+   lève. Un jour, sans heure, et le rebours se calcule : ce qui se déduit ne
+   se range pas. */
+function echMs(s){
+  const p=parse(s && s.ech);
+  return p ? new Date(p.y, p.m-1, p.d).getTime() : 0;
+}
+/* Positif : à venir. Zéro : aujourd'hui. Négatif : passé. */
+function echJours(s){
+  const t=echMs(s);
+  return t ? -joursMs(t) : null;
+}
+function echTxt(s){
+  const j=echJours(s); if(j===null) return "";
+  const q=dateJour(echMs(s));
+  if(j===0) return "C'est aujourd'hui, le "+q;
+  if(j===1) return "C'est demain, le "+q;
+  if(j===-1) return "C'était hier, le "+q;
+  return j>0 ? "Dans "+duree(j)+", le "+q
+             : "C'était il y a "+duree(-j)+", le "+q;
+}
+/* Sur une ligne, l'abrégé : il relit vite, il ne relit pas une phrase. */
+function echCourt(s){
+  const j=echJours(s); if(j===null) return "";
+  if(j===0) return "aujourd'hui";
+  if(j===1) return "demain";
+  if(j===-1) return "hier";
+  return j>0 ? "dans "+duree(j) : "il y a "+duree(-j);
+}
+/* La fenêtre de l'écran d'ouverture : sept jours avant, le jour même, puis
+   UN seul jour après — celui-là parce que c'est l'instant du mémorial, «
+   c'était hier, dis ce qu'Il a fait ». Ensuite l'application se tait : une
+   échéance passée est un fait de l'archive, pas une alarme restée allumée. */
+const ECH_AVANT = 7, ECH_APRES = 1;
+function echProche(s){
+  const j=echJours(s);
+  return j!==null && j<=ECH_AVANT && j>=-ECH_APRES;
+}
+/* Un sujet exaucé quitte la liste : la réponse est venue, le jour n'a plus
+   rien à annoncer. */
+function echeances(){
+  return (db.sujets||[]).filter(function(s){
+      return echProche(s) && !exaucesDe(s.id).length; })
+    .sort(function(a,b){ return echJours(a)-echJours(b); });
+}
 /* Le nombre visé n'est pas un objectif que l'application fixe : c'est un
    engagement qu'il prend — douze fois, cent fois. Ce qu'on compte en face,
    depuis 13.es, ce sont ses tapes et non les séances : voir impFois(). */
@@ -1371,6 +1428,27 @@ function porteTxt(x){
   if(!x) return "";
   return x.der ? "Porté il y a "+duree(x.j)
                : "Jamais nommé, "+duree(x.j)+" après l'avoir écrit";
+}
+/* 13.eu — ce qui arrive. L'alerter sur le MOUVEMENT, jamais sur un seuil
+   manqué : la ligne dit le jour et combien de fois il a déjà demandé, deux
+   faits — et elle mène au sujet, où se trouve le `+`. Un chiffre qui amène
+   quelque part n'est pas un reproche (13.cb). */
+function rappelEch(){
+  const e=echeances();
+  if(!e.length) return "";
+  return titreBloc("Ce qui arrive","ecart")
+    + liste(e.map(function(s){
+        const f=impFois(s.id);
+        return ligne({titre:esc(sujetTxt(s.id)),
+          sous:esc([f ? "demandé "+f+" fois"+(sujetBut(s) ? " sur "+sujetBut(s) : "")
+                      : "pas encore demandé",
+                    sujetRefs(s)].filter(Boolean).join(" · ")),
+          apres:`<span class="ech pres">${esc(echCourt(s))}</span>`,
+          attr:'data-sujo="'+s.id+'"'});
+      }).join(""), "lien")
+    + `<div class="block amorce">${e.some(function(s){ return echJours(s)<0; })
+        ? "Le jour est passé : ouvre et dis ce qu'Il a fait. Ensuite l'application se tait — une échéance passée n'est pas une alarme."
+        : "Le jour approche. Ce n'est pas une cadence à tenir : c'est pour que tu saches où tu en es."}</div>`;
 }
 function rappelPorte(){
   const at=porteAttente(), tenus=sujetsTenus();
@@ -1447,11 +1525,12 @@ function vPorte(){
        lien, mais closest() la trouve avant lui : taper le nombre compte une
        fois, taper le reste de la ligne ouvre le sujet. */
     h+=liste(ss.map(function(s){
-      const ex=exauceTxt(s.id), rf=sujetRefs(s);
+      const ex=exauceTxt(s.id), rf=sujetRefs(s), ec=echCourt(s);
       /* 13.et — la référence se lit là où il prie, sur la ligne même : le
          verset se relit en frappant, pas dans un écran qu'il faut ouvrir. */
       return ligne({titre:esc(sujetTxt(s.id)),
         sous:[esc(sujetHist(s.id) || "jamais demandé"),
+              ec?`<span class="ech${echProche(s)?" pres":""}">${esc(ec)}</span>`:"",
               rf?`<span class="promref">${esc(rf)}</span>`:"",
               ex?`<span class="exauce">${esc(ex)}</span>`:""].filter(Boolean).join(" · "),
         apres:`<span class="imp" data-imp="${s.id}">${impFois(s.id)}${PLUS}</span>`,
@@ -1891,10 +1970,11 @@ function vCahier(){
         : "Tout ce que tu as nommé a reçu sa réponse."}</p>`;
   } else {
     h+=liste(vus.map(function(s){
-      const ex=exauceTxt(s.id), hi=sujetHist(s.id), rf=sujetRefs(s);
+      const ex=exauceTxt(s.id), hi=sujetHist(s.id), rf=sujetRefs(s), ec=echCourt(s);
       const tx=sujetTxt(s.id);
       return ligne({titre:esc(tx),
-        sous:[hi?esc(hi):"", rf?`<span class="promref">${esc(rf)}</span>`:"",
+        sous:[hi?esc(hi):"", ec?`<span class="ech${echProche(s)?" pres":""}">${esc(ec)}</span>`:"",
+              rf?`<span class="promref">${esc(rf)}</span>`:"",
               ex?`<span class="exauce">${esc(ex)}</span>`:""].filter(Boolean).join(""),
         attr:'data-sujo="'+s.id+'" data-sjn="'+esc(String(tx).toLowerCase())+'"'});
     }).join(""), "lien");
@@ -1924,6 +2004,11 @@ function vSujet(){
       <div class="impn">${impFois(s.id)}</div>
       <div class="impl">fois demandé${sujetBut(s) ? " sur "+sujetBut(s)+" que tu t'es promis" : ""}</div>
     </div>`;
+  /* 13.eu — le terme se lit sous le compteur, et jamais divisé par lui :
+     l'engagement est à lui, le jour est au monde. Pas de « il te reste
+     treize fois en deux jours » : ce serait une cadence imposée. */
+  if(echJours(s)!==null)
+    h+=`<div class="block ${echProche(s)?"echbloc pres":"echbloc"}">${esc(echTxt(s))}</div>`;
   h+=`<div class="block">${bouton("J'ai demandé une fois de plus", 'data-imp="'+s.id+'"')}</div>`;
   h+=`<div class="block amorce">« C'est à cause de son importunité qu'il se lèvera et lui donnera. » Compte chaque fois que tu portes ceci devant Dieu — l'application ne frappe pas à ta place.</div>`;
   /* 13.et — la promesse se tient ICI, entre ce qu'il demande et ce qu'Il a
@@ -1991,11 +2076,19 @@ function vSujet(){
       + (db.gens||[]).map(function(g){
           return `<option value="${g.id}"${sujetGens(s)===g.id?" selected":""}>${esc(g.nom)}</option>`;
         }).join("")));
-  h+=titreBloc("Combien de fois tu t'es engagé","ecart");
+  /* 13.eq, 13.eu — ce qu'il s'est promis, et le jour que le monde a fixé.
+     Deux faits distincts, un seul geste : c'est le même moment où l'on dit
+     « je demanderai ceci vingt fois, et c'est pour samedi ». */
+  h+=titreBloc("Ton engagement","ecart");
   h+=`<div class="block amorce">${sujetBut(s)
       ? "<b>"+esc(impTxt(s))+".</b> Ce n'est pas l'application qui a fixé ce nombre — c'est toi."
-      : "Si tu t'es engagé à demander ceci un certain nombre de fois, dis-le. Vide, ou zéro, pour compter sans terme."}</div>`;
-  h+=champ("sjN","Combien de fois","number", sujetBut(s)||"", 'min="0" inputmode="numeric"');
+      : "Si tu t'es engagé à demander ceci un certain nombre de fois, dis-le. Vide, ou zéro, pour compter sans fin."}
+      ${s.ech ? "" : " Et si la demande est attachée à un jour — une prédication, un examen, un voyage — pose-le : l'écran d'ouverture te le rappellera quand il approchera."}</div>`;
+  h+=liste(champLab("sjN","Combien de fois",
+        `<input type="number" id="sjN" value="${sujetBut(s)||""}" min="0" inputmode="numeric" placeholder="sans fin">`)
+      + champLab("sjE","Jusqu'à quand",
+        `<input type="date" id="sjE" value="${esc(s.ech||"")}">`));
+  h+=`<div class="block amorce">Vider la date la retire : la demande redevient sans terme.</div>`;
   h+=`<div class="block">${bouton("Garder", 'data-act="sjPour"')}</div>`;
   Z.html=h;
   Z.action = bouton(ex.length ? "Il y a répondu encore" : "Il y a répondu",

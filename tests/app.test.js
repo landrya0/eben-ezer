@@ -3473,6 +3473,28 @@ test("balayage — tout ce qui s'affiche est écouté", () => {
   A.deepEqual(morts, [], "un bouton qu'on ne peut pas toucher n'est pas un bouton");
 });
 
+test("balayage — tout rappel de l'écran d'ouverture est posé quelque part", () => {
+  /* Huitième balayage. Écrire un `rappelX()` juste et oublier de l'appeler
+     donne une fonctionnalité entière qui ne s'affiche nulle part, et tous ses
+     tests au vert — ils appellent la fonction, l'écran ne l'appelle pas.
+     13.eu a été livré ainsi en répétition : deux mutations ont survécu, et
+     c'était exactement ce trou. La faute peut se produire à chaque nouveau
+     rappel, donc elle se garde ici et non écran par écran. */
+  const src = fs.readdirSync(path.join(__dirname, "..", "src"))
+    .filter(f => f.endsWith(".js"))
+    .map(f => fs.readFileSync(path.join(__dirname, "..", "src", f), "utf8")).join("\n");
+  const noms = [...src.matchAll(/function (rappel[A-Za-z]+)\s*\(/g)].map(m => m[1]);
+  A.ok(noms.length >= 6, "les rappels ont changé de forme : ce balayage ne sait plus les lire");
+  /* Un rappel peut prendre un argument — rappelSuj(ss) — donc on compte les
+     appels, déclaration déduite, et non les parenthèses vides. */
+  const morts = noms.filter(n => {
+    const tous = [...src.matchAll(new RegExp("\\b" + n + "\\s*\\(", "g"))].length;
+    const decl = [...src.matchAll(new RegExp("function\\s+" + n + "\\s*\\(", "g"))].length;
+    return tous - decl < 1;
+  });
+  A.deepEqual(morts, [], "un rappel que personne n'appelle ne prévient de rien");
+});
+
 test("balayage — aucun écran dont on ne sort pas", () => {
   /* `Z.haut` sans `Z.file` remplace la barre par le titre, et emporte le
      bouton Retour avec elle. Sur un onglet il reste la barre du bas ;
@@ -6422,5 +6444,210 @@ test("13.et — une promesse posée survit à la réunion de deux appareils", ()
       A.ok(out.sujets.filter(x => x.id === "s1")[0].pr,
         poser + " : la promesse a été perdue à la réunion");
     });
+  }
+});
+
+/* ---------- 13.eu — l'échéance d'une demande ---------- */
+
+/* « une retraite où je dois prêcher » : certaines demandes sont attachées à un
+   jour que le monde a fixé. Le compteur comptait sans jamais décompter. */
+function aEcheance(a) {
+  ceuxQuAttendent(a);
+  a.maintenant(j(10, 0));            /* le 8 novembre 2026, à dix heures */
+  a.f.render = function () {};
+  return a;
+}
+function poseEch(a, sid, date, n) {
+  a.S.view = "sujet"; a.S.sujId = sid;
+  a.ecrit("sjG", a.f.sujet(sid).g || "");
+  a.ecrit("sjN", n === undefined ? (a.f.sujetBut(a.f.sujet(sid)) || "") : n);
+  a.ecrit("sjE", date);
+  a.actions.sjPour();
+}
+
+test("13.eu — le jour se range, le rebours se calcule", () => {
+  const a = app();
+  aEcheance(a);
+  poseEch(a, "s1", "2026-11-14", 20);
+  const s = a.f.sujet("s1");
+  A.equal(s.ech, "2026-11-14", "un jour, sans heure");
+  A.equal(a.f.echJours(s), 6, "six jours : c'est déduit, ce n'est pas rangé");
+  A.equal(JSON.stringify(s).indexOf("6 jours"), -1, "rien de ce qui se calcule ne se range");
+  A.equal(s.n, 20, "et l'engagement vit à côté, pas dedans");
+});
+
+test("13.eu — les mots du jour", () => {
+  const a = app();
+  aEcheance(a);
+  const dis = (d) => { a.f.sujet("s1").ech = d; return a.f.echTxt(a.f.sujet("s1")); };
+  const bref = (d) => { a.f.sujet("s1").ech = d; return a.f.echCourt(a.f.sujet("s1")); };
+  A.match(dis("2026-11-08"), /^C'est aujourd'hui/);
+  A.match(dis("2026-11-09"), /^C'est demain/);
+  A.match(dis("2026-11-07"), /^C'était hier/);
+  A.match(dis("2026-11-14"), /^Dans 6 jours, le 14 novembre/);
+  A.match(dis("2026-11-03"), /^C'était il y a 5 jours, le 3 novembre/);
+  A.equal(bref("2026-11-08"), "aujourd'hui");
+  A.equal(bref("2026-11-09"), "demain");
+  A.equal(bref("2026-11-07"), "hier");
+  A.equal(bref("2026-11-14"), "dans 6 jours");
+  A.equal(bref("2026-11-03"), "il y a 5 jours");
+  delete a.f.sujet("s1").ech;
+  A.equal(a.f.echJours(a.f.sujet("s1")), null, "la plupart des demandes n'ont pas de terme");
+  A.equal(a.f.echTxt(a.f.sujet("s1")), "");
+  A.equal(a.f.echCourt(a.f.sujet("s1")), "");
+});
+
+test("13.eu — l'échéance se retire, et une date qui n'en est pas ne se pose pas", () => {
+  const a = app();
+  aEcheance(a);
+  poseEch(a, "s1", "2026-11-14", 20);
+  const avant = a.f.sujet("s1").maj;
+  a.f.sujet("s1").maj = +jour(1, 9, 0);
+  poseEch(a, "s1", "", 20);
+  A.equal(a.f.sujet("s1").ech, undefined,
+    "une échéance qu'on ne peut pas défaire n'est pas une échéance (13.cl)");
+  A.equal(a.f.sujet("s1").n, 20, "et retirer le jour ne touche pas à l'engagement");
+  A.ok(a.f.sujet("s1").maj > +jour(1, 9, 0), "la fiche a changé, la réunion doit le savoir");
+  poseEch(a, "s1", "samedi prochain", 20);
+  A.equal(a.f.sujet("s1").ech, undefined, "« samedi prochain » n'est pas un jour");
+});
+
+test("13.eu — l'échéance survit à la réunion de deux appareils", () => {
+  const a = app();
+  aEcheance(a);
+  const vieux = +jour(1, 9, 0);
+  a.f.sujet("s1").maj = vieux;
+  const autre = JSON.parse(JSON.stringify(a.db));
+  poseEch(a, "s1", "2026-11-14", 20);
+  const ici = JSON.parse(JSON.stringify(a.db));
+  [a.f.fusionne(autre, ici), a.f.fusionne(ici, autre)].forEach(out => {
+    A.equal(out.sujets.filter(x => x.id === "s1")[0].ech, "2026-11-14",
+      "le jour posé ici a été perdu à la réunion (13.bd)");
+  });
+});
+
+test("13.eu — l'écran d'ouverture dit ce qui arrive, et mène quelque part", () => {
+  const a = app();
+  aEcheance(a);
+  poseEch(a, "s1", "2026-11-11", 20);
+  frappe(a, "s1", 7);
+  const h = a.f.rappelEch();
+  A.match(h, /Ce qui arrive/);
+  A.match(h, /Sa santé/);
+  A.match(h, /dans 3 jours/);
+  A.match(h, /demandé 7 fois sur 20/, "deux faits : le jour, et ce qu'il a déjà fait");
+  A.match(h, /data-sujo="s1"/, "un chiffre qui amène quelque part n'est pas un reproche (13.cb)");
+  /* Jamais une cadence imposée, jamais un seuil manqué. */
+  [/retard/i, /il te reste/i, /par jour/i, /manqu/i, /devrais/i].forEach(r => {
+    A.equal(r.test(h), false, "l'écran accuse : " + r);
+  });
+});
+
+test("13.eu — la fenêtre se referme, et l'application se tait", () => {
+  const a = app();
+  aEcheance(a);
+  const voit = (d) => { a.f.sujet("s1").ech = d; return a.f.echeances().length === 1; };
+  A.equal(voit("2026-11-16"), false, "huit jours : trop loin, rien à annoncer");
+  A.equal(voit("2026-11-15"), true, "sept jours avant : la fenêtre s'ouvre");
+  A.equal(voit("2026-11-08"), true, "le jour même");
+  A.equal(voit("2026-11-07"), true, "un jour après : c'est l'instant du mémorial");
+  A.equal(voit("2026-11-06"), false, "au-delà, une échéance passée n'est pas une alarme");
+  a.f.sujet("s1").ech = "2026-11-07";
+  A.match(a.f.rappelEch(), /dis ce qu'Il a fait/, "le jour passé appelle le mémorial, pas un rappel");
+  a.f.sujet("s1").ech = "2026-11-10";
+  A.match(a.f.rappelEch(), /Le jour approche/);
+  A.equal(a.f.rappelEch().indexOf("dis ce qu'Il a fait"), -1);
+});
+
+test("13.eu — un sujet exaucé quitte la liste", () => {
+  const a = app();
+  aEcheance(a);
+  a.f.sujet("s1").ech = "2026-11-10";
+  A.equal(a.f.echeances().length, 1);
+  a.db.nodes = [{ id: "n9", act: "dieu", man: "pourvu", kind: "acte", txt: "Il l'a relevée",
+                  par: [], suj: ["s1"], etat: "fait", date: "2026-11-09", prec: "j", ts: 1, maj: 1 }];
+  A.equal(a.f.echeances().length, 0, "la réponse est venue : le jour n'a plus rien à annoncer");
+  A.equal(a.f.rappelEch(), "");
+});
+
+test("13.eu — rangées par le jour le plus proche", () => {
+  const a = app();
+  aEcheance(a);
+  a.f.sujet("s1").ech = "2026-11-13";
+  a.f.sujet("s2").ech = "2026-11-09";
+  a.f.sujet("s3").ech = "2026-11-07";
+  A.deepEqual(Array.from(a.f.echeances()).map(x => x.id), ["s3", "s2", "s1"],
+    "le plus proche en premier, et celui d'hier avant tous");
+});
+
+test("13.eu — la fiche dit les deux faits, et ne les divise pas l'un par l'autre", () => {
+  const a = app();
+  aEcheance(a);
+  poseEch(a, "s1", "2026-11-10", 20);
+  frappe(a, "s1", 7);
+  a.S.view = "sujet"; a.S.sujId = "s1";
+  a.f.vSujet();
+  A.match(a.Z.html, /Dans 2 jours, le 10 novembre/, "le terme se lit sous le compteur");
+  A.match(a.Z.html, /class="impn">7</, "le compteur reste le compteur");
+  A.match(a.Z.html, /fois demandé sur 20 que tu t'es promis/, "et l'engagement reste entier");
+  A.match(a.Z.html, /id="sjE"/, "le jour se pose ici");
+  A.match(a.Z.html, /id="sjN"/, "du même geste que le nombre");
+  [/il te reste/i, /par jour/i, /retard/i].forEach(r => {
+    A.equal(r.test(a.Z.html), false, "une cadence imposée : " + r);
+  });
+});
+
+test("13.eu — la ligne porte l'abrégé, là où il prie", () => {
+  const a = app();
+  aEcheance(a);
+  a.f.sujet("s1").ech = "2026-11-10";
+  a.S.view = "porte"; a.S.porteG = "g1";
+  a.f.vPorte();
+  A.match(a.Z.html, /dans 2 jours/, "sur la fiche de la personne");
+  A.match(a.Z.html, /class="ech pres"/, "et marquée, parce que le jour approche");
+  a.f.sujet("s1").ech = "2026-12-20";
+  a.f.vPorte();
+  A.match(a.Z.html, /dans 1 mois/, "un jour lointain se lit quand même");
+  A.equal(/class="ech pres"/.test(a.Z.html), false, "mais sans être marqué");
+  a.S.view = "cahier"; a.S.sjF = "attente";
+  a.f.vCahier();
+  A.match(a.Z.html, /dans 1 mois/, "et sur la ligne du cahier");
+});
+
+test("13.eu — sans échéance, l'application ne demande rien et ne dit rien", () => {
+  const a = app();
+  aEcheance(a);
+  A.equal(a.f.echeances().length, 0);
+  A.equal(a.f.rappelEch(), "", "aucune demande n'a de terme : l'écran se tait");
+  a.S.view = "sujet"; a.S.sujId = "s1";
+  a.f.vSujet();
+  A.equal(/class="block (echbloc|echbloc pres)"/.test(a.Z.html), false,
+    "et la fiche ne montre pas une ligne vide");
+  A.match(a.Z.html, /pour compter sans fin/, "l'absence de terme est un état normal, pas un trou");
+});
+
+test("13.eu — ce qui arrive est bien sur l'écran d'ouverture, dans les deux cas", () => {
+  /* vToday a deux branches : celle où quelque chose remonte, et celle où rien
+     ne remonte. Un rappel posé dans l'une seulement est invisible un jour sur
+     deux, et aucun test d'unité ne le verrait. */
+  for (const avecCarte of [false, true]) {
+    const a = app();
+    aEcheance(a);
+    /* Un acte de Dieu fait toujours remonter quelque chose ; un acte de lui,
+       fait et ancien, ne remonte pas — c'est ainsi qu'on atteint l'autre
+       branche, celle de « Rien ne revient aujourd'hui ». */
+    a.db.nodes = avecCarte
+      ? [{ id: "n1", act: "dieu", man: "parle", kind: "rhema", txt: "Je pourvoirai",
+           par: [], suj: [], etat: "fait", date: "2026-11-07", prec: "j", ts: 1, maj: 1 }]
+      : [{ id: "n1", act: "moi", dest: "dieu", kind: "acte", txt: "J'ai prié pour elle",
+           par: [], suj: [], etat: "fait", date: "2025-01-02", prec: "j", ts: 1, maj: 1 }];
+    a.f.sujet("s1").ech = "2026-11-11";
+    a.S.pile = []; a.S.view = "today";
+    a.f.VUES.today();
+    A.equal(/Rien ne revient aujourd'hui/.test(String(a.Z.haut)), !avecCarte,
+      "le test n'atteint pas la branche qu'il croit viser");
+    A.match(String(a.Z.html), /Ce qui arrive/,
+      (avecCarte ? "avec une carte" : "sans carte") + " : l'échéance ne s'affiche pas");
+    A.match(String(a.Z.html), /dans 3 jours/);
   }
 });

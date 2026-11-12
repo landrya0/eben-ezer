@@ -813,3 +813,10 @@ textarea.dicte:focus{outline:0}
 .promref{display:inline-block;color:var(--f7-theme-color);font-weight:600}
 .promref::before{content:"✦ "}
 .coch{color:var(--f7-theme-color);font-weight:700;font-size:17px}
+
+/* 13.eu — l'échéance. Discrète quand le jour est loin, marquée quand il
+   approche : la couleur dit l'urgence sans un mot de plus, et sans accuser. */
+.ech{display:inline-block;opacity:.75}
+.ech.pres{opacity:1;color:var(--f7-theme-color);font-weight:700}
+.echbloc{margin-top:-2px;text-align:center;font-size:14px;opacity:.7}
+.echbloc.pres{opacity:1;color:var(--f7-theme-color);font-weight:700}

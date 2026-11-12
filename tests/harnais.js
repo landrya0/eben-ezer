@@ -241,6 +241,7 @@ const PONT = `
        rythTenus, fidTxt, rappelFid, vRythmes, vRythme,
        impsDe, impFois, impDernier, impPremier, importune, impTxt,
   promesse, sujetProm, promTitre, promRefs, sujetRefs, vPromesse,
+  echMs, echJours, echTxt, echCourt, echProche, echeances, rappelEch,
     sujetGens, sujetsDe, sujetPour, sujetBut, sujetReste, sujetCompte, sujetsTenus,
        porteDepuis, ceuxPortes, porteAttente, porteTxt, rappelPorte, vPortes, vPorte,
        dynProgres, rappelProgres, vCahier, sujetFois, sujetDernier, seancesDe, gensNom,

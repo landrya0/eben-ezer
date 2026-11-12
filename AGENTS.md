@@ -108,11 +108,14 @@ Et, transversal : **rien ne part en clair** (13.bh). Le journal nomme des frère
   du sélecteur du délégué : **invisibles pour toute la batterie**. Ces fautes-là ne se rattrapent
   pas écran par écran — elles se rattrapent par des **balayages** qui passent TOUS les écrans au
   même crible et découvrent la liste des écrans eux-mêmes, de sorte qu'un écran neuf y entre sans
-  qu'on y pense. Il y en a **sept**, en fin de batterie : aucun écran ne jette ni n'est vide,
+  qu'on y pense. Il y en a **huit**, en fin de batterie : aucun écran ne jette ni n'est vide,
   tout `data-…` affiché est écouté, aucun écran hors onglets ne perd sa porte de sortie, aucun
   geste n'arrête un compteur sans le dire, la réunion de deux appareils n'en ferme aucun, tout ce
   que le rail affiche est écouté (le rail n'est pas un écran : aucun des cinq premiers ne le
-  voyait), et aucune ligne à retirer ne tait le bloc dont elle vient.
+  voyait), aucune ligne à retirer ne tait le bloc dont elle vient, et **tout `rappelX()` est appelé
+  par un écran** — un rappel juste qu'on oublie de poser donne une fonctionnalité entière
+  invisible, avec tous ses tests au vert, puisqu'ils appellent la fonction que l'écran n'appelle
+  pas (13.eu : deux mutations avaient survécu, et c'était exactement ce trou).
   **Y ajouter un balayage plutôt qu'un test** chaque fois qu'une faute aurait pu se produire
   partout.
 - **Une idée = une version**, vérifiée dans le navigateur (375 px) avant de passer à la suivante.

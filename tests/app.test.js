@@ -5310,6 +5310,19 @@ test("13.ep — « rien de compté » ne se dit jamais « tu n'as pas prié »",
     "et elle le dit en clair, une fois");
 });
 
+test("13.ep — le jour zéro n'est pas une durée", () => {
+  const a = app();
+  /* Déclaré à l'instant : c'est le moment le plus délicat de toute la règle,
+     et « 0 jours après l'avoir dit » y serait une phrase fausse. */
+  ryth(a, "jeune", 1, 0);
+  A.equal(a.f.fidTxt(a.f.retard("jeune")), "Dit aujourd'hui — rien de compté encore");
+  ryth(a, "priere", 1, 10);
+  signe(a, "priere", 0);
+  A.equal(a.f.fidTxt(a.f.retard("priere")), "Compté aujourd'hui");
+  const h = a.f.rappelFid();
+  A.equal(h.indexOf("0 jour"), -1, "aucune des deux phrases ne se dit au jour zéro");
+});
+
 test("13.ep — jamais compté : le retard part de la parole donnée", () => {
   const a = app();
   ryth(a, "jeune", 7, 10);

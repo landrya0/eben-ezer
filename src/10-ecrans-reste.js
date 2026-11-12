@@ -1022,9 +1022,14 @@ function rythTenus(){
    s'est vécu sans être pointé. */
 function fidTxt(x){
   if(!x) return "";
-  return x.jamais
-    ? "Jamais rien de compté, " + duree(x.j) + " après l'avoir dit"
-    : "Rien de compté depuis " + duree(x.j);
+  /* Le jour zéro n'est pas une durée : « rien de compté depuis 0 jours » et
+     « 0 jours après l'avoir dit » sont des phrases fausses, et la seconde
+     tombe précisément au moment le plus délicat — celui où il vient de
+     déclarer son rythme. */
+  if(x.jamais)
+    return x.j ? "Jamais rien de compté, " + duree(x.j) + " après l'avoir dit"
+               : "Dit aujourd'hui — rien de compté encore";
+  return x.j ? "Rien de compté depuis " + duree(x.j) : "Compté aujourd'hui";
 }
 function rappelFid(){
   if(!rythDits().length) return "";

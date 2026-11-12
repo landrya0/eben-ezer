@@ -3378,7 +3378,7 @@ const path = require("node:path");
 
 /* Les écrans qui se tiennent seuls, et ceux qui veulent un contexte. */
 const AVEC_CONTEXTE = ["node", "edit", "lier", "bloc", "tache", "livre",
-  "auteur", "sujet", "periode", "chemin", "frise", "quand", "note"];
+  "auteur", "sujet", "promesse", "periode", "chemin", "frise", "quand", "note"];
 
 /* Une archive ordinaire : de quoi que chaque écran ait quelque chose à dire.
    Sans elle, un écran vide passerait pour un écran sain. */
@@ -6199,4 +6199,228 @@ test("13.es — sans engagement, le compte se dit seul", () => {
   A.equal(a.f.impTxt(a.f.sujet("s1")), "Demandé 5 fois");
   A.equal(a.f.sujetReste(a.f.sujet("s1")), null);
   A.equal(a.f.sujetReste(a.f.sujet("s3")), 100);
+});
+
+/* ---------- 13.et — la promesse sur chaque sujet ---------- */
+
+/* La colonne *référence biblique* de son cahier : la seule des six qui
+   n'avait pas de contrepartie. Un seul attribut sur le sujet — ou bien un
+   besoin de la liste, qui APPORTE ses versets, ou bien ses mots à lui. */
+function aPromettre(a) {
+  ceuxQuAttendent(a);
+  a.f.render = function () {};
+  return a;
+}
+
+test("13.et — un besoin choisi apporte ses versets, et l'archive n'en garde que le nom", () => {
+  const a = app();
+  aPromettre(a);
+  a.S.view = "promesse"; a.S.sujId = "s1";
+  a.ctx.geste({ prch: "guerison" });
+  const s = a.f.sujet("s1");
+  A.equal(s.pr, "guerison", "un seul attribut, et c'est l'identifiant du besoin");
+  A.equal(JSON.stringify(a.db).indexOf("gu\u00e9rit toutes tes maladies"), -1,
+    "le texte du verset ne se range pas : rien de l'archive ne peut dériver de l'Écriture");
+  const p = a.f.sujetProm(s);
+  A.equal(p.id, "guerison");
+  A.ok(p.v.length >= 2, "sa page range deux versets sous ce besoin, ils viennent ensemble");
+  A.match(a.f.promRefs(p), /Psaume 103:3/);
+  A.match(a.f.promRefs(p), /1 Pierre 2:24/);
+});
+
+test("13.et — ses mots détachent de la liste, et la liste détache ses mots", () => {
+  const a = app();
+  aPromettre(a);
+  a.S.view = "promesse"; a.S.sujId = "s1";
+  a.ctx.geste({ prch: "guerison" });
+  a.ecrit("prT", "Ésaïe 54:17");
+  a.actions.prPose();
+  const s = a.f.sujet("s1");
+  A.equal(s.pr, "Ésaïe 54:17", "ses mots l'emportent");
+  A.equal(a.f.promesse("Ésaïe 54:17"), null, "et ne prétendent pas être un besoin de la liste");
+  const p = a.f.sujetProm(s);
+  A.equal(p.libre, "Ésaïe 54:17");
+  A.equal(p.v, undefined, "une demande s'appuie sur UNE parole, pas sur deux");
+  A.equal(a.f.promTitre(p), "Ésaïe 54:17");
+  a.S.view = "promesse"; a.S.sujId = "s1";
+  a.ctx.geste({ prch: "ennemi" });
+  A.equal(a.f.sujet("s1").pr, "ennemi", "et choisir dans la liste efface ses mots en retour");
+});
+
+test("13.et — un champ libre vide ne retire rien", () => {
+  const a = app();
+  aPromettre(a);
+  a.S.view = "promesse"; a.S.sujId = "s1";
+  a.ctx.geste({ prch: "guerison" });
+  a.ecrit("prT", "   ");
+  a.actions.prPose();
+  A.equal(a.f.sujet("s1").pr, "guerison",
+    "un bouton « garder » qui efface serait un piège : c'est « retirer » qui retire");
+});
+
+test("13.et — rien n'est deviné à sa place", () => {
+  const a = app();
+  aPromettre(a);
+  a.db.sujets.push({ id: "s9", txt: "Guérison", g: "g1", maj: jour(1, 9, 0) });
+  A.equal(a.f.sujetProm(a.f.sujet("s9")), null,
+    "le mot du sujet ressemble à un besoin : l'application ne pose pas le verset pour autant (P9)");
+  A.equal(a.f.sujetRefs(a.f.sujet("s1")), "", "et un sujet sans promesse n'en affiche aucune");
+});
+
+test("13.et — ce qui est posé se retire, et la réunion ne le ressuscite pas", () => {
+  const a = app();
+  aPromettre(a);
+  a.S.view = "promesse"; a.S.sujId = "s1";
+  a.ctx.geste({ prch: "guerison" });
+  /* L'autre appareil, resté sur la promesse posée il y a huit jours. */
+  const vieux = +jour(1, 9, 0);
+  a.f.sujet("s1").maj = vieux;
+  const A1 = JSON.parse(JSON.stringify(a.db));
+  a.ctx.geste({ prx: "s1" });
+  A.equal(a.f.sujet("s1").pr, undefined, "une promesse qu'on ne peut pas changer est une étiquette (13.cl)");
+  A.ok(a.f.sujet("s1").maj > vieux, "le sujet a vraiment changé, la réunion doit le savoir");
+  const B1 = JSON.parse(JSON.stringify(a.db));
+  const out = a.f.fusionne(A1, B1);
+  A.equal(out.sujets.filter(x => x.id === "s1")[0].pr, undefined,
+    "l'appareil où l'on a retiré est le plus récent : la promesse ne revient pas (13.bd)");
+});
+
+test("13.et — la référence se lit là où il prie", () => {
+  const a = app();
+  aPromettre(a);
+  a.S.view = "promesse"; a.S.sujId = "s1";
+  a.ctx.geste({ prch: "guerison" });
+  A.equal(a.f.sujetRefs(a.f.sujet("s1")), "Psaume 103:3 · 1 Pierre 2:24");
+  a.S.view = "porte"; a.S.porteG = "g1";
+  a.f.vPorte();
+  A.match(a.Z.html, /Psaume 103:3/, "sur la fiche de la personne, à côté du +");
+  A.equal(a.Z.html.indexOf("guerison"), -1, "l'identifiant ne s'affiche jamais");
+  a.S.view = "cahier"; a.S.sjF = "attente";
+  a.f.vCahier();
+  A.match(a.Z.html, /Psaume 103:3/, "et sur la ligne du cahier");
+});
+
+test("13.et — la fiche du sujet se lit dans l'ordre de la phrase d'Ében-Ézer", () => {
+  const a = app();
+  aPromettre(a);
+  a.S.view = "promesse"; a.S.sujId = "s1";
+  a.ctx.geste({ prch: "besoins" });
+  a.S.view = "sujet"; a.S.sujId = "s1";
+  a.f.vSujet();
+  const dit = a.Z.html.indexOf("Ce qu'Il avait dit");
+  const fait = a.Z.html.indexOf("Ce qu'Il a fait");
+  A.ok(dit > 0, "la promesse a sa place sur la fiche");
+  A.ok(fait > dit, "ce qu'Il avait dit vient AVANT ce qu'Il a fait : sinon l'exaucement est un fait isolé");
+  A.match(a.Z.html, /Philippiens 4:19/, "et le verset s'y lit en entier");
+  A.match(a.Z.html, /pourvoira à tous vos besoins/);
+  A.match(a.Z.html, /data-prom="s1"/, "avec une porte pour en changer");
+});
+
+test("13.et — sans promesse, la fiche propose et n'impose pas", () => {
+  const a = app();
+  aPromettre(a);
+  a.S.view = "sujet"; a.S.sujId = "s1";
+  a.f.vSujet();
+  A.match(a.Z.html, /Ce qu'Il avait dit/, "la colonne existe même vide, sinon on ne sait pas qu'elle existe");
+  A.match(a.Z.html, /référence biblique/, "et elle se nomme comme dans son cahier");
+  A.match(a.Z.html, /data-prom="s1"/);
+});
+
+test("13.et — l'écran des promesses est sa page, et il répond à une seule question", () => {
+  const a = app();
+  aPromettre(a);
+  a.S.view = "promesse"; a.S.sujId = "s3";
+  a.ctx.geste({ prch: "repentance" });
+  a.S.view = "promesse"; a.S.sujId = "s3"; a.S.prQ = "";
+  a.f.vPromesse();
+  A.match(a.Z.html, /Proverbes 30:5/, "l'en-tête de sa page");
+  A.equal(a.Z.retour, true, "et une porte de sortie");
+  a.c.PROMESSES.forEach(c => {
+    A.ok(a.Z.html.indexOf(c.cat) !== -1, "le besoin « " + c.cat + " » manque à l'écran");
+  });
+  A.match(a.Z.html, /Demandez, et l'on vous donnera/, "les versets se lisent AVANT de choisir");
+  A.match(a.Z.html, /data-prx="s3"/, "ce qui est posé se retire");
+  A.match(a.Z.html, /data-act="prPose"/, "et le champ libre reste ouvert");
+});
+
+test("13.et — la liste est sa page, transcrite sans perte", () => {
+  const a = app();
+  const tous = [];
+  a.c.PROMESSES.forEach(c => c.items.forEach(x => tous.push(x)));
+  const ids = tous.map(x => x.id);
+  A.equal(new Set(ids).size, ids.length, "deux besoins ne portent pas le même identifiant");
+  tous.forEach(x => {
+    A.ok(x.t && x.v.length, x.id + " : un besoin sans verset ne promet rien");
+    x.v.forEach(v => {
+      A.ok(/\d/.test(v[0]), x.id + " : une référence sans chapitre ne se retrouve pas");
+      A.ok(v[1].length > 20, x.id + " : le verset est tronqué");
+    });
+  });
+  /* Les quatorze besoins de la photo, avec les références qu'elle porte. */
+  const photo = {
+    demander: ["Luc 11:9", "Jean 16:23", "1 Jean 5:14"],
+    entend: ["Psaume 34:16", "Jérémie 33:3"],
+    anxiete: ["Philippiens 4:6-7", "Ésaïe 43:2"],
+    fardeaux: ["1 Pierre 5:7"], besoins: ["Philippiens 4:19"],
+    jeune: ["Jean 15:5"], volonte: ["Psaume 32:8"],
+    guerison: ["Psaume 103:3", "1 Pierre 2:24"], sagesse: ["Jacques 1:5"],
+    biens: ["Psaume 91:10"], ouvriers: ["Matthieu 9:38"],
+    repentance: ["Actes 11:18"], salutames: ["2 Pierre 3:9"]
+  };
+  Object.keys(photo).forEach(k => {
+    const x = a.f.promesse(k);
+    A.ok(x, "le besoin " + k + " de sa page a disparu de la liste");
+    A.deepEqual(Array.from(x.v).map(v => v[0]), photo[k],
+      "les références de " + k + " ont dérivé de sa page");
+  });
+  /* Et la seule que la photo ne portait pas, coupée au bas de la colonne. */
+  A.ok(a.f.promesse("trouble").v.length, "« Ne crains point en temps de trouble » a été complétée");
+  A.ok(tous.length > 20, "la liste est prolongée au-delà de sa page");
+});
+
+test("13.et — la recherche porte sur le besoin ET sur le texte du verset", () => {
+  const a = app();
+  aPromettre(a);
+  a.S.view = "promesse"; a.S.sujId = "s1"; a.S.prQ = "";
+  a.f.vPromesse();
+  const prn = [...a.Z.html.matchAll(/data-prn="([^"]*)"/g)].map(m => m[1]);
+  A.equal(prn.length, a.c.PROMESSES.reduce((n, c) => n + c.items.length, 0),
+    "chaque ligne porte de quoi être trouvée");
+  A.ok(prn.some(x => x.indexOf("moisson") !== -1),
+    "chercher un mot du verset doit suffire : il ne connaît pas toujours le nom du besoin");
+  A.ok(prn.some(x => x.indexOf("guérison") !== -1), "et le nom du besoin aussi");
+  A.ok(prn.every(x => x === x.toLowerCase()), "la recherche ignore la casse");
+});
+
+test("13.et — entrer sur l'écran ne perd pas le sujet", () => {
+  const a = app();
+  ceuxQuAttendent(a);
+  a.S.view = "sujet"; a.S.sujId = "s1";
+  a.ctx.geste({ prom: "s1" });
+  A.equal(a.S.view, "promesse");
+  A.equal(a.S.sujId, "s1", "une question posée SUR un sujet ne perd pas son sujet en route");
+  A.equal(a.f.nomVue("promesse"), "Sur quelle promesse");
+});
+
+test("13.et — une promesse posée survit à la réunion de deux appareils", () => {
+  /* Elle est un champ du sujet et non une fiche à part : la réunion remplace
+     alors la fiche entière, et c'est le `maj` qui tranche. Poser une promesse
+     sans toucher la fiche la ferait silencieusement écraser par la copie de
+     l'autre appareil, restée sur l'ancien état (13.bd). */
+  const vieux = +jour(1, 9, 0);
+  for (const poser of ["liste", "ses mots"]) {
+    const a = app();
+    aPromettre(a);
+    a.f.sujet("s1").maj = vieux;
+    const autre = JSON.parse(JSON.stringify(a.db));   // l'appareil resté en arrière
+    a.S.view = "promesse"; a.S.sujId = "s1";
+    if (poser === "liste") a.ctx.geste({ prch: "guerison" });
+    else { a.ecrit("prT", "Ésaïe 54:17"); a.actions.prPose(); }
+    A.ok(a.f.sujet("s1").maj > vieux, poser + " : la fiche a changé, elle doit le dire");
+    const ici = JSON.parse(JSON.stringify(a.db));
+    [a.f.fusionne(autre, ici), a.f.fusionne(ici, autre)].forEach(out => {
+      A.ok(out.sujets.filter(x => x.id === "s1")[0].pr,
+        poser + " : la promesse a été perdue à la réunion");
+    });
+  }
 });

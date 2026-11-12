@@ -240,6 +240,7 @@ const PONT = `
        rythNom, rythFiche, rythme, rythDits, joursMs, dernierSigne, retard, retards,
        rythTenus, fidTxt, rappelFid, vRythmes, vRythme,
        impsDe, impFois, impDernier, impPremier, importune, impTxt,
+  promesse, sujetProm, promTitre, promRefs, sujetRefs, vPromesse,
     sujetGens, sujetsDe, sujetPour, sujetBut, sujetReste, sujetCompte, sujetsTenus,
        porteDepuis, ceuxPortes, porteAttente, porteTxt, rappelPorte, vPortes, vPorte,
        dynProgres, rappelProgres, vCahier, sujetFois, sujetDernier, seancesDe, gensNom,
@@ -256,7 +257,7 @@ const PONT = `
        vOrdre, vEpingles, portePointage, etapes, vNote, vNode, vAccomplis, porteFaits, vPointer, creuxVif,
        sansDate, precPour, today, render, save, VUES, quitterPrevu, jourPromis, promisBref, ligneActe, remontees, blocQuand, vEdit, human },
   c: { DISC, DYN, RYTHMES, PERIODES, ONG_TEMPS, SANSFIN, KEY, CAT_SOCLE,
-       SO_KEY, SO_MAX, ONGLETS, NOM_VUE, SEULES }
+       SO_KEY, SO_MAX, ONGLETS, NOM_VUE, SEULES, PROMESSES }
 };
 `;
 

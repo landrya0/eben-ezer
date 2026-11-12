@@ -799,3 +799,17 @@ textarea.dicte:focus{outline:0}
 .impn{font-size:52px;font-weight:700;line-height:1;color:var(--f7-theme-color);
   font-variant-numeric:tabular-nums}
 .impl{margin-top:4px;font-size:14px;opacity:.65}
+
+/* 13.et — la promesse. Elle se lit comme une citation et non comme un
+   réglage : c'est une parole, pas une étiquette. La référence est en tête du
+   verset, comme sur la page de son livre. */
+.prom{margin-top:10px;border-left:3px solid var(--f7-theme-color);padding:2px 0 2px 13px}
+.promt{margin:0 0 8px;font-weight:700;font-size:15px}
+.promv{margin:0 0 9px;font-size:14.5px;line-height:1.5;opacity:.9}
+.promv:last-child{margin-bottom:0}
+.promr{font-weight:700;color:var(--f7-theme-color);white-space:nowrap}
+/* Sur une ligne de liste, la référence seule, et discrète : elle accompagne
+   le sujet, elle ne le couvre pas. */
+.promref{display:inline-block;color:var(--f7-theme-color);font-weight:600}
+.promref::before{content:"✦ "}
+.coch{color:var(--f7-theme-color);font-weight:700;font-size:17px}

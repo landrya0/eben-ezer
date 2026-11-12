@@ -97,7 +97,7 @@ function supCible(v){
   return p.length>1 ? {b:blocT(p[0]), i:+p[1]} : {b:blocT(S.blocId), i:+p[0]};
 }
 document.addEventListener("click", function(ev){
-  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-dis],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-dok],[data-ryth],[data-rythn],[data-porte],[data-sjvu],[data-imp],[data-impx],[data-ndisc],[data-douv],[data-adisc],[data-adiscn],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-lvsp],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjlie],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
+  const t=ev.target.closest("[data-go],[data-creux],[data-plus],[data-dis],[data-vif],[data-stop],[data-friz],[data-node],[data-filtre],[data-fret],[data-grain],[data-rev],[data-qui],[data-dest],[data-gens],[data-par],[data-man],[data-eman],[data-etat],[data-netat],[data-prec],[data-sansdate],[data-qouv],[data-sug],[data-mic],[data-act],[data-ctype],[data-attach],[data-lierview],[data-chemin],[data-faits],[data-fait],[data-abandon],[data-back],[data-tache],[data-sugg],[data-tcat],[data-bloc],[data-per],[data-vue],[data-medsup],[data-tch],[data-dok],[data-ryth],[data-rythn],[data-porte],[data-sjvu],[data-imp],[data-impx],[data-prom],[data-prch],[data-prx],[data-ndisc],[data-douv],[data-adisc],[data-adiscn],[data-mes],[data-aut],[data-lusup],[data-pgl],[data-pgsup],[data-lv],[data-lvsp],[data-au],[data-fdec],[data-prd],[data-pdt],[data-pdtneuf],[data-vbloc],[data-ep],[data-eptog],[data-sjadd],[data-sjlie],[data-sjsup],[data-qadd],[data-qsup],[data-sujp],[data-sujo],[data-sjf],[data-sujrep],[data-perfin],[data-potog],[data-eppo],[data-ephaut],[data-pohaut]");
   if(!t) return;
   /* UN SEUL entonnoir pour tous les gestes de l'application : la sonde se
      tient ici, et nulle part ailleurs. Le `finally` est ce qui la rend
@@ -354,6 +354,31 @@ function geste(g, t){
     toast(n ? (f>=n ? "Fois "+f+" sur "+n+" — tu l'as fait."
                     : "Fois "+f+" sur "+n+".")
             : "Demandé "+f+" fois.");
+    return render();
+  }
+  /* 13.et — la promesse : l'ouvrir, la choisir, la retirer. Un besoin de la
+     liste APPORTE ses versets, donc rien d'autre n'est rangé que son
+     identifiant — un seul attribut, les champs en découlent (AGENTS §2.f).
+     Et l'application n'en pose jamais une à sa place, même quand le mot du
+     sujet ressemble à un besoin : ce serait lui faire dire une parole qu'il
+     n'a pas dite (P9). */
+  if(g.prom){
+    if(!sujet(g.prom)) return;
+    empile(); S.sujId=g.prom; S.prQ=""; S.view="promesse"; return render();
+  }
+  /* L'écran se referme sur son choix : il répondait à une question, elle est
+     répondue (13.cs). La fiche du sujet garde une porte pour en changer. */
+  if(g.prch){
+    const s=sujet(S.sujId), x=promesse(g.prch);
+    if(!s || !x) return;
+    if(s.pr!==x.id){ s.pr=x.id; touche(s); save(); }
+    toast(promRefs(x)+".");
+    depile("sujet"); return render();
+  }
+  if(g.prx){
+    const s=sujet(g.prx); if(!s || !s.pr) return;
+    delete s.pr; touche(s); save();
+    toast("Retirée.");
     return render();
   }
   /* Et la tape de trop se retire (13.cl). Elle passe par db.morts, sinon la
@@ -760,6 +785,18 @@ const actions={
     touche(s); save();
     toast(sujetBut(s) ? sujetCompte(s)+"." : "Gardé.");
     return render();
+  },
+  /* Ses mots détachent de la liste : un sujet s'appuie sur UNE parole, pas
+     sur deux (13.et). Vide, le champ ne retire rien — c'est « retirer » qui
+     retire, et un bouton « garder » qui efface serait un piège. */
+  prPose(){
+    const s=sujet(S.sujId); if(!s) return;
+    const v=String(val("prT")||"").trim().replace(/\s+/g," ");
+    if(!v) return toast("Écris une référence, ou choisis dans la liste");
+    if(s.pr===v) return depile("sujet"), render();
+    s.pr=v; touche(s); save();
+    toast("Gardé : "+v+".");
+    depile("sujet"); return render();
   },
   sjGarder(){
     const s=sujet(S.sujId); if(!s) return;

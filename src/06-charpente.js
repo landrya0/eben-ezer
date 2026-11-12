@@ -51,7 +51,8 @@ const NOM_VUE = {
   frise:"La journée", tache:"Une activité",
   lecture:"Ce que tu as lu", pages:"Les pages lues", livre:"Un livre", auteur:"Un auteur",
   sujets:"Ce que tu as nommé", annonce:"À qui tu as annoncé", cahier:"Mes sujets",
-  sujet:"Un sujet", perNeuf:"Mettre un temps à part", periode:"Un temps mis à part",
+  sujet:"Un sujet", promesse:"Sur quelle promesse",
+  perNeuf:"Mettre un temps à part", periode:"Un temps mis à part",
   accomplis:"Ce que j'ai fait",
   sync:"Synchronisation", reglages:"Réglages", data:"Mes données",
   sondes:"Comment je m'en sers", ordre:"Dans quel ordre",
@@ -103,7 +104,10 @@ function render(){
      && S.view!=="lecture" && S.view!=="pages" && S.view!=="livre"
      && S.view!=="sujets" && S.view!=="annonce"){ S.blocId=null; S.trou=null; S.trouVif=false; }
   if(S.view!=="sujets" && S.view!=="cahier") S.sjQ="";
-  if(S.view!=="sujet") S.sujId=null;
+  /* 13.et — l'écran des promesses est une question POSÉE SUR un sujet :
+     oublier le sujet en y entrant le renverrait au cahier. */
+  if(S.view!=="sujet" && S.view!=="promesse") S.sujId=null;
+  if(S.view!=="promesse") S.prQ="";
   if(S.view!=="annonce") S.gQ="";
   /* Le calendrier déplié n'a de sens que pendant la capture : le garder
      ferait rouvrir, à la note suivante, une question qui ne se posait

@@ -1188,6 +1188,143 @@ function sujetPour(gid, txt){
   db.sujets.push({id:id, txt:v, g:gid, maj:Date.now()});
   return id;
 }
+/* 13.et — les promesses de Dieu, rangées par besoin. Ce n'est pas une liste
+   inventée : c'est la page de son propre livre de prière, sous Proverbes
+   30:5, reprise telle quelle — mêmes besoins, mêmes références, même ordre —
+   puis prolongée là où elle s'arrête. Elle vit dans le code et non dans
+   l'archive : rien de ce qu'il écrit ne peut donc dériver de l'Écriture, et
+   corriger une transcription la corrige partout à la fois. Les textes sont
+   ceux de la Segond. Une seule référence manquait sur la photo, coupée au
+   bas de la colonne (« Ne crains point en temps de trouble ») : elle est
+   complétée ici. */
+const PROMESSES = [
+ {cat:"En général", items:[
+  {id:"demander", t:"Demander et vous recevrez", v:[
+    ["Luc 11:9","Demandez, et l'on vous donnera ; cherchez, et vous trouverez ; frappez, et l'on vous ouvrira."],
+    ["Jean 16:23","En vérité, en vérité, je vous le dis, ce que vous demanderez au Père, il vous le donnera en mon nom."],
+    ["1 Jean 5:14","Nous avons auprès de lui cette assurance, que si nous demandons quelque chose selon sa volonté, il nous écoute."]]},
+  {id:"entend", t:"Dieu entend les prières de son peuple", v:[
+    ["Psaume 34:16","Les yeux de l'Éternel sont sur les justes, et ses oreilles sont attentives à leurs cris."],
+    ["Jérémie 33:3","Invoque-moi, et je te répondrai ; je t'annoncerai de grandes choses, des choses cachées, que tu ne connais pas."]]}
+ ]},
+ {cat:"Besoins personnels", items:[
+  {id:"anxiete", t:"Dans l'anxiété", v:[
+    ["Philippiens 4:6-7","Ne vous inquiétez de rien ; mais en toute chose faites connaître vos besoins à Dieu par des prières et des supplications, avec des actions de grâces. Et la paix de Dieu, qui surpasse toute intelligence, gardera vos cœurs et vos pensées en Jésus-Christ."],
+    ["Ésaïe 43:2","Si tu traverses les eaux, je serai avec toi ; et les fleuves, ils ne te submergeront point."]]},
+  {id:"fardeaux", t:"Décharger les fardeaux sur Dieu", v:[
+    ["1 Pierre 5:7","Déchargez-vous sur lui de tous vos soucis, car lui-même prend soin de vous."]]},
+  {id:"besoins", t:"Besoins à rencontrer", v:[
+    ["Philippiens 4:19","Et mon Dieu pourvoira à tous vos besoins selon sa richesse, avec gloire, en Jésus-Christ."]]},
+  {id:"trouble", t:"Ne crains point en temps de trouble", v:[
+    ["Psaume 46:2","Dieu est pour nous un refuge et un appui, un secours qui ne manque jamais dans la détresse."],
+    ["Ésaïe 41:10","Ne crains rien, car je suis avec toi ; ne promène pas des regards inquiets, car je suis ton Dieu ; je te fortifie, je viens à ton secours, je te soutiens de ma droite triomphante."]]},
+  {id:"jeune", t:"Force pour le jeûne", v:[
+    ["Jean 15:5","Celui qui demeure en moi et en qui je demeure porte beaucoup de fruit, car sans moi vous ne pouvez rien faire."]]},
+  {id:"volonte", t:"Recherche de la volonté de Dieu, direction", v:[
+    ["Psaume 32:8","Je t'instruirai et te montrerai la voie que tu dois suivre ; je te conseillerai, j'aurai le regard sur toi."]]},
+  {id:"guerison", t:"Guérison", v:[
+    ["Psaume 103:3","C'est lui qui pardonne toutes tes iniquités, qui guérit toutes tes maladies."],
+    ["1 Pierre 2:24","Lui par les meurtrissures duquel vous avez été guéris."]]},
+  {id:"sagesse", t:"Besoin de sagesse", v:[
+    ["Jacques 1:5","Si quelqu'un d'entre vous manque de sagesse, qu'il la demande à Dieu, qui donne à tous simplement et sans reproche, et elle lui sera donnée."]]},
+  {id:"biens", t:"Protection des biens", v:[
+    ["Psaume 91:10","Aucun malheur ne t'arrivera, aucun fléau n'approchera de ta tente."]]},
+  {id:"ouvriers", t:"Demander des co-ouvriers", v:[
+    ["Matthieu 9:38","Priez donc le maître de la moisson d'envoyer des ouvriers dans sa moisson."]]}
+ ]},
+ {cat:"Salut des âmes", items:[
+  {id:"repentance", t:"Pour que Dieu accorde la repentance", v:[
+    ["Actes 11:18","Dieu a donc accordé la repentance aussi aux païens, afin qu'ils aient la vie."]]},
+  {id:"salutames", t:"Désir de Dieu pour le salut des âmes", v:[
+    ["2 Pierre 3:9","Le Seigneur use de patience envers vous, ne voulant pas qu'aucun périsse, mais voulant que tous arrivent à la repentance."]]}
+ ]},
+ {cat:"Sa maison", items:[
+  {id:"maison", t:"Le salut de sa maison", v:[
+    ["Actes 16:31","Crois au Seigneur Jésus, et tu seras sauvé, toi et ta famille."]]},
+  {id:"enfants", t:"Pour ses enfants", v:[
+    ["Ésaïe 54:13","Tous tes fils seront disciples de l'Éternel, et grande sera la postérité de tes fils."],
+    ["Ésaïe 49:25","Je combattrai tes ennemis, et je sauverai tes fils."]]},
+  {id:"conjoint", t:"Le conjoint que Dieu donne", v:[
+    ["Genèse 2:18","Il n'est pas bon que l'homme soit seul ; je lui ferai une aide semblable à lui."],
+    ["Proverbes 18:22","Celui qui trouve une femme trouve le bonheur ; c'est une grâce qu'il obtient de l'Éternel."]]},
+  {id:"enfantdemande", t:"Un enfant demandé", v:[
+    ["Psaume 113:9","Il donne une maison à celle qui était stérile, il en fait une mère joyeuse au milieu de ses enfants."],
+    ["1 Samuel 1:27","C'est cet enfant que je demandais, et l'Éternel m'a accordé la demande que je lui avais faite."]]}
+ ]},
+ {cat:"Le travail et le pain", items:[
+  {id:"travail", t:"Trouver du travail", v:[
+    ["Deutéronome 28:12","L'Éternel t'ouvrira son bon trésor, le ciel, pour envoyer la pluie en son temps et pour bénir tout le travail de tes mains."],
+    ["Psaume 37:5","Recommande ton sort à l'Éternel, mets en lui ta confiance, et il agira."]]},
+  {id:"pain", t:"Le pain de chaque jour", v:[
+    ["Matthieu 6:33","Cherchez premièrement le royaume et la justice de Dieu ; et toutes ces choses vous seront données par-dessus."],
+    ["Psaume 37:25","Je n'ai point vu le juste abandonné, ni sa postérité mendiant son pain."]]},
+  {id:"dettes", t:"Sortir des dettes", v:[
+    ["Deutéronome 28:12","Tu prêteras à beaucoup de nations, et tu n'emprunteras point."]]},
+  {id:"etudes", t:"Les études, un examen", v:[
+    ["Daniel 1:17","Dieu accorda à ces quatre jeunes gens de la science, de l'intelligence dans toutes les lettres, et de la sagesse."]]}
+ ]},
+ {cat:"Le combat", items:[
+  {id:"delivrance", t:"La délivrance", v:[
+    ["Psaume 34:18","Quand les justes crient, l'Éternel entend, et il les délivre de toutes leurs détresses."],
+    ["2 Timothée 4:18","Le Seigneur me délivrera de toute œuvre mauvaise, et me sauvera pour me faire entrer dans son royaume céleste."]]},
+  {id:"ennemi", t:"Contre l'ennemi", v:[
+    ["Ésaïe 54:17","Toute arme forgée contre toi sera sans effet ; et toute langue qui s'élèvera en justice contre toi, tu la condamneras."],
+    ["Luc 10:19","Je vous ai donné le pouvoir de marcher sur les serpents et les scorpions, et sur toute la puissance de l'ennemi ; et rien ne pourra vous nuire."]]},
+  {id:"tentation", t:"Dans la tentation", v:[
+    ["1 Corinthiens 10:13","Dieu, qui est fidèle, ne permettra pas que vous soyez tentés au-delà de vos forces ; mais avec la tentation il préparera aussi le moyen d'en sortir."]]},
+  {id:"pardon", t:"Le pardon et la purification", v:[
+    ["1 Jean 1:9","Si nous confessons nos péchés, il est fidèle et juste pour nous les pardonner, et pour nous purifier de toute iniquité."]]},
+  {id:"voyage", t:"En voyage, sur la route", v:[
+    ["Psaume 121:8","L'Éternel gardera ton départ et ton arrivée, dès maintenant et à jamais."],
+    ["Psaume 91:11","Il ordonnera à ses anges de te garder dans toutes tes voies."]]}
+ ]},
+ {cat:"L'œuvre", items:[
+  {id:"porteouverte", t:"Une porte ouverte pour la Parole", v:[
+    ["Colossiens 4:3","Priez en même temps pour nous, afin que Dieu nous ouvre une porte pour la parole."]]},
+  {id:"hardiesse", t:"La hardiesse pour annoncer", v:[
+    ["Actes 4:29","Donne à tes serviteurs d'annoncer ta parole avec une pleine assurance."]]},
+  {id:"unite", t:"L'unité des frères", v:[
+    ["Psaume 133:1","Voici, oh ! qu'il est agréable, qu'il est doux pour des frères de demeurer ensemble !"]]},
+  {id:"conducteurs", t:"Pour ceux qui conduisent l'Église", v:[
+    ["Jérémie 3:15","Je vous donnerai des bergers selon mon cœur, et ils vous paîtront avec intelligence et avec sagesse."]]},
+  {id:"autorites", t:"Pour les autorités et le pays", v:[
+    ["1 Timothée 2:1-2","J'exhorte donc à faire des prières pour tous les hommes, pour les rois et pour tous ceux qui sont élevés en dignité, afin que nous menions une vie paisible et tranquille."]]}
+ ]},
+ {cat:"Quand on attend", items:[
+  {id:"tarde", t:"Quand la réponse tarde", v:[
+    ["Habacuc 2:3","Si elle tarde, attends-la, car elle s'accomplira, elle s'accomplira certainement."],
+    ["Galates 6:9","Ne nous lassons pas de faire le bien ; car nous moissonnerons au temps convenable, si nous ne nous relâchons pas."]]},
+  {id:"fatigue", t:"Quand on est à bout de force", v:[
+    ["Ésaïe 40:31","Ceux qui se confient en l'Éternel renouvellent leur force ; ils prennent le vol comme les aigles ; ils courent, et ne se lassent point."]]},
+  {id:"deuil", t:"Dans le deuil, le cœur brisé", v:[
+    ["Psaume 34:19","L'Éternel est près de ceux qui ont le cœur brisé, et il sauve ceux qui ont l'esprit dans l'abattement."],
+    ["Apocalypse 21:4","Il essuiera toute larme de leurs yeux."]]},
+  {id:"paix", t:"La paix du cœur", v:[
+    ["Jean 14:27","Je vous laisse la paix, je vous donne ma paix. Que votre cœur ne se trouble point, et ne s'alarme point."]]}
+ ]}
+];
+/* Un seul attribut sur le sujet : `pr`. Ou bien l'identifiant d'un besoin de
+   la liste — et ses versets viennent avec lui —, ou bien sa propre référence,
+   dans ses mots. Jamais les deux : écrire détache de la liste, comme ses mots
+   détachent un sujet de sa fiche (13.ek). */
+function promesse(id){
+  let f=null;
+  PROMESSES.forEach(function(c){ c.items.forEach(function(x){ if(x.id===id) f=x; }); });
+  return f;
+}
+function sujetProm(s){
+  const v=s && s.pr ? String(s.pr) : "";
+  if(!v) return null;
+  return promesse(v) || {libre:v};
+}
+function promTitre(p){ return p ? (p.libre || p.t) : ""; }
+/* Ce qui se lit sur une ligne de liste : la référence seule, pas le verset.
+   Il la relit en priant, il ne relit pas tout le psaume. */
+function promRefs(p){
+  if(!p) return "";
+  return p.libre ? p.libre : p.v.map(function(x){ return x[0]; }).join(" · ");
+}
+function sujetRefs(s){ return promRefs(sujetProm(s)); }
 /* Le nombre visé n'est pas un objectif que l'application fixe : c'est un
    engagement qu'il prend — douze fois, cent fois. Ce qu'on compte en face,
    depuis 13.es, ce sont ses tapes et non les séances : voir impFois(). */
@@ -1310,9 +1447,12 @@ function vPorte(){
        lien, mais closest() la trouve avant lui : taper le nombre compte une
        fois, taper le reste de la ligne ouvre le sujet. */
     h+=liste(ss.map(function(s){
-      const ex=exauceTxt(s.id);
+      const ex=exauceTxt(s.id), rf=sujetRefs(s);
+      /* 13.et — la référence se lit là où il prie, sur la ligne même : le
+         verset se relit en frappant, pas dans un écran qu'il faut ouvrir. */
       return ligne({titre:esc(sujetTxt(s.id)),
         sous:[esc(sujetHist(s.id) || "jamais demandé"),
+              rf?`<span class="promref">${esc(rf)}</span>`:"",
               ex?`<span class="exauce">${esc(ex)}</span>`:""].filter(Boolean).join(" · "),
         apres:`<span class="imp" data-imp="${s.id}">${impFois(s.id)}${PLUS}</span>`,
         attr:'data-sujo="'+s.id+'"'});
@@ -1751,10 +1891,11 @@ function vCahier(){
         : "Tout ce que tu as nommé a reçu sa réponse."}</p>`;
   } else {
     h+=liste(vus.map(function(s){
-      const ex=exauceTxt(s.id), hi=sujetHist(s.id);
+      const ex=exauceTxt(s.id), hi=sujetHist(s.id), rf=sujetRefs(s);
       const tx=sujetTxt(s.id);
       return ligne({titre:esc(tx),
-        sous:[hi?esc(hi):"", ex?`<span class="exauce">${esc(ex)}</span>`:""].filter(Boolean).join(""),
+        sous:[hi?esc(hi):"", rf?`<span class="promref">${esc(rf)}</span>`:"",
+              ex?`<span class="exauce">${esc(ex)}</span>`:""].filter(Boolean).join(""),
         attr:'data-sujo="'+s.id+'" data-sjn="'+esc(String(tx).toLowerCase())+'"'});
     }).join(""), "lien");
     h+=`<p class="vide" id="sjRien" hidden>Rien ne correspond.</p>`;
@@ -1785,6 +1926,25 @@ function vSujet(){
     </div>`;
   h+=`<div class="block">${bouton("J'ai demandé une fois de plus", 'data-imp="'+s.id+'"')}</div>`;
   h+=`<div class="block amorce">« C'est à cause de son importunité qu'il se lèvera et lui donnera. » Compte chaque fois que tu portes ceci devant Dieu — l'application ne frappe pas à ta place.</div>`;
+  /* 13.et — la promesse se tient ICI, entre ce qu'il demande et ce qu'Il a
+     fait : c'est l'ordre de la phrase d'Ében-Ézer, et sans elle un
+     exaucement n'est qu'un fait isolé. L'écran se lit donc dans cet
+     ordre-là, et pas dans un autre. */
+  const pr=sujetProm(s);
+  h+=titreBloc("Ce qu'Il avait dit","ecart");
+  if(pr){
+    h+=`<div class="block prom">
+        <p class="promt">${esc(promTitre(pr))}</p>
+        ${(pr.v||[]).map(function(x){
+            return `<p class="promv"><span class="promr">${esc(x[0])}</span> ${esc(x[1])}</p>`;
+          }).join("")}
+      </div>`;
+    h+=liste(ligne({titre:"Changer la promesse", sous:"Ou la retirer",
+        attr:'data-prom="'+s.id+'"'}), "lien");
+  } else {
+    h+=`<div class="block amorce">Ton cahier a une colonne pour cela : <i>référence biblique</i> — la parole sur laquelle tu demandes. Elle n'est pas devinée à ta place.</div>`;
+    h+=`<div class="block">${bouton("Choisir une promesse", 'data-prom="'+s.id+'"')}</div>`;
+  }
   h+=titreBloc("Ce qu'Il a fait","ecart");
   h+= ex.length
     ? liste(ex.map(function(n){ return ligneActe(n,{attr:'data-node="'+n.id+'"'}); }).join(""))
@@ -1840,6 +2000,52 @@ function vSujet(){
   Z.html=h;
   Z.action = bouton(ex.length ? "Il y a répondu encore" : "Il y a répondu",
     'data-sujrep="'+s.id+'"');
+}
+
+/* 13.et — un écran répond à une question (13.cs) : *sur quelle promesse ?*
+   Trente besoins au bas d'une fiche, dans un menu déroulant, ne se lisent
+   pas ; ici les versets sont écrits en entier, parce que le geste qu'il fait
+   avec son livre ouvert est précisément de les LIRE avant de choisir. Le
+   champ libre est en dessous, et jamais au-dessus : un besoin choisi dans la
+   liste se regroupe et se relie plus tard, un texte tapé ne se relie à rien
+   (AGENTS §1). Mais il ne bloque pas : une liste qui ne couvre pas son cas
+   lui fermerait la porte. */
+function vPromesse(){
+  const s=sujet(S.sujId);
+  if(!s){ depile("cahier"); return render(); }
+  Z.titre="Sur quelle promesse"; Z.retour=true;
+  const pr=sujetProm(s);
+  let h=`<div class="block" style="margin-top:20px">
+      <p class="grand" style="font-size:19px">${esc(sujetTxt(s.id))}</p>
+      <p class="meta">${pr ? "Tu t'appuies sur "+esc(promTitre(pr))
+                           : "Aucune parole posée pour l'instant"}</p>
+    </div>`;
+  /* Ce qui est posé se retire (13.cl) : une promesse qu'on ne peut pas
+     changer n'est pas une promesse choisie, c'est une étiquette. */
+  if(pr) h+=liste(ligne({titre:"Retirer cette promesse",
+      apres:`<span class="rouge">retirer</span>`, attr:'data-prx="'+s.id+'"'}), "lien");
+  h+=`<div class="block amorce">« Toute parole de Dieu est éprouvée. Il est un bouclier pour ceux qui cherchent en Lui un refuge. » <i>Proverbes 30:5</i> — ta page, rangée par besoin.</div>`;
+  h+=champ("prQ","Chercher un besoin, un livre, un mot","text",esc(S.prQ||""),
+      'autocomplete="off" autocapitalize="sentences"');
+  PROMESSES.forEach(function(c){
+    h+=`<div class="prgrp">`+titreBloc(esc(c.cat),"ecart")
+      + liste(c.items.map(function(x){
+          const mots=(x.t+" "+x.v.map(function(y){ return y[0]+" "+y[1]; }).join(" ")).toLowerCase();
+          return ligne({titre:esc(x.t),
+            sous:esc(x.v.map(function(y){ return y[0]; }).join(" · ")),
+            texte:x.v.map(function(y){ return esc(y[1]); }).join("<br>"),
+            apres:(pr && pr.id===x.id) ? `<span class="coch">✓</span>` : "",
+            attr:'data-prch="'+x.id+'" data-prn="'+esc(mots)+'"'});
+        }).join(""), "lien")
+      + `</div>`;
+  });
+  h+=`<p class="vide" id="prRien" hidden>Rien ne correspond dans la liste. Écris ta référence plus bas.</p>`;
+  h+=titreBloc("Une autre parole, dans tes mots","ecart");
+  h+=`<div class="block amorce">Si la liste n'a pas ton cas, écris ta référence. Elle détache le sujet de la liste : une demande s'appuie sur une parole, pas sur deux.</div>`;
+  h+=champ("prT","Par exemple : Ésaïe 54:17","text", (pr&&pr.libre)?esc(pr.libre):"",
+      'autocapitalize="sentences"');
+  h+=`<div class="block">${bouton("Garder cette référence", 'data-act="prPose"')}</div>`;
+  Z.html=h;
 }
 
 /* Une seule liste, comme pour l'Écriture : le départ est le signet, et la
@@ -2560,7 +2766,7 @@ const VUES = {today:vToday, oeuvres:vListe(vOeuvres), revel:vListe(vRevel), acte
               note:vNote, node:vNode, edit:vEdit, lier:vLier, data:vData,
               pointer:vPointer, temps:vMonTemps, bloc:vBloc, quand:vQuand, frise:vFrise,
               tache:vTache, devine:vDevine, lecture:vLecture, pages:vPages, livre:vLivre, auteur:vAuteur,
-              sujets:vSujets, annonce:vAnnonce, cahier:vCahier, sujet:vSujet,
+              sujets:vSujets, annonce:vAnnonce, cahier:vCahier, sujet:vSujet, promesse:vPromesse,
               perNeuf:vPerNeuf, periode:vPeriode, epingles:vEpingles,
               rythmes:vRythmes, rythme:vRythme, portes:vPortes, porte:vPorte,
               adisc:vActesDisc, acteDisc:vActeDisc,
@@ -2716,6 +2922,23 @@ document.addEventListener("input", ev=>{
   /* Le même rouage que la recherche d'activité : on cache et on montre au
      lieu de redessiner, sinon le curseur saute à chaque lettre et le clavier
      se referme — sur un écran où l'on tape trente fois de suite. */
+  /* Le même rouage, pour les promesses : trente besoins se cherchent, et
+     redessiner à chaque lettre refermerait le clavier (13.et). */
+  if(id==="prQ"){
+    const q=ev.target.value.trim().toLowerCase();
+    S.prQ=ev.target.value;
+    [].forEach.call(document.querySelectorAll("[data-prn]"), el=>{
+      const li=el.closest("li")||el;
+      li.hidden = !!q && (el.getAttribute("data-prn")||"").indexOf(q)===-1;
+    });
+    [].forEach.call(document.querySelectorAll(".prgrp"), g=>{
+      g.hidden = !g.querySelectorAll("li:not([hidden])").length;
+    });
+    const pn=document.getElementById("prRien");
+    if(pn) pn.hidden = !q || [].some.call(document.querySelectorAll("[data-prn]"),
+        el => !(el.closest("li")||el).hidden);
+    return;
+  }
   if(id==="sjQ"){
     const q=ev.target.value.trim().toLowerCase();
     S.sjQ=ev.target.value;

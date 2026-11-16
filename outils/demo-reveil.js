@@ -8,7 +8,7 @@
   if(typeof SY !== "undefined" && SY && SY.actif) throw new Error("STOP : la synchro est active");
   const H = 3600000, M = 60000, J = 86400000;
   const D = window.DEMO;
-  let permissionVraie = null;
+  let permissionVraie = null, enLigneVrai = null, permDemo = "default";
 
   function b(id, t, deb, fin){
     const o = {id:id, t:t, deb:deb, maj:deb};
@@ -31,23 +31,34 @@
   }
   /* Le volet a refusé les notifications, et rien n'est relié : sans ces deux
      semblants l'offre montrerait ses branches d'excuse, pas sa branche
-     principale. Tous deux sont annulés à la fin. */
-  function semblant(){
+     principale. Tous deux sont annulés à la fin.
+     Et un troisième, qui n'est pas un décor : un appareil « relié » avec un
+     compte inventé fait partir une vraie requête vers son vrai serveur, qui
+     la refuse en disant « invalid input syntax for type uuid » — l'écran de
+     synchronisation affichait l'erreur en plein milieu de la démo. On coupe
+     donc le réseau : rien de ce qui est joué ici n'a affaire au dehors. */
+  function semblant(p){
+    permDemo = p || permDemo;
     try{
-      permissionVraie = Object.getOwnPropertyDescriptor(Notification, "permission");
-      Object.defineProperty(Notification, "permission", {get:function(){ return "default"; }, configurable:true});
+      if(!permissionVraie) permissionVraie = Object.getOwnPropertyDescriptor(Notification, "permission");
+      Object.defineProperty(Notification, "permission", {get:function(){ return permDemo; }, configurable:true});
     }catch(e){}
-    SY.actif = true; SY.uid = "u-demo"; SY.mail = "toi@exemple.com";
+    try{
+      if(!enLigneVrai) enLigneVrai = Object.getOwnPropertyDescriptor(Navigator.prototype, "onLine");
+      Object.defineProperty(navigator, "onLine", {get:function(){ return false; }, configurable:true});
+    }catch(e){}
+    SY.actif = true; SY.uid = "u-demo"; SY.mail = "toi@exemple.com"; SY.err = ""; SY.fait = Date.now();
   }
   function rendLeVrai(){
     try{ if(permissionVraie) Object.defineProperty(Notification, "permission", permissionVraie); }catch(e){}
+    try{ if(enLigneVrai) Object.defineProperty(navigator, "onLine", enLigneVrai); }catch(e){}
     SY.actif = false; SY.uid = ""; SY.mail = ""; SY.abo = ""; SY.rev = 0;
     try{ sySave(); }catch(e){}
   }
 
   async function jouer(){
     /* 1 — ce que la veille sait déjà faire, et où elle s'arrête */
-    pose(); semblant();
+    pose(); semblant("default");
     await D.tape('[data-go="today"]');
     await D.dit("Depuis v131, la veille voit",
       "Un compteur de prière tourne depuis neuf heures, alors que les quatre dernières n'ont jamais "
@@ -98,11 +109,14 @@
     await D.pause(2800);
 
     /* 5 — l'état, et le moyen de l'éteindre */
+    /* Allumé pour de bon : la permission accordée, sinon l'écran montrerait
+       l'état éteint juste après qu'on a dit « allumé ». */
+    semblant("granted");
     SY.abo = "https://push.exemple/demo"; SY.rev = q;
     S.view = "sync"; S.pile = []; render();
     await D.dit("Allumé, il se dit et il s'éteint",
       "L'offre était sur la carte, parce qu'elle y répondait à quelque chose. L'interrupteur est "
-      + "ici, avec l'heure du prochain réveil.", true);
+      + "ici, avec l'heure du prochain réveil — celle qu'on vient de poser.", true);
     await D.montre(D.bloc("Le réveil") || ".block-title", 3000);
     D.cache();
 

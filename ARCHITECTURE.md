@@ -40,7 +40,7 @@ trois endroits qui tiennent cet ordre :
 | `06-charpente.js` | rail, barres, briques, menu, le nom des écrans — dessiner la page | 473 |
 | `07-ecrans-actes.js` | les écrans du mémorial, et l'assistant qui note | 1245 |
 | `08-sync.js` | la copie distante, la réunion de deux appareils | 467 |
-| `09-ecrans-temps.js` | pointer, la frise, mon temps | 825 |
+| `09-ecrans-temps.js` | pointer, la frise, mon temps | 829 |
 | `10-ecrans-reste.js` | temps mis à part, lectures, auteurs, sujets et promesses, réglages, dictée | 3164 |
 | `12-sondes.js` | **les sondes** : ce que l'app coûte en gestes, et ce qu'elle refuse | 470 |
 | `13-gestes.js` | le délégué — un seul écouteur — et le démarrage | 1528 |

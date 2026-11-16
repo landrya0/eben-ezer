@@ -228,3 +228,9 @@ Et, transversal : **rien ne part en clair** (13.bh). Le journal nomme des frère
   l'appareil écrit la phrase en se réveillant. Quand une contrainte de confidentialité semble
   interdire une fonction, chercher d'abord le minimum que le dehors ait besoin de savoir — ici une
   date et une adresse opaque — au lieu de conclure que la fonction coûtera le secret (13.ey).
+- **Un test qui compare une chaîne à elle-même.** `sw.js` ouvrait « ?v=pointage », l'application
+  cherchait « pointage », et le test vérifiait que l'un valait l'autre : trois fois le même mot, et
+  « pointage » n'est le nom d'aucun écran. La notification ramenait à la page d'accueil, sans rien
+  casser et sans rien dire — trouvé à l'œil, dans le navigateur. Quand deux fichiers doivent
+  s'accorder sur un **nom**, le test ne les confronte pas l'un à l'autre : il confronte le nom à la
+  **liste** qui le rend valide (ici `VUES`).

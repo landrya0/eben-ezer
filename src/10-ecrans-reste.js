@@ -2549,7 +2549,10 @@ function vSync(){
     if(reveilOn()){
       h+=`<div class="block amorce">Quand un compteur passe son seuil alors que l'application est fermée, ce téléphone sonne. Le serveur n'en sait pas plus qu'une heure et l'adresse de cet appareil : le message part <b>vide</b>, et c'est l'application qui écrit la phrase en se réveillant.</div>`;
       h+=liste(ligne({titre:"Prochain réveil", apres: SY.rev>0 ? esc(hmin(new Date(SY.rev))) : "Rien en vue"})+
-               ligne({titre:`<span class="rouge">Ne plus me prévenir</span>`, attr:'data-act="reveilNon"'}));
+               /* Pas en rouge : éteindre un réveil ne détruit rien et se
+                  reprend d'une tape. Le rouge est pour ce qui ne revient
+                  pas — détacher, effacer. */
+               ligne({titre:"Ne plus me prévenir", attr:'data-act="reveilNon"'}));
     } else {
       h+=`<div class="block amorce">Rien ne sonne sur ce téléphone. La veille des compteurs ne parle donc que sur un écran ouvert — et un compteur oublié l'est justement parce qu'on n'ouvre plus l'écran où il tourne.</div>`;
       h+=liste(ligne({titre:"Me prévenir quand un compteur tourne trop longtemps",

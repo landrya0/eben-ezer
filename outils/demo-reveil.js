@@ -70,13 +70,26 @@
     await D.montre(D.ligne("Me prévenir même quand l'app est fermée"), 3200);
     D.cache();
 
-    /* 4 — le cœur : ce qui part, et ce qui ne part pas */
-    const q = (db.temps.find(function(x){ return x.id==="do1"; })||{}).deb + seuilDe("d1");
+    /* 4 — le cœur : ce qui part, et ce qui ne part pas.
+       Le compteur de neuf heures ne pose PLUS de réveil : son seuil est
+       passé sous les yeux du disciple, le rail l'a dit. On en ouvre donc un
+       neuf — c'est lui qui porte l'heure, et c'est la règle qu'on montre en
+       même temps que le contenu. */
+    await D.dit("D'abord : celui-là ne sonnera pas",
+      "Son seuil est passé pendant que le rail le disait. Reposer son heure toutes les cinq "
+      + "minutes serait harceler celui qui a déjà vu — l'app ne pose un réveil que pour ce qui "
+      + "dépassera <b>plus tard</b>.");
+    await D.pause(2200);
+    db.temps.push(b("do2","d1", Date.now()));
+    save(); render(); majChrono();
+    const q = reveilQuand();
     await D.dit("Ce qui part au serveur",
-      "<b>Une heure</b> — " + new Date(q).toLocaleString("fr-FR") + " — et l'adresse opaque de cet "
-      + "appareil. C'est tout, et il n'y a rien à chiffrer parce qu'il n'y a rien. Le serveur "
-      + "n'apprend jamais qu'un seuil a été dépassé : c'est l'app qui a calculé l'heure.");
-    await D.pause(2600);
+      "Une prière qui commence maintenant, elle, pose son heure : <b>"
+      + new Date(q).toLocaleString("fr-FR") + "</b> — son départ plus 1 h 08. Cette date, et "
+      + "l'adresse opaque de cet appareil. C'est tout, et il n'y a rien à chiffrer parce qu'il n'y "
+      + "a rien. Le serveur n'apprend jamais qu'un seuil a été dépassé : c'est l'app qui a calculé "
+      + "l'heure.");
+    await D.pause(2800);
     await D.dit("Ce qui ne part pas",
       "« Prière », le seuil d'1 h 08, les 13 minutes d'habitude. Tout ça reste ici, dans un miroir "
       + "posé sur l'appareil — et c'est ce miroir que le service worker lira, <b>réveillé par un "
@@ -106,9 +119,9 @@
   D.porte({
     k: "v133 · le réveil",
     titre: "Prévenir sans rien dire",
-    phrase: "Six étapes. La démo écrit dans cette copie du navigateur seulement, et le bouton « Effacer la démo » remet tout à zéro à la fin.",
+    phrase: "Sept étapes. La démo écrit dans cette copie du navigateur seulement, et le bouton « Effacer la démo » remet tout à zéro à la fin.",
     bouton: "Commencer",
-    n: 6,
+    n: 7,
     fin: "Voilà le réveil.",
     jouer: jouer,
     nettoie: function(){

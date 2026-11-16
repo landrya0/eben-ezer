@@ -92,6 +92,54 @@ function arrete(){
 }
 function arreteUn(b){ if(!b || b.fin) return; fermeBloc(b); save(); }
 
+/* 13.ex — Un compteur oublié ne mesure plus rien, et un chiffre faux est pire
+   que pas de chiffre (13.ch). Le rail le signalait déjà au bout de dix
+   heures, mais dix heures est un chiffre qui ne connaît pas ce qu'il compte :
+   « Priere » n'a jamais passé 34 minutes en quatorze blocs, et « Sommeil »
+   va à huit heures. Le seuil se déduit donc de ce que CETTE activité a duré,
+   et de rien d'autre — son type ne peut pas le dire, « Toilette » et
+   « Sommeil » sont tous deux « moi » et leur neuvième décile commun donne
+   quatorze heures (§2.h : ce qu'une chose est n'est pas ce qu'elle mesure).
+   Deux fois le neuvième décile, plancher d'une heure : passé sur l'archive,
+   trois des 65 blocs fermés auraient été questionnés — dont une nuit de
+   prière de sept heures, et la question s'y répond d'une tape.
+   Quatre heures tant qu'une activité n'a pas quatre blocs derrière elle :
+   c'est un jugement, pas une loi, et il se révise, comme SEUIL_SEANCE. Il est
+   mesuré : à trois heures l'archive posait huit questions au lieu de trois,
+   à cinq elle n'en évitait aucune de plus. La seule dérive vraie du journal —
+   une visite ouverte à 8 h, encore ouverte à 13 h 51, puis jetée faute de
+   valeur — serait tombée une heure cinquante avant qu'il ne la jette. */
+const VEILLE_DEFAUT = 4*3600000;
+const VEILLE_PLANCHER = 3600000;
+const VEILLE_MINI = 4;
+function dureesDe(tid){
+  return (db.temps||[]).filter(function(b){ return b.t===tid && typeof b.fin==="number"; })
+    .map(function(b){ return b.fin-b.deb; }).sort(function(a,b){ return a-b; });
+}
+/* Ce que ça dure d'habitude : la médiane, pas la moyenne. Une seule veillée
+   de sept heures tirerait la moyenne de la prière du simple au double, et la
+   phrase qui la cite mentirait. */
+function usuelDe(tid){
+  const v=dureesDe(tid); if(!v.length) return 0;
+  const i=Math.floor(v.length/2);
+  return v.length%2 ? v[i] : Math.round((v[i-1]+v[i])/2);
+}
+function seuilDe(tid){
+  const v=dureesDe(tid);
+  if(v.length<VEILLE_MINI) return VEILLE_DEFAUT;
+  return Math.max(VEILLE_PLANCHER, 2*v[Math.min(v.length-1, Math.floor(0.9*v.length))]);
+}
+/* Rend la durée quand elle a passé le seuil, 0 sinon : l'appelant filtre avec
+   et affiche la même durée sans la recalculer. Un « oui, ça tourne encore »
+   se garde sur le bloc (b.ve) : l'app prévient, puis se tait — elle ne
+   harcèle pas celui qui a répondu, et elle ne ferme rien à sa place (13.cf). */
+function derape(b){
+  if(!b || b.fin || b.ve) return 0;
+  const d=Date.now()-b.deb;
+  return d>seuilDe(b.t) ? d : 0;
+}
+function derapes(){ return ouverts().filter(derape); }
+
 /* Sous la minute, l'app annonçait « 0 min » d'un temps qu'elle avait pourtant
    compté à la milliseconde. Un bloc de trente-cinq secondes existe, il pèse
    dans les totaux, et l'écran le niait — or un chiffre faux, si petit soit-il,

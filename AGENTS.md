@@ -203,3 +203,7 @@ Et, transversal : **rien ne part en clair** (13.bh). Le journal nomme des frère
   se serait jamais formée dans le seul cas qui l'avait demandée, puisqu'une lecture de trois
   heures couvrait les trois creux. Une notion nouvelle se vérifie d'abord sur ses données à lui,
   et le cas réel devient un test — sinon on livre une règle qui ne se déclenche jamais.
+- **Et cela vaut aussi pour le mécanisme qu'il propose lui-même.** Il a demandé des seuils « selon
+  le type de chose qu'on compte » ; l'archive a refusé : « Toilette » et « Sommeil » portent le
+  même type, et leur neuvième décile commun donne quatorze heures. Le besoin se tient toujours, le
+  mécanisme se mesure — et quand la mesure le refuse, on le dit, avec le chiffre (13.ex).

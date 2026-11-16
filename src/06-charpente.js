@@ -375,15 +375,19 @@ function majChrono(){
     return;
   }
   const ec = Date.now()-o.deb;
-  const vieux = ec>=10*3600000;
+  /* Le signe vaut pour TOUS les compteurs ouverts, pas seulement celui que le
+     rail nomme : l'oublié est souvent celui qu'on ne regarde plus. Le rail
+     change de point, la tape mène au pointage, et c'est là que chacun est
+     nommé avec ses portes (13.ex). */
+  const vieux = derapes().length>0;
   /* Le rail nomme ce qui porte l'heure, et dit d'un chiffre combien
      d'autres tournent à côté. Les empiler ferait grandir le mobilier à
      chaque mission : un rail qui pousse n'est plus un rail. */
   const autres = ouverts().length-1;
   /* Un pointage qui commence rouvre le rail : c'est le reçu du geste qu'on
-     vient de faire. Un compteur qui atteint dix heures le rouvre aussi, une
+     vient de faire. Un compteur qui passe son seuil le rouvre aussi, une
      fois — l'app prévient, puis se tait ; elle ne retient pas la main de
-     celui qui le replie à nouveau. */
+     celui qui le replie à nouveau (13.ex). */
   railNote(o.id);
   if(vieux && !railPrevenu){ railPrevenu=true; plieRail(false); }
   const etat = o.id+"|"+tacheNom(o.t)+"|"+(vieux?"v":"")+"|"+autres;

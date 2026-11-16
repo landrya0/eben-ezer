@@ -48,6 +48,25 @@ function vPointer(){
       ouv.length>1 ? " En même temps : "+ouv.filter(function(b){ return b!==o; }).map(function(b){ return "<b>"+esc(tacheNom(b.t))+"</b>"; }).join(", ")+"." : ""}</div>`;
   else if(choixVif) h += `<div class="block amorce" style="margin-top:16px">Rien n'est compté depuis que tu as arrêté, à ${hmin(new Date(vif.deb))}.</div>`;
   else h += `<div class="block amorce" style="margin-top:16px">Rien n'est compté. À partir de ce que tu touches ici, le temps aura un destinataire.</div>`;
+  /* 13.ex — Un chiffre qui accuse doit mener quelque part (13.cb) : la
+     question ne vient jamais seule, elle vient avec les trois réponses
+     possibles. Et l'app ne ferme rien d'elle-même — la troisième réponse est
+     « oui », et c'est elle qui décide (13.cf).
+     Pas pendant une correction ni dans un creux : ces deux-là répondent à
+     « c'était quoi ? », et une autre question par-dessus en ferait deux
+     (13.cs). */
+  if(!corr && !trou) derapes().forEach(function(b){
+    const u=usuelDe(b.t);
+    h += `<div class="block amorce veille"><b>${esc(tacheNom(b.t))}</b> compte depuis ${hmin(new Date(b.deb))} — <b>${hm(Date.now()-b.deb)}</b>.`
+      + (u ? ` D'habitude, ${hm(u)}.` : "")
+      + ` Est-ce que ça tourne encore ?</div>`
+      + liste(ligne({titre:"Arrêter maintenant", sous:"La fin sera posée à cette minute",
+                     attr:'data-stop="'+esc(b.id)+'"'})
+            + ligne({titre:"Corriger l'heure de fin", sous:"Si ça s'est arrêté plus tôt",
+                     attr:'data-bloc="'+esc(b.id)+'"'})
+            + ligne({titre:"Oui, ça tourne encore", sous:"L'app ne le redemandera pas pour ce temps-ci",
+                     attr:'data-vok="'+esc(b.id)+'"'}), "lien");
+  });
   /* Le défaut ne peut pas être de donner ce temps-là à la première activité
      choisie : le disciple venait de le retirer à tout le monde. Mais il
      arrive aussi qu'on s'arrête, puis qu'on se remette à prier sans le dire

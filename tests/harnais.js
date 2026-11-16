@@ -210,6 +210,7 @@ const PONT = `
        bornes, decale, fenetre, nomFen, courtFen, memeAn,
        finDe, voisins, touche, tue, sane, uid, cap, capNom,
        tache, tacheId, tacheNom, tacheCat, blocT, ouverts, fermeBloc,
+       dureesDe, usuelDe, seuilDe, derape, derapes,
        pointe, arrete, poseTache, creuxVif, load, seanceDe, suitDe, portesSeance, sujetBlocs, ouvert, majChrono,
        verifArchive, verifCompte, verifDit, vVerif, rappelVerif,
        archivePartante, sondesPartantes, sondesPoids,
@@ -259,7 +260,8 @@ const PONT = `
        vOrdre, vEpingles, portePointage, etapes, vNote, vNode, vAccomplis, porteFaits, vPointer, creuxVif,
        sansDate, precPour, today, render, save, VUES, quitterPrevu, jourPromis, promisBref, ligneActe, remontees, blocQuand, vEdit, human },
   c: { DISC, DYN, RYTHMES, PERIODES, ONG_TEMPS, SANSFIN, KEY, CAT_SOCLE,
-       SO_KEY, SO_MAX, ONGLETS, NOM_VUE, SEULES, PROMESSES, PR_N }
+       SO_KEY, SO_MAX, ONGLETS, NOM_VUE, SEULES, PROMESSES, PR_N,
+       VEILLE_DEFAUT, VEILLE_PLANCHER, VEILLE_MINI }
 };
 `;
 

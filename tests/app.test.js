@@ -3355,6 +3355,210 @@ test("13.ea — un bloc en cours n'est pas une fin dans l'avenir", () => {
 });
 
 
+/* ----------------------------------------------------------------------------
+   13.ex — un compteur qui tourne trop longtemps ne mesure plus rien
+   ---------------------------------------------------------------------------- */
+
+/* Deux activités du MÊME type, « dieu », et des durées que tout sépare :
+   quatre prières de 10, 12, 15 et 34 minutes, quatre nuits de 5 à 8 heures.
+   C'est l'archive qui a tranché la question du seuil — son type ne peut pas
+   le dire, et un seuil commun aux deux ne veut rien dire ni pour l'une ni
+   pour l'autre. */
+function aCompter(a) {
+  a.db.taches = [{ id: "a1", nom: "Prière", cat: "dieu", d: "priere", maj: 1 },
+                 { id: "a2", nom: "Sommeil", cat: "dieu", maj: 1 }];
+  a.db.temps = [
+    bloc("p1", "a1", jour(4, 20, 0), jour(4, 20, 10)),
+    bloc("p2", "a1", jour(5, 20, 0), jour(5, 20, 12)),
+    bloc("p3", "a1", jour(6, 20, 0), jour(6, 20, 15)),
+    bloc("p4", "a1", jour(7, 20, 0), jour(7, 20, 34)),
+    bloc("s1", "a2", jour(4, 1, 0), jour(4, 9, 0)),
+    bloc("s2", "a2", jour(5, 1, 0), jour(5, 8, 0)),
+    bloc("s3", "a2", jour(6, 1, 0), jour(6, 7, 0)),
+    bloc("s4", "a2", jour(7, 1, 0), jour(7, 6, 0))
+  ];
+  a.f.save();
+}
+/* Un compteur ouvert depuis `h` heures, et l'écran qui en parle. */
+function ouvreDepuis(a, tid, ms) {
+  a.db.temps.push(bloc("o1", tid, MIDI - ms));
+  a.f.save();
+  return a.f.blocT("o1");
+}
+
+test("13.ex — le seuil se déduit de ce que CETTE activité a duré", () => {
+  const a = app();
+  aCompter(a);
+  A.equal(a.f.seuilDe("a1"), 68 * MIN,
+    "deux fois le neuvième décile de ses quatre prières : 34 minutes, donc 68");
+  A.equal(a.f.seuilDe("a2"), 16 * H,
+    "et seize heures pour le sommeil — le même type, et rien de commun");
+});
+
+test("13.ex — le type de la chose ne dit pas combien de temps elle dure", () => {
+  const a = app();
+  aCompter(a);
+  A.notEqual(a.f.seuilDe("a1"), a.f.seuilDe("a2"),
+    "« Toilette » et « Sommeil » sont tous deux « moi » : un seuil par type ne veille sur rien");
+  A.ok(a.f.seuilDe("a2") > 10 * a.f.seuilDe("a1"),
+    "l'écart réel est d'un facteur quatorze dans son archive");
+});
+
+test("13.ex — tant qu'une activité n'a pas de passé, le défaut de quatre heures", () => {
+  const a = app();
+  aCompter(a);
+  a.db.temps = a.db.temps.filter(b => b.id !== "p4");
+  A.equal(a.f.seuilDe("a1"), a.c.VEILLE_DEFAUT,
+    "trois blocs ne font pas un passé : on ne déduit pas d'un chiffre qu'on n'a pas");
+  A.equal(a.c.VEILLE_DEFAUT, 4 * H, "quatre heures, mesurées sur son archive");
+  A.equal(a.f.seuilDe("jamais-vue"), a.c.VEILLE_DEFAUT,
+    "une activité qu'on vient de créer non plus");
+});
+
+test("13.ex — le plancher d'une heure, pour que l'app ne harcèle pas", () => {
+  const a = app();
+  a.db.taches = [{ id: "a1", nom: "Toilette", cat: "moi", maj: 1 }];
+  a.db.temps = [bloc("t1", "a1", jour(4, 7, 0), jour(4, 7, 5)),
+                bloc("t2", "a1", jour(5, 7, 0), jour(5, 7, 5)),
+                bloc("t3", "a1", jour(6, 7, 0), jour(6, 7, 5)),
+                bloc("t4", "a1", jour(7, 7, 0), jour(7, 7, 5))];
+  a.f.save();
+  A.equal(a.f.seuilDe("a1"), 1 * H,
+    "deux fois cinq minutes ferait dix : une toilette d'un quart d'heure n'est pas une avarie");
+});
+
+test("13.ex — d'habitude, c'est la médiane, et jamais la moyenne", () => {
+  const a = app();
+  aCompter(a);
+  A.equal(a.f.usuelDe("a1"), 13 * MIN + 30 * 1000,
+    "10, 12, 15 et 34 : la médiane dit 13 min 30");
+  a.db.temps.push(bloc("p5", "a1", jour(3, 20, 0), jour(3, 27, 0)));
+  a.f.save();
+  A.ok(a.f.usuelDe("a1") < 20 * MIN,
+    "une veillée de sept heures ne doit pas doubler ce que « d'habitude » annonce");
+});
+
+test("13.ex — le compteur dérape quand il passe son seuil, pas une minute avant", () => {
+  const a = app();
+  aCompter(a);
+  ouvreDepuis(a, "a1", 67 * MIN);
+  A.equal(a.f.derape(a.f.blocT("o1")), 0, "67 minutes : sous le seuil, rien à dire");
+  A.equal(a.f.derapes().length, 0);
+  a.maintenant(MIDI + 2 * MIN);
+  A.equal(a.f.derape(a.f.blocT("o1")), 69 * MIN,
+    "69 : il rend la durée, pour que l'écran l'affiche sans la recalculer");
+  A.equal(a.f.derapes().length, 1);
+});
+
+test("13.ex — un compteur arrêté ne dérape jamais, si long qu'il ait été", () => {
+  const a = app();
+  aCompter(a);
+  A.equal(a.f.derape(a.f.blocT("s1")), 0,
+    "huit heures de sommeil sont du temps vécu, pas une avarie");
+  ouvreDepuis(a, "a1", 9 * H);
+  const o = a.f.blocT("o1");
+  A.ok(a.f.derape(o) > 0);
+  a.geste({ stop: "o1" });
+  A.equal(a.f.derape(a.f.blocT("o1")), 0, "une fois posé, le chiffre est vrai : la question tombe");
+});
+
+test("13.ex — la question vient avec ses trois réponses, jamais seule", () => {
+  const a = app();
+  aCompter(a);
+  ouvreDepuis(a, "a1", 9 * H);
+  a.S.view = "pointer";
+  a.f.vPointer();
+  A.match(a.Z.html, /Est-ce que ça tourne encore/, "l'app demande, elle n'affirme pas");
+  A.match(a.Z.html, /9 h/, "elle dit la durée qui la fait parler");
+  A.match(a.Z.html, /D'habitude, 13 min/, "et ce que ça dure d'habitude, sinon le chiffre ne dit rien");
+  A.match(a.Z.html, /data-stop="o1"/, "arrêter maintenant");
+  A.match(a.Z.html, /data-bloc="o1"/, "corriger l'heure de fin");
+  A.match(a.Z.html, /data-vok="o1"/, "ou répondre que ça tourne encore (13.cb : jamais de reproche sans porte)");
+});
+
+test("13.ex — l'app ne ferme rien d'elle-même : afficher la question ne compte pas", () => {
+  const a = app();
+  aCompter(a);
+  ouvreDepuis(a, "a1", 9 * H);
+  a.S.view = "pointer";
+  a.f.vPointer();
+  a.f.majChrono();
+  A.equal(a.f.blocT("o1").fin, undefined,
+    "personne ne ferme un compteur à la place du disciple (13.cf)");
+});
+
+test("13.ex — « oui, ça tourne encore » fait taire la question, pour ce compteur seul", () => {
+  const a = app();
+  aCompter(a);
+  ouvreDepuis(a, "a1", 9 * H);
+  a.db.temps.push(bloc("o2", "a2", MIDI - 20 * H));
+  a.f.save();
+  A.equal(a.f.derapes().length, 2, "les deux dérapent avant qu'il réponde");
+  a.geste({ vok: "o1" });
+  A.equal(a.f.blocT("o1").ve, 1, "la réponse se garde sur le bloc, pas dans l'écran");
+  A.equal(a.f.blocT("o1").fin, undefined, "répondre « oui » n'arrête rien");
+  A.deepEqual(Array.from(a.f.derapes(), b => b.id), ["o2"],
+    "l'autre n'a pas été acquitté au passage");
+  A.match(a.dernierToast(), /tourne encore/, "le geste se voit");
+  a.S.view = "pointer";
+  a.f.vPointer();
+  A.doesNotMatch(a.Z.html, /data-vok="o1"/, "et la question ne revient pas au prochain affichage");
+  /* Une carte restée ouverte pendant qu'une synchro posait la fin : la
+     réponse n'a plus d'objet, et elle ne doit pas écrire sur un temps
+     déjà compté. */
+  a.geste({ vok: "p1" });
+  A.equal(a.f.blocT("p1").ve, undefined, "la question ne concerne pas un temps déjà posé");
+});
+
+test("13.ex — la réponse survit à la réunion de deux appareils", () => {
+  const a = app();
+  aCompter(a);
+  ouvreDepuis(a, "a1", 9 * H);
+  const autre = JSON.parse(JSON.stringify(a.db));
+  /* L'autre téléphone a touché ce bloc huit heures après son départ — une
+     note, une correction. Si la réponse d'ici ne datait pas la fiche, c'est
+     cette version-là qui gagnerait, et la question reviendrait avec elle. */
+  autre.temps.filter(b => b.id === "o1")[0].maj = MIDI - MIN;
+  a.maintenant(MIDI + MIN);
+  a.geste({ vok: "o1" });
+  const ici = JSON.parse(JSON.stringify(a.db));
+  const m = a.f.fusionne(ici, autre);
+  const o = m.temps.filter(b => b.id === "o1")[0];
+  A.equal(o.ve, 1,
+    "sans `touche`, la fiche d'avant reviendrait de l'autre téléphone et la question avec elle (13.bd)");
+  A.equal(o.fin, undefined, "et la réunion ne ferme aucun compteur (13.cf)");
+});
+
+test("13.ex — pas de question par-dessus une autre question", () => {
+  const a = app();
+  aCompter(a);
+  ouvreDepuis(a, "a1", 9 * H);
+  a.S.view = "pointer"; a.S.blocId = "p1";
+  a.f.vPointer();
+  A.doesNotMatch(a.Z.html, /data-vok=/,
+    "pendant une correction, l'écran répond à « c'était quoi ? » (13.cs)");
+  a.S.blocId = null; a.S.trou = { deb: jour(8, 3, 0), fin: jour(8, 4, 0) };
+  a.f.vPointer();
+  A.doesNotMatch(a.Z.html, /data-vok=/, "dans un creux non plus");
+});
+
+test("13.ex — le rail signale même le compteur qu'il ne nomme pas", () => {
+  const a = app();
+  aCompter(a);
+  /* Celui qui porte l'heure est le plus récent — c'est lui que le rail
+     nomme ; l'oublié est l'autre, et c'est justement celui qu'on ne
+     regarde plus. */
+  a.db.temps.push(bloc("o1", "a1", MIDI - 9 * H),
+                  bloc("o2", "a2", MIDI - 10 * MIN, undefined, { porte: 1 }));
+  a.f.save();
+  A.equal(a.f.ouvert().id, "o2", "le rail nomme bien l'autre");
+  a.f.majChrono();
+  A.match(rail(a), /class="tic vieux"/, "le point change quand même : la tape mène au pointage");
+  a.geste({ vok: "o1" });
+  a.f.majChrono();
+  A.doesNotMatch(rail(a), /vieux/, "et le signe s'en va quand il a répondu");
+});
+
 /* ========================================================================
    Les balayages — ce qu'un test écran par écran ne voit pas
    ========================================================================
@@ -3392,7 +3596,14 @@ function archiveOrdinaire(a) {
                 /* Une séance qu'on vient de quitter : sans elle, tout ce que
                    l'app montre dans la demi-heure qui suit un arrêt échappe
                    aux balayages (13.ei). */
-                bloc("b3", "a1", j(11, 30), j(11, 50))];
+                bloc("b3", "a1", j(11, 30), j(11, 50)),
+                /* Un compteur qui dérape — ouvert depuis dix heures, là où
+                   « Prière » n'a pas quatre blocs derrière elle et tombe
+                   donc sur le défaut de quatre. Sans lui, la question du
+                   compteur oublié et ses trois portes échappaient aux
+                   balayages, exactement comme la parole reçue avant 13.ew
+                   (13.ex). */
+                bloc("b4", "a1", j(2, 0))];
   a.db.livres = [{ id: "l1", nom: "Un livre", pages: 100, maj: 1 }];
   a.db.auteurs = [{ id: "au1", nom: "Théodore Andoseh", maj: 1 }];
   a.db.sujets = [{ id: "s1", txt: "La santé de ma mère", pr: "n:n5", maj: 1 }];

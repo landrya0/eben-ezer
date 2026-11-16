@@ -214,7 +214,7 @@ const PONT = `
        dureesDe, usuelDe, seuilDe, derape, derapes,
        reveilQuand, veilleMiroir, reveilPossible, reveilPret, reveilOn,
        reveilOctets, reveilMiroir, reveilRange, reveilPose, reveilCoupe,
-       reveilPlusTard, reveilOffre, sySave, syLoad,
+       reveilPlusTard, reveilOffre, reveilVue, reveilRecu, sySave, syLoad,
        pointe, arrete, poseTache, creuxVif, load, seanceDe, suitDe, portesSeance, sujetBlocs, ouvert, majChrono,
        verifArchive, verifCompte, verifDit, vVerif, rappelVerif,
        archivePartante, sondesPartantes, sondesPoids,
@@ -265,7 +265,7 @@ const PONT = `
        sansDate, precPour, today, render, save, VUES, quitterPrevu, jourPromis, promisBref, ligneActe, remontees, blocQuand, vEdit, human },
   c: { DISC, DYN, RYTHMES, PERIODES, ONG_TEMPS, SANSFIN, KEY, CAT_SOCLE,
        SO_KEY, SO_MAX, ONGLETS, NOM_VUE, SEULES, PROMESSES, PR_N,
-       VEILLE_DEFAUT, VEILLE_PLANCHER, VEILLE_MINI }
+       VEILLE_DEFAUT, VEILLE_PLANCHER, VEILLE_MINI, REV_VUE, REV_CACHE, REV_MIROIR }
 };
 `;
 

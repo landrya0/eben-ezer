@@ -1506,8 +1506,8 @@ syLoad(); load();
    la recherche à celui qu'elle vient d'avertir (13.cb, 13.ey). L'adresse se
    nettoie aussitôt : rechargée plus tard, elle ne doit pas y ramener. */
 try{
-  if(/[?&]v=pointage/.test(location.search||"")){
-    S.view="pointage";
+  if(reveilVue(location.search)){
+    S.view=REV_VUE;
     try{ history.replaceState(null, "", "./"); }catch(e){}
   }
 }catch(e){}
@@ -1515,9 +1515,7 @@ render();
 /* L'app était déjà ouverte quand la notification a été touchée : le service
    worker nous le dit, et c'est à nous d'aller à l'écran. */
 try{
-  if("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", function(e){
-    if(e && e.data && e.data.veille){ S.view="pointage"; render(); }
-  });
+  if("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", reveilRecu);
 }catch(e){}
 if(SY.actif) setTimeout(function(){ syMaintenant(); }, 1200);
 /* On se resynchronise en revenant à l'écran, pas plus d'une fois par minute :

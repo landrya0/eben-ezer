@@ -3916,10 +3916,11 @@ test("13.ey — deux compteurs ne font pas deux réveils", async () => {
 });
 
 test("13.ey — la notification mène là où la question se répond", async () => {
+  const a = app();
   const ferme = chargeSW({ maintenant: MIDI });
   const r = await ferme.touche();
   A.ok(r.fermee, "la notification se referme : elle a été lue");
-  A.deepEqual(r.ouvertes, ["./?v=pointage"],
+  A.deepEqual(r.ouvertes, ["./?v=" + a.c.REV_VUE],
     "l'app fermée s'ouvre au pointage, pas au seuil de l'application (13.cb)");
   const ouverte = chargeSW({ maintenant: MIDI, fenetres: [1] });
   const r2 = await ouverte.touche();
@@ -3928,6 +3929,31 @@ test("13.ey — la notification mène là où la question se répond", async () 
      pas celui d'ici, et `deepEqual` le refuserait pour cette seule raison. */
   A.deepEqual(JSON.parse(JSON.stringify(r2.messages)), [{ veille: 1 }],
     "et on lui dit d'aller à l'écran");
+});
+
+test("13.ey — l'écran que la notification ouvre existe vraiment", async () => {
+  const a = app();
+  const sw = chargeSW({ maintenant: MIDI });
+  const r = await sw.touche();
+  const vue = String(r.ouvertes[0]).replace(/^.*\?v=/, "");
+  /* La faute que ce test défend : sw.js ouvrait « ?v=pointage », qui n'est
+     le nom d'aucun écran. L'application tombait sur sa page d'accueil, et
+     celui qu'on venait d'avertir devait retrouver son compteur tout seul.
+     Rien ne cassait, rien ne le disait. */
+  A.ok(a.f.VUES[vue],
+    "« " + vue + " » n'est pas un écran : la notification ouvrirait l'app à sa page d'accueil");
+  A.equal(a.c.REV_VUE, vue, "et c'est bien le nom que l'application attend de son côté");
+  A.equal(a.f.reveilVue("?v=" + vue), vue, "qu'elle reconnaît dans l'adresse");
+  A.equal(a.f.reveilVue("?v=ailleurs"), "", "et nulle part ailleurs");
+  A.equal(a.f.reveilVue(""), "", "une adresse nue n'ouvre rien de particulier");
+  /* Et l'app déjà ouverte : le service worker la ramène devant et lui dit
+     d'y aller — c'est elle qui change d'écran. */
+  a.S.view = "today";
+  A.equal(a.f.reveilRecu({ data: { veille: 1 } }), true);
+  A.equal(a.S.view, a.c.REV_VUE, "déjà ouverte, elle va au même écran");
+  a.S.view = "today";
+  A.equal(a.f.reveilRecu({ data: { autre: 1 } }), false);
+  A.equal(a.S.view, "today", "et un message qui ne vient pas du réveil ne la déplace pas");
 });
 
 test("13.ey — une mise à jour n'emporte pas le miroir", async () => {

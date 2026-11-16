@@ -333,6 +333,26 @@ const VAPID = "BKfKAJsYg5K4pwuGPvyhjUqUPXl7n0cs2Crm7BNOpkvl9gdEsTYf8fhyf8nMhFjIR
    réveil muet — comme la liste des fichiers du cache (voir sw.js). */
 const REV_CACHE = "ebenezer-veille";
 const REV_MIROIR = "./veille.json";
+/* L'écran où la question se répond. Écrit ici ET dans sw.js, comme les deux
+   noms de cache — et c'était la faute : sw.js ouvrait « ?v=pointage », nom
+   d'aucun écran, et l'app s'ouvrait donc à sa page d'accueil. Le nom est
+   maintenant pris d'un seul côté et un test le confronte à la liste des
+   écrans (13.ey). */
+const REV_VUE = "pointer";
+/* Ce que l'adresse d'ouverture demande, s'il y a lieu : « ?v=pointer », et
+   pas un autre écran. Une fonction plutôt qu'une ligne en vrac au démarrage,
+   pour qu'un test puisse la confronter à ce que sw.js ouvre vraiment. */
+function reveilVue(q){
+  return new RegExp("[?&]v="+REV_VUE+"(&|$)").test(String(q||"")) ? REV_VUE : "";
+}
+/* Ce que l'app fait quand la notification a été touchée alors qu'elle était
+   déjà ouverte : le service worker l'a ramenée devant, et c'est à elle
+   d'aller à l'écran. Nommée, parce que l'écouteur n'est posé qu'au
+   démarrage — là où le harnais ne l'atteint pas. */
+function reveilRecu(e){
+  if(!e || !e.data || !e.data.veille) return false;
+  S.view=REV_VUE; render(); return true;
+}
 function reveilPossible(){
   return typeof Notification!=="undefined" && typeof navigator!=="undefined"
     && "serviceWorker" in navigator && typeof window!=="undefined" && "PushManager" in window;

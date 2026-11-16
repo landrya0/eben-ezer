@@ -9,6 +9,12 @@
 /* ---------- pointer : à quoi je suis ---------- */
 /* Un seul écran pour deux usages, parce que c'est la même question : à quoi
    suis-je maintenant, et à quoi étais-je tout à l'heure. */
+/* Ce qui tourne à côté de celui qu'on nomme. Deux phrases le disaient, selon
+   qu'un compteur dérape ou non : une seule le dit (13.ex). */
+function ensemble(ouv, o){
+  const a=ouv.filter(function(b){ return b!==o; });
+  return a.length ? " En même temps : "+a.map(function(b){ return "<b>"+esc(tacheNom(b.t))+"</b>"; }).join(", ")+"." : "";
+}
 function vPointer(){
   const corr = S.blocId ? blocT(S.blocId) : null;
   const trou = (!corr && S.trou) ? S.trou : null;
@@ -44,8 +50,12 @@ function vPointer(){
         ? dd.map(function(b){ return "<b>"+esc(tacheNom(b.t))+"</b>"; }).join(", ")+". Touche-en d'autres si c'était aussi ça — ou une ligne cochée, pour la retirer."
         : "rien n'a été compté. Dis à quoi c'est allé."}</div>`;
   }
-  else if(o) h += `<div class="block amorce" style="margin-top:16px">Depuis ${hmin(new Date(o.deb))}, le temps va à <b>${esc(tacheNom(o.t))}</b> — ${hm(Date.now()-o.deb)}.${
-      ouv.length>1 ? " En même temps : "+ouv.filter(function(b){ return b!==o; }).map(function(b){ return "<b>"+esc(tacheNom(b.t))+"</b>"; }).join(", ")+"." : ""}</div>`;
+  /* 13.ex — « Depuis 4 h 31, le temps va à Prière — 9 h », puis la carte qui
+     redit la même durée deux lignes plus bas : l'app parlait deux fois. Quand
+     ce que le rail nomme dérape, la carte PORTE la phrase — elle dit tout ce
+     que l'amorce disait, et elle mène quelque part. Ce qui tourne à côté est
+     dit par celle des deux qui parle. */
+  else if(o && !derape(o)) h += `<div class="block amorce" style="margin-top:16px">Depuis ${hmin(new Date(o.deb))}, le temps va à <b>${esc(tacheNom(o.t))}</b> — ${hm(Date.now()-o.deb)}.${ensemble(ouv, o)}</div>`;
   else if(choixVif) h += `<div class="block amorce" style="margin-top:16px">Rien n'est compté depuis que tu as arrêté, à ${hmin(new Date(vif.deb))}.</div>`;
   else h += `<div class="block amorce" style="margin-top:16px">Rien n'est compté. À partir de ce que tu touches ici, le temps aura un destinataire.</div>`;
   /* 13.ex — Un chiffre qui accuse doit mener quelque part (13.cb) : la
@@ -56,8 +66,8 @@ function vPointer(){
      « c'était quoi ? », et une autre question par-dessus en ferait deux
      (13.cs). */
   if(!corr && !trou) derapes().forEach(function(b){
-    const u=usuelDe(b.t);
-    h += `<div class="block amorce veille"><b>${esc(tacheNom(b.t))}</b> compte depuis ${hmin(new Date(b.deb))} — <b>${hm(Date.now()-b.deb)}</b>.`
+    const u=usuelDe(b.t), seul=(b===o);
+    h += `<div class="block amorce veille"${seul?' style="margin-top:16px"':''}>Depuis ${hmin(new Date(b.deb))}, le temps va à <b>${esc(tacheNom(b.t))}</b> — <b>${hm(Date.now()-b.deb)}</b>.${seul?ensemble(ouv, b):""}`
       + (u ? ` D'habitude, ${hm(u)}.` : "")
       + ` Est-ce que ça tourne encore ?</div>`
       + liste(ligne({titre:"Arrêter maintenant", sous:"La fin sera posée à cette minute",

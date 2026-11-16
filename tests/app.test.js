@@ -3476,6 +3476,24 @@ test("13.ex — la question vient avec ses trois réponses, jamais seule", () =>
   A.match(a.Z.html, /data-vok="o1"/, "ou répondre que ça tourne encore (13.cb : jamais de reproche sans porte)");
 });
 
+test("13.ex — quand le compteur nommé dérape, une seule phrase dit sa durée", () => {
+  const a = app();
+  aCompter(a);
+  ouvreDepuis(a, "a1", 9 * H);
+  a.S.view = "pointer";
+  a.f.vPointer();
+  A.equal((a.Z.html.match(/le temps va à/g) || []).length, 1,
+    "l'amorce et la carte la disaient toutes les deux : l'app parlait deux fois");
+  A.match(a.Z.html, /Est-ce que ça tourne encore/,
+    "et c'est la carte qui la porte, puisque c'est elle qui mène quelque part");
+
+  a.db.temps.push(bloc("o2", "a2", MIDI - 10 * MIN));
+  a.f.save();
+  a.f.vPointer();
+  A.match(a.Z.html, /En même temps : <b>Sommeil<\/b>/,
+    "et ce qui tourne à côté n'est pas perdu au passage");
+});
+
 test("13.ex — l'app ne ferme rien d'elle-même : afficher la question ne compte pas", () => {
   const a = app();
   aCompter(a);

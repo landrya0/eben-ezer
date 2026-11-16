@@ -207,3 +207,7 @@ Et, transversal : **rien ne part en clair** (13.bh). Le journal nomme des frère
   le type de chose qu'on compte » ; l'archive a refusé : « Toilette » et « Sommeil » portent le
   même type, et leur neuvième décile commun donne quatorze heures. Le besoin se tient toujours, le
   mécanisme se mesure — et quand la mesure le refuse, on le dit, avec le chiffre (13.ex).
+- **Retirer une phrase d'une chaîne de `else if` sans sortir de sa branche.** La condition passe au
+  suivant, et l'écran tombe sur le cas vide : « Rien n'est compté » s'est affiché au-dessus d'un
+  compteur ouvert depuis neuf heures. Le test comptait la phrase retirée sans regarder ce qui
+  prenait sa place — un test qui vérifie une absence doit dire ce qu'il y a à la place.

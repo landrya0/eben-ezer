@@ -2493,7 +2493,16 @@ create policy "les miennes" on storage.objects for all to authenticated
   using (bucket_id = 'pieces'
          and (storage.foldername(name))[1] = auth.uid()::text)
   with check (bucket_id = 'pieces'
-         and (storage.foldername(name))[1] = auth.uid()::text);`;
+         and (storage.foldername(name))[1] = auth.uid()::text);
+
+create table if not exists reveils (
+  abo   text primary key,
+  uid   uuid not null references auth.users on delete cascade,
+  quand timestamptz
+);
+alter table reveils enable row level security;
+create policy "le mien" on reveils for all
+  using (auth.uid() = uid) with check (auth.uid() = uid);`;
 function val(id){ const e=document.getElementById(id); return e ? e.value : ""; }
 function syEtat(){
   if(!SY.actif) return "Non réglée";
@@ -2531,6 +2540,22 @@ function vSync(){
               : "Les vidéos ne suivent pas : trop lourdes pour un dépôt partagé."}</div>`;
       h+=liste(ligne({titre:"Qui voyagent", apres:voy.length+" · "+esc(poids(voy.reduce(function(t,m){ return t+(m.taille||0); },0)))})+
                ligne({titre:"Déjà déposées d'ici", apres:String(voy.filter(function(m){ return PJ.haut[m.id]; }).length)}));
+    }
+    /* 13.ey — la porte du réveil est sur la carte qui dérape, là où elle
+       répond à quelque chose. Ici, ce n'est pas l'offre : c'est l'état, et
+       le moyen de l'éteindre. Un réglage qu'on allume doit pouvoir
+       s'éteindre au même endroit. */
+    h+=titreBloc("Le réveil","ecart");
+    if(reveilOn()){
+      h+=`<div class="block amorce">Quand un compteur passe son seuil alors que l'application est fermée, ce téléphone sonne. Le serveur n'en sait pas plus qu'une heure et l'adresse de cet appareil : le message part <b>vide</b>, et c'est l'application qui écrit la phrase en se réveillant.</div>`;
+      h+=liste(ligne({titre:"Prochain réveil", apres: SY.rev>0 ? esc(hmin(new Date(SY.rev))) : "Rien en vue"})+
+               ligne({titre:`<span class="rouge">Ne plus me prévenir</span>`, attr:'data-act="reveilNon"'}));
+    } else {
+      h+=`<div class="block amorce">Rien ne sonne sur ce téléphone. La veille des compteurs ne parle donc que sur un écran ouvert — et un compteur oublié l'est justement parce qu'on n'ouvre plus l'écran où il tourne.</div>`;
+      h+=liste(ligne({titre:"Me prévenir quand un compteur tourne trop longtemps",
+                      sous: reveilPossible() ? "Le téléphone va demander la permission"
+                                             : "Il faut l'application sur l'écran d'accueil",
+                      attr:'data-act="reveilOui"'}), "lien");
     }
     h+=titreBloc("Au cas où","ecart");
     h+=`<div class="block amorce">Détacher laisse l'archive intacte sur ce téléphone et le laisse simplement de côté. Tu pourras le rattacher avec le même mot de passe.</div>`;

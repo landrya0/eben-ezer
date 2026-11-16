@@ -11,6 +11,23 @@
    suis-je maintenant, et à quoi étais-je tout à l'heure. */
 /* Ce qui tourne à côté de celui qu'on nomme. Deux phrases le disaient, selon
    qu'un compteur dérape ou non : une seule le dit (13.ex). */
+/* L'aveu, puis la porte. Jamais l'aveu seul : « l'app n'a rien pu dire »
+   sans rien à faire n'est qu'une excuse (13.cb). */
+function reveilOffre(){
+  const t = titreBloc("Et quand l'app est fermée","ecart");
+  const aveu = `Cet écran n'a rien pu dire pendant tout ce temps : une page web ne tourne pas quand on la quitte. `;
+  if(!reveilPossible())
+    return t + `<div class="block amorce">${aveu}Le téléphone, lui, saurait te prévenir — mais pas depuis le navigateur. Sur iPhone, il faut que l'application soit posée sur l'écran d'accueil : Partager, puis « Sur l'écran d'accueil ».</div>`;
+  if(typeof Notification!=="undefined" && Notification.permission==="denied")
+    return t + `<div class="block amorce">${aveu}Le téléphone, lui, saurait te prévenir, mais il a refusé les notifications pour cette application. Ça se reprend dans ses réglages, à la ligne d'Ében-Ézer.</div>`;
+  if(!SY.actif)
+    return t + `<div class="block amorce">${aveu}Le téléphone peut te prévenir, et il faut pour ça un serveur qui donne l'heure du réveil. Relie cet appareil : le serveur ne recevra qu'une heure — jamais ce que tu comptes, ni combien de temps c'est normal.</div>`
+      + liste(ligne({titre:"Relier cet appareil", sous:"La synchronisation, qui sert déjà à ça", attr:'data-go="sync"'}), "lien");
+  return t + `<div class="block amorce">${aveu}Le téléphone, lui, peut te prévenir. Ce qui part au serveur, c'est une heure et l'adresse de cet appareil — <b>jamais ce que tu comptes</b> : le message arrive vide, et c'est l'application, ici, qui écrit la phrase.</div>`
+    + liste(ligne({titre:"Me prévenir même quand l'app est fermée",
+                   sous:"Le téléphone va demander la permission",
+                   attr:'data-act="reveilOui"'}), "lien");
+}
 function ensemble(ouv, o){
   const a=ouv.filter(function(b){ return b!==o; });
   return a.length ? " En même temps : "+a.map(function(b){ return "<b>"+esc(tacheNom(b.t))+"</b>"; }).join(", ")+"." : "";
@@ -65,7 +82,8 @@ function vPointer(){
      Pas pendant une correction ni dans un creux : ces deux-là répondent à
      « c'était quoi ? », et une autre question par-dessus en ferait deux
      (13.cs). */
-  if(!corr && !trou) derapes().forEach(function(b){
+  const der = (!corr && !trou) ? derapes() : [];
+  der.forEach(function(b){
     const u=usuelDe(b.t), seul=(b===o);
     h += `<div class="block amorce veille"${seul?' style="margin-top:16px"':''}>Depuis ${hmin(new Date(b.deb))}, le temps va à <b>${esc(tacheNom(b.t))}</b> — <b>${hm(Date.now()-b.deb)}</b>.${seul?ensemble(ouv, b):""}`
       + (u ? ` D'habitude, ${hm(u)}.` : "")
@@ -77,6 +95,14 @@ function vPointer(){
             + ligne({titre:"Oui, ça tourne encore", sous:"L'app ne le redemandera pas pour ce temps-ci",
                      attr:'data-vok="'+esc(b.id)+'"'}), "lien");
   });
+  /* 13.ey — ici, et nulle part ailleurs. C'est le seul moment où l'offre
+     dit quelque chose de vrai : un compteur vient de tourner des heures
+     parce que personne n'a ouvert cet écran, et l'écran l'avoue. Proposée
+     dans les réglages, elle serait une case à cocher parmi d'autres ; posée
+     là, elle répond à ce qu'on a sous les yeux (13.cb). Elle disparaît dès
+     qu'elle est acceptée — et comme un dérapage est rare, elle ne peut pas
+     devenir un harcèlement. */
+  if(der.length && !reveilOn()) h += reveilOffre();
   /* Le défaut ne peut pas être de donner ce temps-là à la première activité
      choisie : le disciple venait de le retirer à tout le monde. Mais il
      arrive aussi qu'on s'arrête, puis qu'on se remette à prier sans le dire

@@ -9,7 +9,7 @@
 /* Écrite à l'écran, dans Mes données. Sans elle, « je ne vois pas la
    nouvelle version » est une phrase que ni lui ni moi ne pouvons vérifier :
    on en est réduit à deviner. Elle monte avec le cache du service worker. */
-const VERSION = "v131";
+const VERSION = "v132";
 const KEY = "ebenezer.v1";
 /* Les sondes vivent dans le 12, chargé APRÈS celui-ci : le socle ne peut
    pas en dépendre, l'ordre est porteur. On appelle donc à travers un
@@ -218,6 +218,11 @@ function save(sil){
   if(SONDE) SONDE.ecrit();
   try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){ toast("Enregistrement impossible"); }
   if(!sil) syPlusTard();
+  /* Le miroir du réveil se repose à CHAQUE écriture, silencieuse comprise :
+     une synchronisation qui apporte l'arrêt posé sur l'autre appareil doit
+     faire taire le réveil de celui-ci. Sans ça, le téléphone sonnerait pour
+     un compteur arrêté ailleurs (13.ey). */
+  reveilPlusTard();
 }
 /* Deux appareils qui créent chacun de leur côté produiraient le même « n42 »
    et l'un écraserait l'autre à la fusion. Chaque installation porte donc sa

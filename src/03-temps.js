@@ -140,6 +140,44 @@ function derape(b){
 }
 function derapes(){ return ouverts().filter(derape); }
 
+/* ---------- le réveil (13.ey) ---------- */
+/* La veille ne vaut que si elle trouve le disciple. Elle est posée sur le
+   rail et sur le pointage, c'est-à-dire sur des écrans — et un compteur
+   oublié l'est précisément parce qu'on n'ouvre plus l'écran où il tourne.
+   Sept heures après, l'app n'a toujours rien pu dire : elle ne tourne pas
+   quand on la quitte.
+   Deux fonctions ici, et elles sont pures. L'heure à laquelle le prochain
+   compteur passera son seuil — c'est tout ce qui partira au serveur. Et ce
+   que le service worker devra savoir pour parler sans nous, l'app fermée :
+   il ne peut pas lire l'archive, localStorage ne lui est pas ouvert, et il
+   ne doit pas avoir à la lire. Le reste du réveil — l'abonnement, le
+   serveur — vit dans le 08, seul fichier à connaître le dehors. */
+/* Seulement ce qui dépassera PLUS TARD. Un seuil déjà passé a été passé
+   sous les yeux du disciple : le rail l'a dit, et la carte est à l'écran.
+   Le redire par le téléphone serait harceler celui qui a déjà vu — et comme
+   l'app repose l'heure à chaque enregistrement, elle le harcèlerait toutes
+   les cinq minutes tant que le compteur tourne (13.ey). */
+function reveilQuand(){
+  const n=Date.now();
+  let t=0;
+  ouverts().forEach(function(b){
+    if(b.ve) return;
+    const q=b.deb+seuilDe(b.t);
+    if(q<=n) return;
+    if(!t || q<t) t=q;
+  });
+  return t;
+}
+/* Le nom de l'activité est là, et il n'en sort pas : ce miroir vit dans le
+   cache du navigateur, sur l'appareil, à côté d'une archive qui y est déjà
+   en clair. C'est lui qui permet au réveil de nommer ce qui tourne alors
+   que rien de nommé n'a voyagé (13.bh). */
+function veilleMiroir(){
+  return ouverts().filter(function(b){ return !b.ve; }).map(function(b){
+    return {nom:tacheNom(b.t), deb:b.deb, seuil:seuilDe(b.t), usuel:usuelDe(b.t)};
+  });
+}
+
 /* Sous la minute, l'app annonçait « 0 min » d'un temps qu'elle avait pourtant
    compté à la milliseconde. Un bloc de trente-cinq secondes existe, il pèse
    dans les totaux, et l'écran le niait — or un chiffre faux, si petit soit-il,

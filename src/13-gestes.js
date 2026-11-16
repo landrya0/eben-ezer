@@ -1440,7 +1440,30 @@ const actions={
                 {txt:"Détacher", rouge:true, attr:'data-act="syDetacheOk"'}],
                [{txt:"Annuler", attr:'data-act="fermeMenu"'}]]);
   },
-  syDetacheOk(){ fermeMenu(); syOublie(); S.syEtape=0; S.syCode=""; S.syMdp=""; toast("Détaché."); render(); },
+  /* 13.ey — l'offre est sur la carte qui dérape, l'interrupteur dans les
+     réglages, et c'est le même geste. */
+  async reveilOui(){
+    toast("…");
+    const e=await reveilPose();
+    toast(e || "C'est bon. Le téléphone te prévient maintenant, même fermé.");
+    render();
+  },
+  async reveilNon(){
+    await reveilCoupe();
+    toast("Le réveil est éteint.");
+    render();
+  },
+  /* Détacher l'appareil éteint le réveil : l'adresse ne doit pas rester
+     là-haut à attendre une heure que plus personne ne posera. */
+  async syDetacheOk(){
+    fermeMenu();
+    /* On attend : le réveil s'éteint avec les clés encore en main. Lancé
+       sans attendre, il partait retirer sa ligne d'un serveur dont
+       `syOublie` venait d'effacer l'adresse — et l'adresse restait là-haut
+       à attendre une heure que plus personne ne poserait (13.ey). */
+    await reveilCoupe();
+    syOublie(); S.syEtape=0; S.syCode=""; S.syMdp=""; toast("Détaché."); render();
+  },
   restore(){ try{ const v=JSON.parse(document.getElementById("dump").value); if(!v||!Array.isArray(v.nodes)) throw 0; db=sane(v); save(); toast("Remplacé"); S.view="today"; render(); }catch(e){ toast("Ce texte n'est pas une sauvegarde"); } },
   askWipe(){
     ouvreMenu([[{label:"Tous tes mémoriaux seront effacés. Copie d'abord ta sauvegarde."},
@@ -1477,7 +1500,25 @@ function theme(){
 }
 theme();
 if(window.matchMedia){ try{ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", theme); }catch(e){} }
-syLoad(); load(); render();
+syLoad(); load();
+/* Venu du réveil : on ouvre là où la question se répond, pas sur la page
+   d'accueil — une notification qui mène au seuil de l'app fait recommencer
+   la recherche à celui qu'elle vient d'avertir (13.cb, 13.ey). L'adresse se
+   nettoie aussitôt : rechargée plus tard, elle ne doit pas y ramener. */
+try{
+  if(/[?&]v=pointage/.test(location.search||"")){
+    S.view="pointage";
+    try{ history.replaceState(null, "", "./"); }catch(e){}
+  }
+}catch(e){}
+render();
+/* L'app était déjà ouverte quand la notification a été touchée : le service
+   worker nous le dit, et c'est à nous d'aller à l'écran. */
+try{
+  if("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", function(e){
+    if(e && e.data && e.data.veille){ S.view="pointage"; render(); }
+  });
+}catch(e){}
 if(SY.actif) setTimeout(function(){ syMaintenant(); }, 1200);
 /* On se resynchronise en revenant à l'écran, pas plus d'une fois par minute :
    c'est le moment où l'autre appareil a pu parler. */

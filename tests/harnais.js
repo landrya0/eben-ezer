@@ -202,6 +202,7 @@ const PONT = `
 ;globalThis.__eben = {
   get db(){ return db; }, set db(v){ db = v; },
   get S(){ return S; },
+  get SY(){ return SY; },
   get Z(){ return Z; },
   get SO(){ return SO; },
   get SONDE(){ return SONDE; },
@@ -211,6 +212,9 @@ const PONT = `
        finDe, voisins, touche, tue, sane, uid, cap, capNom,
        tache, tacheId, tacheNom, tacheCat, blocT, ouverts, fermeBloc,
        dureesDe, usuelDe, seuilDe, derape, derapes,
+       reveilQuand, veilleMiroir, reveilPossible, reveilPret, reveilOn,
+       reveilOctets, reveilMiroir, reveilRange, reveilPose, reveilCoupe,
+       reveilPlusTard, reveilOffre, sySave, syLoad,
        pointe, arrete, poseTache, creuxVif, load, seanceDe, suitDe, portesSeance, sujetBlocs, ouvert, majChrono,
        verifArchive, verifCompte, verifDit, vVerif, rappelVerif,
        archivePartante, sondesPartantes, sondesPoids,
@@ -336,6 +340,91 @@ function charge(opts) {
     const ev = { target: cible, preventDefault: function () {}, stopPropagation: function () {} };
     (ctx.__ecouteurs.click || []).forEach(function (fn) { fn(ev); });
   };
+  /* 13.ey — le réveil touche quatre choses que le navigateur de carton n'a
+     pas : la permission, l'abonnement, le cache qu'il partage avec le
+     service worker, et le serveur. On les pose, et on retient ce qui est
+     parti — c'est sur CE QUI PART que porte la règle. */
+  app.reveilFaux = function (o) {
+    o = o || {};
+    const envois = [], cache = {};
+    let abo = o.abo === undefined ? null : o.abo;
+    function abonnement() {
+      return {
+        endpoint: abo,
+        unsubscribe: function () { abo = null; return Promise.resolve(true); }
+      };
+    }
+    ctx.Notification = {
+      permission: o.permission || "granted",
+      requestPermission: function () {
+        envois.push({ demande: true });
+        /* Un vrai navigateur RETIENT la réponse : sans ça le faux restait
+           sur « default » et le réveil se croyait refusé juste après avoir
+           été accepté. */
+        ctx.Notification.permission = o.demande || "granted";
+        return Promise.resolve(ctx.Notification.permission);
+      }
+    };
+    ctx.PushManager = function () {};
+    ctx.navigator.serviceWorker = {
+      ready: Promise.resolve({
+        pushManager: {
+          getSubscription: function () { return Promise.resolve(abo ? abonnement() : null); },
+          subscribe: function (opt) {
+            if (o.abonneRefuse) return Promise.reject(new Error("refus"));
+            envois.push({ abonne: opt });
+            abo = o.neuf || "https://push.exemple/abc";
+            return Promise.resolve(abonnement());
+          }
+        }
+      }),
+      addEventListener: function () {}
+    };
+    ctx.Response = class {
+      constructor(corps) { this.corps = corps; }
+      json() { return Promise.resolve(JSON.parse(this.corps)); }
+      text() { return Promise.resolve(this.corps); }
+    };
+    ctx.caches = {
+      open: function (nom) {
+        cache[nom] = cache[nom] || {};
+        return Promise.resolve({
+          put: function (k, r) { cache[nom][k] = r; return Promise.resolve(); },
+          match: function (k) { return Promise.resolve(cache[nom][k]); }
+        });
+      },
+      delete: function (nom) { delete cache[nom]; return Promise.resolve(true); }
+    };
+    ctx.fetch = function (url, opt) {
+      envois.push({
+        url: url, methode: (opt && opt.method) || "GET",
+        corps: opt && opt.body ? JSON.parse(opt.body) : null
+      });
+      if (o.serveurRefuse)
+        return Promise.resolve({ ok: false, status: 404,
+          text: function () { return Promise.resolve('{"message":"relation \\"reveils\\" does not exist"}'); } });
+      return Promise.resolve({ ok: true, status: 200,
+        text: function () { return Promise.resolve(""); } });
+    };
+    /* Un jeton encore valable : le réveil n'a pas à rejouer la connexion.
+       L'échéance est hors d'atteinte — l'horloge du bac à sable est figée à
+       une date que `Date.now()` d'ici ne connaît pas. */
+    app.SY.jwt = "jeton"; app.SY.exp = 9e15;
+    return {
+      envois: envois, cache: cache,
+      abonnement: function () { return abo; },
+      /* Ce que la page a laissé pour le service worker. */
+      miroir: function () {
+        const c = cache["ebenezer-veille"];
+        const r = c && c["./veille.json"];
+        return r ? JSON.parse(r.corps) : null;
+      },
+      /* Les lignes posées au serveur, sans le bruit du reste. */
+      posees: function () {
+        return envois.filter(function (e) { return e.url && /\/rest\/v1\/reveils/.test(e.url); });
+      }
+    };
+  };
   app.ouvrePeriode = function (pr) {
     app.S.perId = pr.id;
     app.poseHeure("pdDeb", pr.deb);
@@ -368,4 +457,103 @@ function bloc(id, t, deb, fin, extra) {
   return Object.assign(b, extra || {});
 }
 
-module.exports = { charge, MIN, H, j, jour, bloc };
+/* ---------- le service worker ----------
+ * Il n'est pas chargé par index.html : il tourne à part, dans son propre
+ * monde, et c'est là qu'est écrite la seule phrase de l'application qu'on ne
+ * puisse pas aller lire à l'écran — celle du réveil, l'app fermée (13.ey).
+ * On le charge donc comme on charge l'application : le vrai fichier, un
+ * monde de carton autour. Et comme il porte une copie de `hm()`, un test
+ * tient les deux côte à côte.
+ */
+function chargeSW(opts) {
+  opts = opts || {};
+  const notifs = [], ouvertes = [], messages = [], ecoute = {}, cache = {};
+  const ctx = {
+    console, btoa, atob, TextEncoder, TextDecoder, URL,
+    Response: class {
+      constructor(corps) { this.corps = corps; }
+      json() { return Promise.resolve(JSON.parse(this.corps)); }
+    },
+    Request: class { constructor(u) { this.url = u; } },
+    caches: {
+      open(nom) {
+        cache[nom] = cache[nom] || {};
+        return Promise.resolve({
+          put(k, r) { cache[nom][k] = r; return Promise.resolve(); },
+          match(k) { return Promise.resolve(cache[nom][k]); },
+          add() { return Promise.resolve(); }
+        });
+      },
+      keys() { return Promise.resolve(Object.keys(cache)); },
+      delete(nom) { delete cache[nom]; return Promise.resolve(true); },
+      match() { return Promise.resolve(undefined); }
+    },
+    fetch() { return Promise.reject(new Error("pas de réseau dans les tests")); },
+    setTimeout, clearTimeout
+  };
+  ctx.self = {
+    addEventListener(t, fn) { (ecoute[t] = ecoute[t] || []).push(fn); },
+    location: { origin: "https://exemple" },
+    skipWaiting() {},
+    registration: {
+      showNotification(titre, o) {
+        notifs.push({ titre: titre, corps: (o && o.body) || "", opt: o || {} });
+        return Promise.resolve();
+      }
+    },
+    clients: {
+      claim() { return Promise.resolve(); },
+      matchAll() {
+        return Promise.resolve((opts.fenetres || []).map(function () {
+          return {
+            focus: function () { ouvertes.push("focus"); return Promise.resolve(); },
+            postMessage: function (m) { messages.push(m); }
+          };
+        }));
+      },
+      openWindow(u) { ouvertes.push(u); return Promise.resolve(); }
+    }
+  };
+  ctx.globalThis = ctx;
+  const fixe = { ms: (typeof opts.maintenant === "number") ? opts.maintenant : null };
+  poseHorloge(ctx, fixe);
+  vm.createContext(ctx);
+  const src = fs.readFileSync(path.join(RACINE, "sw.js"), "utf8");
+  new vm.Script(src +
+    "\n;globalThis.__sw = {veilleDit, hmSW, VEILLE, MIROIR, CACHE};",
+    { filename: "sw.js" }).runInContext(ctx);
+  const sw = ctx.__sw;
+  if (!sw) throw new Error("sw.js n'a pas tendu la main — une fonction a-t-elle été renommée ?");
+  sw.notifs = notifs;
+  sw.maintenant = function (ms) { fixe.ms = (ms === undefined ? null : ms); };
+  /* Poser le miroir là où la page le pose. */
+  sw.pose = async function (v) {
+    const c = await ctx.caches.open(sw.VEILLE);
+    await c.put(sw.MIROIR, new ctx.Response(JSON.stringify(v)));
+  };
+  /* Sonner : le vrai écouteur, et on attend ce qu'il attend. */
+  async function tire(type, ev) {
+    const attentes = [];
+    ev.waitUntil = function (p) { attentes.push(p); };
+    (ecoute[type] || []).forEach(function (fn) { fn(ev); });
+    await Promise.all(attentes);
+  }
+  sw.sonne = async function () {
+    const avant = notifs.length;
+    await tire("push", {});
+    return notifs.length > avant ? notifs[notifs.length - 1] : null;
+  };
+  sw.touche = async function () {
+    let fermee = false;
+    await tire("notificationclick", { notification: { close: function () { fermee = true; } } });
+    return { fermee: fermee, ouvertes: ouvertes.slice(), messages: messages.slice() };
+  };
+  sw.active = async function (autres) {
+    (autres || []).forEach(function (k) { cache[k] = {}; });
+    await tire("activate", {});
+    return Object.keys(cache);
+  };
+  return sw;
+}
+
+module.exports = { charge, chargeSW, MIN, H, j, jour, bloc };

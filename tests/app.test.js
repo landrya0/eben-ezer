@@ -9,7 +9,7 @@
 "use strict";
 const { test } = require("node:test");
 const A = require("node:assert/strict");
-const { charge, MIN, H, j, jour, bloc } = require("./harnais.js");
+const { charge, chargeSW, MIN, H, j, jour, bloc } = require("./harnais.js");
 
 /* Midi, le 8 novembre 2026 : l'heure de référence de toute la batterie. */
 const MIDI = j(12, 0);
@@ -3580,6 +3580,375 @@ test("13.ex — le rail signale même le compteur qu'il ne nomme pas", () => {
   a.geste({ vok: "o1" });
   a.f.majChrono();
   A.doesNotMatch(rail(a), /vieux/, "et le signe s'en va quand il a répondu");
+});
+
+/* ---------- 13.ey — le réveil, l'application fermée ---------- */
+/* La veille de 13.ex ne parle que sur un écran ouvert, et un compteur oublié
+   l'est justement parce qu'on n'ouvre plus l'écran où il tourne. Le réveil
+   porte donc la veille jusqu'au téléphone — sans rien dire au serveur. Ce
+   sur quoi portent ces tests, c'est d'abord CE QUI PART. */
+
+/* Le réveil réglé et en marche : l'appareil relié, la permission donnée,
+   une adresse d'abonnement. */
+function reveille(a) {
+  a.SY.actif = true; a.SY.uid = "u1";
+  a.SY.url = "https://serveur.exemple"; a.SY.cle = "publique";
+  a.SY.abo = "https://push.exemple/abc";
+  /* Le navigateur tient vraiment l'abonnement : sans ça, « l'abonnement est
+     rompu » était vrai avant qu'on le rompe, et l'assertion ne pouvait pas
+     tomber (AGENTS §6). */
+  return a.reveilFaux({ abo: "https://push.exemple/abc" });
+}
+/* Laisser passer ce qui a été lancé sans être attendu. */
+function souffle() { return new Promise(function (r) { setImmediate(r); }); }
+
+test("13.ey — l'heure posée est celle où le compteur passera son seuil", () => {
+  const a = app();
+  aCompter(a);
+  a.db.temps.push(bloc("o1", "a1", MIDI - 10 * MIN));
+  a.f.save();
+  A.equal(a.f.seuilDe("a1"), 68 * MIN, "le seuil de la prière, déduit de ses quatre blocs");
+  A.equal(a.f.reveilQuand(), MIDI - 10 * MIN + 68 * MIN,
+    "l'heure du réveil, c'est le départ plus le seuil — pas une durée, pas un délai");
+});
+
+test("13.ey — un seuil déjà passé ne pose aucun réveil", () => {
+  const a = app();
+  aCompter(a);
+  ouvreDepuis(a, "a1", 9 * H);
+  A.ok(a.f.derape(a.f.blocT("o1")), "il dérape : la carte est à l'écran");
+  A.equal(a.f.reveilQuand(), 0,
+    "ce qui a dépassé sous ses yeux, le rail l'a déjà dit — le redire par le téléphone serait harceler celui qui a vu");
+});
+
+test("13.ey — de deux compteurs, le réveil retient le plus proche", () => {
+  const a = app();
+  aCompter(a);
+  a.db.temps.push(bloc("o1", "a1", MIDI - 10 * MIN),
+                  bloc("o2", "a2", MIDI - 10 * MIN));
+  a.f.save();
+  A.ok(a.f.seuilDe("a2") > a.f.seuilDe("a1"), "seize heures pour le sommeil, 68 min pour la prière");
+  A.equal(a.f.reveilQuand(), MIDI - 10 * MIN + a.f.seuilDe("a1"),
+    "une seule heure part là-haut, et c'est la première : le réveil suivant se posera après");
+});
+
+test("13.ey — « oui, ça tourne encore » emporte le réveil avec la question", () => {
+  const a = app();
+  aCompter(a);
+  a.db.temps.push(bloc("o1", "a1", MIDI - 10 * MIN));
+  a.f.save();
+  A.ok(a.f.reveilQuand() > 0, "d'abord il y a un réveil");
+  a.geste({ vok: "o1" });
+  A.equal(a.f.reveilQuand(), 0,
+    "l'app prévient puis se tait (13.ex) — et se taire, c'est aussi ne pas sonner");
+});
+
+test("13.ey — rien d'ouvert, rien à réveiller", () => {
+  const a = app();
+  aCompter(a);
+  A.equal(a.f.reveilQuand(), 0, "aucun compteur ne tourne");
+});
+
+test("13.ey — le miroir porte le nom, et c'est ce qui permet de ne pas l'envoyer", async () => {
+  const a = app();
+  const f = reveille(a);
+  aCompter(a);
+  a.db.temps.push(bloc("o1", "a1", MIDI - 10 * MIN));
+  a.f.save();
+  const m = a.f.veilleMiroir();
+  A.equal(m.length, 1);
+  A.equal(m[0].nom, "Prière", "le service worker ne peut pas lire l'archive : le nom est dans le miroir");
+  A.equal(m[0].deb, MIDI - 10 * MIN);
+  A.equal(m[0].seuil, 68 * MIN);
+  A.equal(m[0].usuel, 13 * MIN + 30000, "d'habitude, la médiane (13.ex)");
+  await a.f.reveilMiroir();
+  A.deepEqual(f.miroir(), JSON.parse(JSON.stringify(m)),
+    "et il est posé dans le cache que la page partage avec le service worker");
+});
+
+test("13.ey — ce qu'il a déjà répondu ne revient pas par le téléphone", async () => {
+  const a = app();
+  const f = reveille(a);
+  aCompter(a);
+  ouvreDepuis(a, "a1", 9 * H);
+  a.db.temps.push(bloc("o2", "a2", MIDI - 10 * MIN));
+  a.f.save();
+  a.geste({ vok: "o1" });
+  A.deepEqual(a.f.veilleMiroir().map(x => x.nom), ["Sommeil"],
+    "le miroir ne garde pas ce qu'il a déjà répondu : sinon le réveil du sommeil, ce soir, renommerait la prière de ce matin");
+  await a.f.reveilMiroir();
+  A.deepEqual(f.miroir().map(x => x.nom), ["Sommeil"], "et c'est bien ce miroir-là qui est posé");
+});
+
+test("13.ey — ce qui part au serveur : une heure et une adresse, rien d'autre", async () => {
+  const a = app();
+  const f = reveille(a);
+  aCompter(a);
+  a.db.temps.push(bloc("o1", "a1", MIDI - 10 * MIN));
+  a.f.save();
+  A.equal(await a.f.reveilRange(true), true);
+  const p = f.posees();
+  A.equal(p.length, 1, "une ligne posée");
+  A.deepEqual(Object.keys(p[0].corps).sort(), ["abo", "quand", "uid"],
+    "trois champs, et pas un de plus : le serveur ne peut pas en savoir plus qu'il n'en sait");
+  A.equal(p[0].corps.quand, new Date(MIDI - 10 * MIN + 68 * MIN).toISOString());
+  const tout = JSON.stringify(f.envois);
+  A.doesNotMatch(tout, /Pri(è|e)re/i, "le nom de l'activité ne part pas (13.bh)");
+  A.doesNotMatch(tout, /4080000|68/, "ni le seuil, qui dirait ce qu'on compte d'habitude");
+});
+
+test("13.ey — la même heure ne se repose pas deux fois", async () => {
+  const a = app();
+  const f = reveille(a);
+  aCompter(a);
+  a.db.temps.push(bloc("o1", "a1", MIDI - 10 * MIN));
+  a.f.save();
+  await a.f.reveilRange(true);
+  const n = f.posees().length;
+  A.equal(await a.f.reveilRange(), false, "rien n'a changé");
+  A.equal(f.posees().length, n, "une tape sur un autre écran n'écrit pas au serveur");
+  /* Seize heures de seuil, ouvert depuis quinze et demie : il passera le
+     sien AVANT la prière, et c'est donc lui qui porte le réveil. */
+  a.db.temps.push(bloc("o2", "a2", MIDI - 15 * H - 30 * MIN));
+  a.f.save();
+  A.equal(a.f.reveilQuand(), MIDI + 30 * MIN, "l'heure a avancé");
+  A.equal(await a.f.reveilRange(), true, "et elle repart");
+});
+
+test("13.ey — un compteur arrêté efface l'heure là-haut", async () => {
+  const a = app();
+  const f = reveille(a);
+  aCompter(a);
+  a.db.temps.push(bloc("o1", "a1", MIDI - 10 * MIN));
+  a.f.save();
+  await a.f.reveilRange(true);
+  a.f.arrete();
+  A.equal(await a.f.reveilRange(), true);
+  A.equal(f.posees().pop().corps.quand, null,
+    "sans quoi le téléphone sonnerait pour un compteur qu'on a arrêté");
+});
+
+test("13.ey — une synchronisation qui arrête le compteur fait taire le miroir", async () => {
+  const a = app();
+  const f = reveille(a);
+  aCompter(a);
+  a.db.temps.push(bloc("o1", "a1", MIDI - 10 * MIN));
+  a.f.save();
+  await souffle();
+  A.equal(f.miroir().length, 1, "le miroir dit qu'un compteur tourne");
+  /* L'autre appareil l'a arrêté : la fusion arrive par une écriture
+     SILENCIEUSE, celle qui ne touche pas à `db.maj`. */
+  a.db.temps.find(b => b.id === "o1").fin = MIDI - 5 * MIN;
+  a.f.save(true);
+  await souffle();
+  A.deepEqual(f.miroir(), [],
+    "une écriture silencieuse repose le miroir aussi : sinon le réveil sonnerait pour un compteur arrêté ailleurs");
+});
+
+test("13.ey — si la table manque là-haut, le réveil ne s'allume pas", async () => {
+  const a = app();
+  a.SY.actif = true; a.SY.uid = "u1";
+  a.SY.url = "https://serveur.exemple"; a.SY.cle = "publique";
+  a.reveilFaux({ abo: null, serveurRefuse: true });
+  aCompter(a);
+  a.db.temps.push(bloc("o1", "a1", MIDI - 10 * MIN));
+  a.f.save();
+  const dit = await a.f.reveilPose();
+  A.match(dit, /pas encore pos/, "l'application le dit au lieu de s'allumer pour rien");
+  A.equal(a.SY.abo, "", "et elle ne garde pas une adresse que le serveur ignore");
+  A.equal(a.f.reveilOn(), false);
+});
+
+test("13.ey — demandé, abonné, posé : les trois d'un seul geste", async () => {
+  const a = app();
+  a.SY.actif = true; a.SY.uid = "u1";
+  a.SY.url = "https://serveur.exemple"; a.SY.cle = "publique";
+  const f = a.reveilFaux({ abo: null, permission: "default", demande: "granted" });
+  aCompter(a);
+  a.db.temps.push(bloc("o1", "a1", MIDI - 10 * MIN));
+  a.f.save();
+  A.equal(await a.f.reveilPose(), "", "rien à dire : c'est en route");
+  A.ok(f.envois.some(e => e.demande), "la permission a été demandée");
+  A.equal(f.abonnement(), "https://push.exemple/abc", "l'abonnement a été pris");
+  A.equal(a.SY.abo, "https://push.exemple/abc");
+  A.equal(f.posees().length, 1, "et l'heure est posée tout de suite, sans attendre un enregistrement");
+  A.ok(f.miroir(), "le miroir aussi : le premier réveil doit pouvoir parler");
+});
+
+test("13.ey — le téléphone qui refuse laisse tout éteint", async () => {
+  const a = app();
+  a.SY.actif = true; a.SY.uid = "u1"; a.SY.url = "https://serveur.exemple";
+  const f = a.reveilFaux({ abo: null, permission: "default", demande: "denied" });
+  const dit = await a.f.reveilPose();
+  A.match(dit, /refus/i);
+  A.equal(a.SY.abo, "", "rien ne survit à un refus");
+  A.equal(f.posees().length, 0, "et rien n'est parti au serveur");
+});
+
+test("13.ey — sans appareil relié, le réveil ne se propose pas tout seul", async () => {
+  const a = app();
+  const f = a.reveilFaux({ abo: null });
+  const dit = await a.f.reveilPose();
+  A.match(dit, /relier/i, "le réveil a besoin du serveur, et le serveur du compte");
+  A.equal(f.posees().length, 0);
+});
+
+test("13.ey — éteindre emporte l'adresse d'ici ET de là-haut", async () => {
+  const a = app();
+  const f = reveille(a);
+  aCompter(a);
+  a.db.temps.push(bloc("o1", "a1", MIDI - 10 * MIN));
+  a.f.save();
+  await a.f.reveilRange(true);
+  await a.f.reveilCoupe();
+  A.equal(a.SY.abo, "", "l'adresse s'en va d'ici");
+  A.equal(a.SY.rev, 0);
+  A.equal(f.abonnement(), null, "le navigateur rompt l'abonnement");
+  const del = f.posees().filter(e => e.methode === "DELETE");
+  A.equal(del.length, 1, "et la ligne est retirée du serveur");
+  A.match(del[0].url, /abo=eq\./, "la sienne, pas celle de l'autre appareil");
+  A.equal(f.miroir(), null, "le miroir s'en va avec : plus rien à dire, plus rien à lire");
+});
+
+test("13.ey — détacher l'appareil éteint le réveil, dans cet ordre", async () => {
+  const a = app();
+  const f = reveille(a);
+  aCompter(a);
+  a.db.temps.push(bloc("o1", "a1", MIDI - 10 * MIN));
+  a.f.save();
+  await a.f.reveilRange(true);
+  await a.actions.syDetacheOk();
+  A.equal(a.SY.actif, false, "l'appareil est détaché");
+  const del = f.posees().filter(e => e.methode === "DELETE");
+  A.equal(del.length, 1, "et sa ligne a été retirée");
+  A.match(del[0].url, /^https:\/\/serveur\.exemple\//,
+    "avec les clés encore en main : lancé sans être attendu, le retrait partait vers une adresse vide");
+});
+
+test("13.ey — l'offre est posée là où elle répond à quelque chose", () => {
+  const a = app();
+  aCompter(a);
+  a.reveilFaux({ abo: null });
+  a.SY.actif = true; a.SY.uid = "u1";
+  a.db.temps.push(bloc("o1", "a1", MIDI - 10 * MIN));
+  a.f.save();
+  a.f.vPointer();
+  A.doesNotMatch(a.Z.html, /data-act="reveilOui"/,
+    "un compteur qui se tient ne donne aucune raison de parler du réveil");
+  a.db.temps.find(b => b.id === "o1").deb = MIDI - 9 * H;
+  a.f.save();
+  a.f.vPointer();
+  A.match(a.Z.html, /data-act="reveilOui"/,
+    "c'est devant un compteur qui a tourné neuf heures que l'offre dit quelque chose de vrai (13.cb)");
+  A.match(a.Z.html, /jamais ce que tu comptes/, "et elle dit ce qui partira");
+  a.SY.abo = "https://push.exemple/abc";
+  a.f.vPointer();
+  A.doesNotMatch(a.Z.html, /data-act="reveilOui"/, "acceptée, elle ne revient pas");
+});
+
+test("13.ey — l'offre ne promet rien qu'elle ne puisse tenir", () => {
+  const a = app();
+  aCompter(a);
+  ouvreDepuis(a, "a1", 9 * H);
+  a.f.vPointer();
+  A.match(a.Z.html, /écran d'accueil/,
+    "sans Push dans ce navigateur, elle dit ce qui manque — sur iPhone, l'app posée sur l'écran d'accueil");
+  A.doesNotMatch(a.Z.html, /data-act="reveilOui"/, "et ne propose pas un geste qui ne ferait rien");
+  a.reveilFaux({ abo: null, permission: "denied" });
+  a.f.vPointer();
+  A.match(a.Z.html, /refus/i, "refusé une fois, elle dit où ça se reprend");
+  A.doesNotMatch(a.Z.html, /data-act="reveilOui"/);
+  a.reveilFaux({ abo: null });
+  a.f.vPointer();
+  A.match(a.Z.html, /data-go="sync"/, "sans appareil relié, elle mène d'abord à la synchronisation");
+});
+
+/* ---------- ce que le service worker dit, l'app fermée ---------- */
+/* La seule phrase de l'application qu'on ne peut pas aller lire à l'écran.
+   Le harnais charge donc sw.js comme il charge l'app : le vrai fichier. */
+
+test("13.ey — le réveil nomme ce qui tourne, alors que rien de nommé n'a voyagé", async () => {
+  const sw = chargeSW({ maintenant: MIDI });
+  await sw.pose([{ nom: "Prière", deb: MIDI - 9 * H, seuil: 68 * MIN, usuel: 13 * MIN }]);
+  const n = await sw.sonne();
+  A.ok(n, "le message arrivé est vide : c'est ici que la phrase s'écrit");
+  A.equal(n.titre, "Prière — 9 h");
+  A.equal(n.corps, "D'habitude, 13 min. Est-ce que ça tourne encore ?");
+  A.equal(n.opt.tag, "veille", "une seule notification à la fois, jamais une pile");
+});
+
+test("13.ey — le réveil se tait plutôt que de mentir", async () => {
+  const sw = chargeSW({ maintenant: MIDI });
+  await sw.pose([{ nom: "Prière", deb: MIDI - 10 * MIN, seuil: 68 * MIN, usuel: 13 * MIN }]);
+  A.equal(await sw.sonne(), null,
+    "le compteur a pu être arrêté hors ligne : mieux vaut un réveil muet qu'un réveil qui ment");
+  await sw.pose([]);
+  A.equal(await sw.sonne(), null, "et sans miroir du tout, rien non plus");
+});
+
+test("13.ey — le réveil et la carte ont la même borne, à la milliseconde", async () => {
+  const a = app();
+  aCompter(a);
+  const seuil = a.f.seuilDe("a1");
+  const sw = chargeSW({ maintenant: MIDI });
+  const miroir = function (ecart) {
+    return [{ nom: "Prière", deb: MIDI - ecart, seuil: seuil, usuel: 0 }];
+  };
+  await sw.pose(miroir(seuil));
+  A.equal(await sw.sonne(), null, "pile au seuil, la carte ne parle pas non plus : elle veut le dépasser");
+  a.db.temps.push(bloc("o1", "a1", MIDI - seuil));
+  a.f.save();
+  A.equal(a.f.derape(a.f.blocT("o1")), 0, "et c'est bien ce que dit `derape` (13.ex)");
+  await sw.pose(miroir(seuil + 1));
+  A.ok(await sw.sonne(), "une milliseconde au-delà, les deux parlent");
+  a.db.temps.find(b => b.id === "o1").deb = MIDI - seuil - 1;
+  A.ok(a.f.derape(a.f.blocT("o1")), "la même milliseconde");
+});
+
+test("13.ey — deux compteurs ne font pas deux réveils", async () => {
+  const sw = chargeSW({ maintenant: MIDI });
+  await sw.pose([{ nom: "Prière", deb: MIDI - 9 * H, seuil: 68 * MIN, usuel: 13 * MIN },
+                 { nom: "Visite des malades", deb: MIDI - 6 * H, seuil: 4 * H, usuel: 0 },
+                 { nom: "Sommeil", deb: MIDI - 2 * H, seuil: 16 * H, usuel: 7 * H }]);
+  const n = await sw.sonne();
+  A.equal(n.titre, "2 compteurs tournent depuis longtemps", "le sommeil ne dérape pas : il n'est pas compté");
+  A.equal(n.corps, "Prière — 9 h · Visite des malades — 6 h");
+});
+
+test("13.ey — la notification mène là où la question se répond", async () => {
+  const ferme = chargeSW({ maintenant: MIDI });
+  const r = await ferme.touche();
+  A.ok(r.fermee, "la notification se referme : elle a été lue");
+  A.deepEqual(r.ouvertes, ["./?v=pointage"],
+    "l'app fermée s'ouvre au pointage, pas au seuil de l'application (13.cb)");
+  const ouverte = chargeSW({ maintenant: MIDI, fenetres: [1] });
+  const r2 = await ouverte.touche();
+  A.deepEqual(r2.ouvertes, ["focus"], "déjà ouverte, on la ramène devant au lieu d'en ouvrir une autre");
+  /* Le message naît dans le monde du service worker : son prototype n'est
+     pas celui d'ici, et `deepEqual` le refuserait pour cette seule raison. */
+  A.deepEqual(JSON.parse(JSON.stringify(r2.messages)), [{ veille: 1 }],
+    "et on lui dit d'aller à l'écran");
+});
+
+test("13.ey — une mise à jour n'emporte pas le miroir", async () => {
+  const sw = chargeSW({ maintenant: MIDI });
+  await sw.pose([{ nom: "Prière", deb: MIDI - 9 * H, seuil: 68 * MIN, usuel: 0 }]);
+  const restants = await sw.active([sw.CACHE, "ebenezer-v130", "ebenezer-v131"]);
+  A.deepEqual(restants.sort(), [sw.VEILLE, sw.CACHE].sort(),
+    "les vieilles versions s'en vont, le miroir reste : sans lui le premier réveil d'après serait muet");
+  A.ok(await sw.sonne(), "et il parle encore");
+});
+
+test("13.ey — la copie de hm() dans sw.js ne peut pas dériver", () => {
+  const a = app();
+  const sw = chargeSW({ maintenant: MIDI });
+  const essais = [0, 1, 999, 1000, 30000, 59499, 59500, 60000, 61000,
+                  13 * MIN + 30000, 59 * MIN, 60 * MIN, H, H + 60000,
+                  4 * H, 9 * H, 16 * H, 25 * H, 100 * H];
+  essais.forEach(function (ms) {
+    A.equal(sw.hmSW(ms), a.f.hm(ms),
+      "un service worker ne peut rien importer de src/ : cette copie est permise parce que ce test la tient (" + ms + ")");
+  });
 });
 
 /* ========================================================================

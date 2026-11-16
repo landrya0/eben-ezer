@@ -27,7 +27,11 @@ const SUPA = {url:"https://oxuhnypkgvfaijzpgpqb.supabase.co",
 const SYK = "ebenezer.sync";
 const SYVIDE = {url:"", cle:"", mail:"", uid:"", jwt:"", raf:"", exp:0,
                 dk:"", envM:null, envR:null, aVoir:"",
-                vu:"", base:0, fait:0, err:"", actif:false};
+                vu:"", base:0, fait:0, err:"", actif:false,
+                /* 13.ey — l'adresse opaque que le navigateur donne au
+                   réveil, et la dernière heure posée au serveur. Détacher
+                   l'appareil les emporte avec le reste. */
+                abo:"", rev:0};
 let SY = Object.assign({}, SYVIDE);
 function syLoad(){ try{ const r=localStorage.getItem(SYK); if(r) Object.assign(SY, JSON.parse(r)); }catch(e){} }
 function sySave(){ try{ localStorage.setItem(SYK, JSON.stringify(SY)); }catch(e){} }
@@ -299,6 +303,122 @@ function syDit(e){
   if(/JWT|token|401/i.test(m)) return "Connexion expirée — reconnecte-toi";
   if(/Failed to fetch|NetworkError/i.test(m)) return "Serveur injoignable";
   return m.slice(0,70);
+}
+
+/* ---------- le réveil (13.ey) ---------- */
+/* Ce qu'il faut tenir en même temps : prévenir l'app fermée, et ne rien dire
+   au serveur. Les deux semblent s'exclure — prévenir, c'est bien qu'une
+   machine du dehors sache qu'il y a lieu de prévenir.
+
+   Ils ne s'excluent pas, à une condition : que le serveur soit un RÉVEIL, et
+   pas un veilleur. L'app calcule elle-même l'heure à laquelle un compteur
+   passera son seuil, et ne pose là-haut que cette heure, à côté de l'adresse
+   opaque que le navigateur lui a donnée. Pas d'activité, pas de seuil, pas
+   de durée, et rien à chiffrer puisqu'il n'y a rien : une date et une
+   adresse. Le serveur, à l'heure dite, tape sur l'épaule de l'appareil — un
+   message SANS CONTENU, ce que la norme appelle un push vide. C'est le
+   service worker qui, réveillé, lit le miroir posé sur l'appareil et compose
+   la phrase. Le nom de l'activité n'a donc jamais quitté le téléphone, et la
+   notification peut pourtant le dire (13.bh).
+   Ce qui se déduit de là-haut, pour qui lirait la table : que cet appareil
+   compte quelque chose, et jusqu'à quand il croit que c'est normal. Pas ce
+   qu'il compte. C'est le minimum qu'un réveil puisse savoir ; en deçà, il ne
+   peut plus sonner. */
+/* Tirée une fois, publique par nature : elle ne sert qu'à prouver au service
+   de push que l'envoi vient bien de cette application. La moitié privée vit
+   dans les secrets du serveur, et nulle part ailleurs. */
+const VAPID = "BKfKAJsYg5K4pwuGPvyhjUqUPXl7n0cs2Crm7BNOpkvl9gdEsTYf8fhyf8nMhFjIReqk5gNoPuAQyFmjshMvnTE";
+/* Le miroir. Ces deux noms sont écrits DEUX FOIS : ici et dans sw.js, qui ne
+   peut rien importer de src/. Les changer d'un côté sans l'autre rend un
+   réveil muet — comme la liste des fichiers du cache (voir sw.js). */
+const REV_CACHE = "ebenezer-veille";
+const REV_MIROIR = "./veille.json";
+function reveilPossible(){
+  return typeof Notification!=="undefined" && typeof navigator!=="undefined"
+    && "serviceWorker" in navigator && typeof window!=="undefined" && "PushManager" in window;
+}
+function reveilPret(){ return reveilPossible() && Notification.permission==="granted"; }
+function reveilOn(){ return reveilPret() && !!SY.actif && !!SY.abo; }
+/* La clé voyage en base64url — l'alphabet du web, sans + ni / — et l'API des
+   abonnements veut des octets. */
+function reveilOctets(t){
+  const s=String(t||"").replace(/-/g,"+").replace(/_/g,"/");
+  return deb64(s+"=".repeat((4-s.length%4)%4));
+}
+/* Le service worker ne voit pas localStorage : ce qu'il lui faudra pour
+   parler, on le lui pose dans un cache, qu'il partage avec la page. */
+async function reveilMiroir(){
+  if(typeof caches==="undefined") return;
+  try{
+    const c=await caches.open(REV_CACHE);
+    await c.put(REV_MIROIR, new Response(JSON.stringify(veilleMiroir()),
+      {headers:{"Content-Type":"application/json"}}));
+  }catch(e){}
+}
+/* Poser l'heure là-haut. Une ligne par appareil — l'adresse opaque EST la
+   clé : le téléphone et la tablette veillent chacun sur ce qu'il voit, et
+   celui qu'on détache n'emporte pas le réveil de l'autre. */
+async function reveilRange(force){
+  if(!reveilOn()) return false;
+  const q=reveilQuand();
+  if(!force && q===(SY.rev||0)) return false;
+  try{
+    await syJeton();
+    await syFetch("/rest/v1/reveils", {method:"POST",
+      headers:{"Prefer":"resolution=merge-duplicates,return=minimal"},
+      body:{uid:SY.uid, abo:SY.abo, quand: q ? new Date(q).toISOString() : null}});
+    SY.rev=q; sySave();
+    return true;
+  }catch(e){ return false; }
+}
+/* L'écriture ne doit pas attendre le réseau : on pose le miroir tout de
+   suite — c'est lui qui fait parler juste — et l'heure part après, une fois
+   que les tapes se sont arrêtées. */
+let revSuite=null;
+function reveilPlusTard(){
+  if(!reveilOn()) return;
+  reveilMiroir();
+  clearTimeout(revSuite);
+  revSuite=setTimeout(function(){ reveilRange(); }, 4000);
+}
+/* Le demander. La permission ne s'obtient que sur un geste, et sur iPhone
+   que dans une application posée sur l'écran d'accueil : c'est à l'écran de
+   le dire avant de proposer le geste. */
+async function reveilPose(){
+  if(!reveilPossible()) return "Ce téléphone ne sait pas réveiller";
+  if(!SY.actif) return "Il faut d'abord relier cet appareil";
+  let p=Notification.permission;
+  if(p==="default"){ try{ p=await Notification.requestPermission(); }catch(e){ return "Refusé"; } }
+  if(p!=="granted") return "Le téléphone a refusé les notifications";
+  let ab;
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    ab=await reg.pushManager.getSubscription();
+    if(!ab) ab=await reg.pushManager.subscribe({userVisibleOnly:true,
+      applicationServerKey:reveilOctets(VAPID)});
+  }catch(e){ return "Abonnement impossible"; }
+  if(!ab || !ab.endpoint) return "Abonnement impossible";
+  SY.abo=ab.endpoint; SY.rev=-1; sySave();
+  await reveilMiroir();
+  /* Si la table n'est pas encore posée là-haut, on le dit : un réglage qui
+     s'allume sans rien faire est pire que pas de réglage. */
+  if(!await reveilRange(true)){ SY.abo=""; sySave(); return "Le réveil n'est pas encore posé sur le serveur"; }
+  return "";
+}
+/* L'éteindre : l'adresse s'en va d'ici ET de là-haut, et le navigateur
+   rompt l'abonnement. Rien ne doit survivre à un refus. */
+async function reveilCoupe(){
+  const a=SY.abo;
+  SY.abo=""; SY.rev=0; sySave();
+  if(a){
+    try{ await syJeton(); await syFetch("/rest/v1/reveils?abo=eq."+encodeURIComponent(a), {method:"DELETE"}); }catch(e){}
+  }
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    const ab=await reg.pushManager.getSubscription();
+    if(ab) await ab.unsubscribe();
+  }catch(e){}
+  try{ if(typeof caches!=="undefined") await caches.delete(REV_CACHE); }catch(e){}
 }
 
 /* ---------- fusionner deux appareils ---------- */

@@ -3486,6 +3486,11 @@ test("13.ex — quand le compteur nommé dérape, une seule phrase dit sa durée
     "l'amorce et la carte la disaient toutes les deux : l'app parlait deux fois");
   A.match(a.Z.html, /Est-ce que ça tourne encore/,
     "et c'est la carte qui la porte, puisque c'est elle qui mène quelque part");
+  /* Retirer l'amorce sans sortir de sa branche faisait tomber l'écran sur le
+     cas vide : « Rien n'est compté » au-dessus d'un compteur qui tourne
+     depuis neuf heures. Un chiffre faux est pire que pas de chiffre. */
+  A.doesNotMatch(a.Z.html, /Rien n'est compté/,
+    "quelque chose tourne : l'écran ne peut pas dire le contraire");
 
   a.db.temps.push(bloc("o2", "a2", MIDI - 10 * MIN));
   a.f.save();

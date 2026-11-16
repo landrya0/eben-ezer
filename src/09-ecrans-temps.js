@@ -55,7 +55,7 @@ function vPointer(){
      ce que le rail nomme dérape, la carte PORTE la phrase — elle dit tout ce
      que l'amorce disait, et elle mène quelque part. Ce qui tourne à côté est
      dit par celle des deux qui parle. */
-  else if(o && !derape(o)) h += `<div class="block amorce" style="margin-top:16px">Depuis ${hmin(new Date(o.deb))}, le temps va à <b>${esc(tacheNom(o.t))}</b> — ${hm(Date.now()-o.deb)}.${ensemble(ouv, o)}</div>`;
+  else if(o){ if(!derape(o)) h += `<div class="block amorce" style="margin-top:16px">Depuis ${hmin(new Date(o.deb))}, le temps va à <b>${esc(tacheNom(o.t))}</b> — ${hm(Date.now()-o.deb)}.${ensemble(ouv, o)}</div>`; }
   else if(choixVif) h += `<div class="block amorce" style="margin-top:16px">Rien n'est compté depuis que tu as arrêté, à ${hmin(new Date(vif.deb))}.</div>`;
   else h += `<div class="block amorce" style="margin-top:16px">Rien n'est compté. À partir de ce que tu touches ici, le temps aura un destinataire.</div>`;
   /* 13.ex — Un chiffre qui accuse doit mener quelque part (13.cb) : la

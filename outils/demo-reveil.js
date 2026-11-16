@@ -1,4 +1,4 @@
-/* v133 — le réveil (13.ey). Démo pour le volet, injectée à la main.
+/* v134 — le réveil (13.ey). Démo pour le volet, injectée à la main.
    Tout ce qu'elle pose se calcule depuis l'instant : elle doit tourner à
    n'importe quelle heure, et le lendemain aussi (AGENTS §6).
    Elle fait DEUX semblants, et elle le dit : ce navigateur a refusé les
@@ -131,7 +131,7 @@
   }
 
   D.porte({
-    k: "v133 · le réveil",
+    k: "v134 · le réveil",
     titre: "Prévenir sans rien dire",
     phrase: "Sept étapes. La démo écrit dans cette copie du navigateur seulement, et le bouton « Effacer la démo » remet tout à zéro à la fin.",
     bouton: "Commencer",

@@ -211,3 +211,20 @@ Et, transversal : **rien ne part en clair** (13.bh). Le journal nomme des frère
   suivant, et l'écran tombe sur le cas vide : « Rien n'est compté » s'est affiché au-dessus d'un
   compteur ouvert depuis neuf heures. Le test comptait la phrase retirée sans regarder ce qui
   prenait sa place — un test qui vérifie une absence doit dire ce qu'il y a à la place.
+- **Un faux dont l'état de départ est déjà celui qu'on va vérifier.** Le navigateur de carton du
+  réveil a été posé sans abonnement, et le test a conclu « l'abonnement est bien rompu » — il
+  l'était avant qu'on le rompe. Deux lignes plus loin, le même test croyait aussi vérifier la
+  permission : le faux rendait « oui » à la demande sans RETENIR la réponse, comme aucun
+  navigateur ne le fait. Seule la mutation l'a vu. Un faux doit avoir quelque chose à perdre, et
+  changer d'état quand le vrai changerait.
+- **Une copie se défend par un test, jamais par de la prudence.** `sw.js` ne peut rien importer de
+  `src/` : la mise en forme des durées y est écrite deux fois, et c'est sans remède. Ce qui rend
+  la copie acceptable n'est pas le commentaire qui l'avoue, c'est le test qui tient les deux
+  fonctions côte à côte sur dix-neuf durées et casse à la première divergence. Même chose pour les
+  deux noms de cache. Toute duplication inévitable se livre avec le test qui l'empêche de dériver.
+- **Prévenir sans rien dire : chercher la frontière avant de renoncer.** « Une notification app
+  fermée demande un serveur, donc elle nommera l'activité en clair » — c'était faux, et je l'avais
+  écrit dans la spec. Le serveur n'a besoin que d'une HEURE ; le message peut partir vide, et
+  l'appareil écrit la phrase en se réveillant. Quand une contrainte de confidentialité semble
+  interdire une fonction, chercher d'abord le minimum que le dehors ait besoin de savoir — ici une
+  date et une adresse opaque — au lieu de conclure que la fonction coûtera le secret (13.ey).

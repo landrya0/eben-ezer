@@ -32,18 +32,18 @@ trois endroits qui tiennent cet ordre :
 
 | fichier | ce qu'il tient | lignes |
 |---|---|---|
-| `01-socle.js` | constantes du socle, `VERSION`, le crochet des sondes, rangement sur l'appareil | 258 |
+| `01-socle.js` | constantes du socle, `VERSION`, le crochet des sondes, rangement sur l'appareil | 263 |
 | `02-dates.js` | dire une date comme on la dit de vive voix | 94 |
-| `03-temps.js` | **les blocs** : compter, couper, réunir, les creux, la veille | 410 |
+| `03-temps.js` | **les blocs** : compter, couper, réunir, les creux, la veille, l'heure du réveil | 448 |
 | `04-medias.js` | ce qu'on joint à un acte | 247 |
 | `05-acces.js` | lire l'archive : actes, gens, ce qui remonte | 220 |
 | `06-charpente.js` | rail, barres, briques, menu, le nom des écrans — dessiner la page | 473 |
 | `07-ecrans-actes.js` | les écrans du mémorial, et l'assistant qui note | 1245 |
-| `08-sync.js` | la copie distante, la réunion de deux appareils | 467 |
-| `09-ecrans-temps.js` | pointer, la frise, mon temps | 829 |
-| `10-ecrans-reste.js` | temps mis à part, lectures, auteurs, sujets et promesses, réglages, dictée | 3164 |
+| `08-sync.js` | la copie distante, la réunion de deux appareils, l'abonnement du réveil | 587 |
+| `09-ecrans-temps.js` | pointer, la frise, mon temps | 855 |
+| `10-ecrans-reste.js` | temps mis à part, lectures, auteurs, sujets et promesses, réglages, dictée | 3189 |
 | `12-sondes.js` | **les sondes** : ce que l'app coûte en gestes, et ce qu'elle refuse | 470 |
-| `13-gestes.js` | le délégué — un seul écouteur — et le démarrage | 1528 |
+| `13-gestes.js` | le délégué — un seul écouteur — et le démarrage | 1569 |
 | `src/ebenezer.css` | la feuille de style | 827 |
 
 `index.html` ne tient plus que la charpente HTML et les treize balises : **70 lignes**.
@@ -52,6 +52,26 @@ trois endroits qui tiennent cet ordre :
 liste `APP` de `sw.js`, et il n'entre jamais dans la page livrée : il s'injecte à la main dans le
 volet navigateur pour dérouler une livraison devant le disciple — un curseur qu'on voit taper, un
 bandeau qui dit l'étape. Voir AGENTS.md §4.
+
+## `sw.js` n'est pas un fichier de plus : c'est un deuxième monde
+
+Il tourne hors de la page, sans elle, et **il ne peut rien importer de `src/`**. Il ne voit pas
+`localStorage`, donc pas l'archive. Depuis le réveil (13.ey) il ne se contente plus de servir des
+fichiers : réveillé par un message **vide**, il lit un miroir que la page lui a laissé dans un
+cache et **il écrit une phrase** — la seule de l'application qu'on ne puisse pas aller lire à
+l'écran. Trois choses y sont donc écrites **deux fois**, et il n'y a pas de moyen de faire
+autrement :
+
+| écrit dans `sw.js` | et aussi dans | ce qui casse si l'un bouge seul |
+|---|---|---|
+| la liste `APP` | `index.html` | l'app hors ligne, amputée d'un fichier |
+| `VEILLE`, `MIROIR` | `src/08-sync.js` | le réveil sonne et ne dit rien |
+| `hmSW()` | `hm()`, `src/03-temps.js` | la notification dit une autre durée que l'écran |
+
+La copie de `hm()` est permise **parce qu'un test tient les deux côte à côte** sur dix-neuf
+durées. Le harnais charge `sw.js` comme il charge l'application — le vrai fichier, un monde de
+carton autour (`chargeSW()`) : la phrase du réveil, le clic sur la notification et la survie du
+miroir à une mise à jour sont tenus par des tests, pas par de la prudence.
 
 **Attention aux `url()` du CSS.** Elles se résolvent depuis `src/`, pas depuis la page : les
 polices sont donc en `../vendor/…`. C'est le piège classique d'une feuille extraite.
@@ -64,7 +84,7 @@ DOM ni au HTML**. Cette partie-là se transporte telle quelle ; le reste meurt a
 - **Se transporte** — `02-dates.js`, `03-temps.js`, et la moitié modèle de `05-acces.js`,
   `08-sync.js`, `10-ecrans-reste.js`, et la moitié calcul de `12-sondes.js` :
   les règles, le calcul des parts, les chemins, les périodes, les postes et les sommes, la fusion
-  de deux archives, le bilan des gestes. C'est ce que les 447 tests défendent, et ils n'ouvrent
+  de deux archives, le bilan des gestes. C'est ce que les 473 tests défendent, et ils n'ouvrent
   aucune page.
 - **Meurt à la bascule** — `06-charpente.js`, les trois `ecrans-*.js`, l'écran de
   `12-sondes.js`, `13-gestes.js`, `ebenezer.css` : tout ce qui
@@ -84,6 +104,11 @@ Chaque livraison bump **les deux** :
 
 - `const CACHE = "ebenezer-vNN"` dans `sw.js`
 - `const VERSION = "vNN"` dans **`src/01-socle.js`** — plus dans `index.html`
+
+**`serveur/` n'est pas de l'application non plus.** La table, la fonction qui sonne et l'horloge
+vivent chez Supabase ; le dépôt n'en garde que le code et les gestes à faire
+(`serveur/LISEZ-MOI.md`). La moitié privée de la clé VAPID n'y est **pas** : tout ce dépôt est
+publié.
 
 Et tout nouveau fichier de `src/` se déclare à **trois** endroits : `index.html`, la liste `APP` de
 `sw.js`, et nulle part ailleurs — le harnais, lui, relit `index.html`.
